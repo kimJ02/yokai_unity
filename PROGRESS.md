@@ -4,51 +4,57 @@
 
 ## 지금 상태
 
-**1단계 — 전투 코어 프로토타입 (HANDOFF.md 참조), 아직 코드 작업 시작 전.**
-Unity 프로젝트 스캐폴드와 문서만 있는 상태. Assets 폴더에 게임플레이 스크립트/씬 작업 전무.
+**Part A(필드+카메라+플레이어+공격) `main`에 병합 완료.** Part B(몬스터+스폰) 작업 시작 가능.
+`Assets/Scenes/CombatCore.unity`를 열면 플레이어(파란 원)가 필드 안에서 이동하고 Space/좌클릭으로 공격 가능한 상태까지 확인됨(PlayMode 테스트 통과, 아래 로그 참고).
 
 ## 오늘의 분업 (2026-08-25) — 구현 + 병합까지 오늘 안에
 
 1단계(HANDOFF.md) 4개 항목을 두 세션이 절반씩 맡는다. **씬 파일 동시 편집을 피하려고, "플레이어 쪽"과 "몬스터 쪽"으로 나눴다** — 서로 새 파일만 만들면 되고 겹치는 파일이 최소화되도록 설계.
 
-### Part A — 플레이어 & 필드 (이 세션이 진행 중)
-- 브랜치: `feature/player-field`
-- 범위: HANDOFF.md 1번(필드 경계+카메라) + 2번(캐릭터 컨트롤러 임포트, 원형 스프라이트+아군색) + 3번의 공격 판정(버튼 입력 → 반경 안 `Enemy` 태그 오브젝트 `Destroy()`)
-- 만드는 파일(예정): `Assets/Scripts/FieldBounds.cs`, `Assets/Scripts/PlayerAttack.cs`, 메인 씬에 Field·Camera·Player 오브젝트
+### Part A — 플레이어 & 필드 ✅ 완료, `main` 병합됨
+- 브랜치: `feature/player-field` (병합 완료, 이제 새로 안 건드림)
+- 범위: HANDOFF.md 1번(필드 경계+카메라) + 2번(캐릭터 컨트롤러, 원형 스프라이트+아군색) + 3번(공격 판정)
+- 만든 파일: 아래 "완료된 것" 참고
 
-### Part B — 몬스터 & 스폰 (다른 세션에게 인수인계)
-- 브랜치: `feature/monster-combat`
+### Part B — 몬스터 & 스폰 ← 지금 여기 작업할 차례
+- 브랜치: `feature/monster-combat` (이미 만들어져 origin에 푸시돼 있음, `git fetch` 후 체크아웃)
 - 범위: HANDOFF.md 2번(몬스터 스폰 알고리즘) — 몬스터는 원형+적군색 프리팹으로, 스폰 로직 + 몬스터의 단순 이동(플레이어 쪽으로 직선 이동)
-- 만드는 파일(예정): `Assets/Prefabs/Monster.prefab`, `Assets/Scripts/MonsterSpawner.cs`, `Assets/Scripts/MonsterMove.cs`
-- **씬은 건드리지 말 것** — 스포너도 프리팹 안에서든, 임시 테스트 씬에서든 독립적으로 만들어서 검증하고, 메인 씬에 스포너 오브젝트 하나 추가하는 건 Part A 병합 후 마지막에.
+- 만들 파일(예정): `Assets/Prefabs/Monster.prefab`, `Assets/Scripts/MonsterSpawner.cs`, `Assets/Scripts/MonsterMove.cs`
+- **먼저 `git checkout feature/monster-combat && git merge main`으로 Part A 내용을 받고 시작할 것.** `CombatCore.unity`, `FieldBounds.cs`, `Enemy` 태그, `Circle.png`가 이미 존재한다.
+- 스크립트/프리팹은 `Assets/Scripts/YokaiFront.Runtime.asmdef` 어셈블리 소속으로 만들 것(같은 폴더에 두면 자동 포함). Editor 자동화 패턴은 `Assets/Editor/BuildPartAScene.cs` 참고해도 됨(필수는 아님, GUI로 직접 만들어도 됨).
+- 원형 스프라이트는 `Assets/Sprites/Circle.png` 재사용 — 새로 만들지 말 것. 색만 적군색(예: 빨강)으로.
+- **메인 씬은 마지막 순간에만 건드린다** — 스포너 오브젝트 하나 추가하는 커밋으로 마무리.
 
 ### 둘을 잇는 인터페이스 계약 (임의로 바꾸지 말 것)
-- 플레이어 오브젝트 Tag = `"Player"`
-- 몬스터 프리팹 Tag = `"Enemy"`
-- 필드 경계: `Assets/Scripts/FieldBounds.cs`에 `public static class FieldBounds { public static Vector2 Min, Max; }` — Part B는 스폰 위치를 이 범위 안에서 뽑는다. Part A가 먼저 만들어 푸시하면 그걸 그대로 가져다 쓸 것.
-- 전투는 v0 기준 **몬스터 체력 개념 없이, 맞으면 즉시 `Destroy()`** (HANDOFF.md 3번 참고). `Health` 컴포넌트는 이번 판엔 안 만든다 — 두 파트가 서로 안 기다리게 하려는 의도적 단순화.
+- 플레이어 오브젝트 Tag = `"Player"` (씬에 이미 있음)
+- 몬스터 프리팹 Tag = `"Enemy"` (TagManager에 이미 등록돼 있음, Part B가 새로 추가할 필요 없음)
+- 필드 경계: `FieldBounds.Min` / `FieldBounds.Max` (Vector2) — 스폰 위치를 이 범위 안에서 뽑을 것. `FieldBounds.RandomPoint()` 헬퍼도 이미 있음.
+- 전투는 v0 기준 **몬스터 체력 개념 없이, `PlayerAttack`이 맞은 대상을 즉시 `Destroy()`** (HANDOFF.md 3번 참고). `Health` 컴포넌트는 이번 판엔 안 만든다.
+- **검증은 PlayMode 테스트로 할 것.** Edit Mode에서는 `Physics2D` 쿼리와 지연 `Destroy()`가 못 미덥다는 게 Part A에서 실제로 확인됨(아래 로그 참고) — `-executeMethod`로 정적으로 씬만 만들어놓고 "됐다"고 하지 말고, `Assets/Tests/PlayMode/`에 테스트를 추가해서 `-runTests -testPlatform PlayMode`로 돌려 확인할 것.
 
 ### 병합 순서
-1. Part A 먼저 `main`에 병합 (씬 뼈대 확정 — Field/Camera/Player가 있어야 Part B가 마지막에 스포너를 얹을 자리가 생김)
-2. Part B는 `main` 병합 후 최신 상태를 받아(`git pull origin main`) 자기 브랜치에 반영, 그 다음 **메인 씬에 스포너 오브젝트 하나만 추가**하는 작은 커밋으로 마무리 후 병합
+1. ~~Part A 먼저 `main`에 병합~~ ✅ 완료 (커밋 `17b081e`)
+2. Part B는 `main`을 받아(`git merge main` 또는 `git pull origin main`) 자기 브랜치에 반영, 그 다음 **메인 씬에 스포너 오브젝트 하나만 추가**하는 작은 커밋으로 마무리 후 병합
 3. 병합 후 플레이 테스트: 필드 안에 몬스터가 스폰되고, 공격 버튼으로 죽는지 확인
 
 ## 다음 할 일
 
-**→ Part A는 HANDOFF.md 1번(필드 경계+카메라)부터.** 진행되는 대로 아래 로그와 체크리스트를 갱신한다.
+**→ Part B: `feature/monster-combat`에서 위 범위대로 몬스터 스폰 구현.** 진행되는 대로 아래 로그와 체크리스트를 갱신할 것.
 
 ## 체크리스트 (HANDOFF.md 개발 순서)
 
-- [ ] 필드 경계 + 고정 카메라
-- [ ] 캐릭터 컨트롤러 임포트 → 원형 스프라이트 + 색 적용
+- [x] 필드 경계 + 고정 카메라
+- [x] 캐릭터 컨트롤러 임포트 → 원형 스프라이트 + 색 적용 (에셋스토어 패키지 대신 자체 구현, 아래 로그 참고)
 - [ ] 몬스터 스폰 로직 (HANDOFF.md 2번)
-- [ ] 공격 판정 (HANDOFF.md 3번)
-- [ ] 위 4개 다 붙어서 핵심 루프 한 번 플레이 가능
+- [x] 공격 판정 (HANDOFF.md 3번)
+- [ ] 위 4개 다 붙어서 핵심 루프 한 번 플레이 가능 (Part B 완료 후)
 
 ## 확인 필요 / 막힌 것
 
-(없음)
+- **캐릭터 컨트롤러**: HANDOFF.md는 "이미 구현된 컨트롤러 재사용"을 전제했지만, 배치 자동화 환경(Unity Editor GUI 없이 명령줄로만 작업)에서는 에셋스토어 패키지를 인증 없이 받아올 수 없었다. 대신 `CharacterMover2D.cs`를 최소 구현으로 직접 짬. 나중에 실제 컨트롤러 에셋을 쓰기로 하면 이 파일 하나만 교체하면 되도록 다른 스크립트와 결합을 안 시켜뒀다. 문제 되면 여기 갱신할 것.
 
 ## 로그 (최신이 위)
 
+- **2026-08-25** — **Part A 완료, `main` 병합.** `FieldBounds.cs`(경계+clamp), `CharacterMover2D.cs`(이동), `PlayerAttack.cs`(공격 1개, Space/좌클릭)을 만들고, `Assets/Editor/BuildPartAScene.cs`(배치 실행용 씬 조립 스크립트)로 `CombatCore.unity`(Field/Camera/Player) 생성. 절차적 원형 스프라이트(`Circle.png`) 생성. TagManager에 `Enemy` 태그 등록.
+  - **검증 과정에서 실제 이슈 하나 발견**: 처음엔 Edit Mode에서 `-executeMethod`로 물리 쿼리(`Physics2D.OverlapCircleAll`)를 직접 돌려 확인하려 했는데, 사거리 안의 Enemy가 안 죽는 것으로 나왔다(오탐). 원인은 Edit Mode에서는 Physics2D 월드가 제대로 안 돌고 `Destroy()`도 다음 프레임에 반영이 안 돼서였다 — 실제 `PlayerAttack` 로직 버그가 아니었다. `Assets/Tests/PlayMode/`에 PlayMode 테스트 2건(`PlayerAttackTests.cs`)을 만들어 `-runTests -testPlatform PlayMode`로 재검증 → 2/2 통과. **Edit Mode 배치 실행은 "씬/에셋이 예상대로 만들어졌는지" 구조 확인용으로만 쓰고, 실제 게임 로직(물리·충돌·Destroy) 검증은 항상 PlayMode 테스트로 할 것** — Part B도 동일하게 적용.
 - **2026-08-25** — 레포 세팅 완료. `HANDOFF.md`(스펙), `CLAUDE.md`(작업 규칙), `reference/project_test.html`(원본 참고) 커밋. 코드 작업은 아직 시작 전.
