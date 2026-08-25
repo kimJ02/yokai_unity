@@ -43,6 +43,38 @@ public class PlayerAttackTests
         yield return null;
     }
 
+    /// <summary>
+    /// 공격에 아무 시각 표시가 없어서 "눌러도 안 보인다"는 피드백으로 추가된 판정링(LineRenderer)이
+    /// 공격 순간 켜지고, flashDuration이 지나면 다시 꺼지는지 확인한다.
+    /// </summary>
+    [UnityTest]
+    public IEnumerator Attack_ShowsFlashRing_ThenHidesAfterDuration()
+    {
+        var playerGO = new GameObject("Player");
+        playerGO.tag = "Player";
+        playerGO.AddComponent<CircleCollider2D>().radius = 0.5f;
+        var rb = playerGO.AddComponent<Rigidbody2D>();
+        rb.gravityScale = 0f;
+        var attack = playerGO.AddComponent<PlayerAttack>();
+        attack.flashDuration = 0.05f; // 테스트를 빠르게 끝내려고 짧게
+
+        var ring = playerGO.GetComponent<LineRenderer>();
+        Assert.IsNotNull(ring, "PlayerAttack이 LineRenderer를 안 만듦");
+        Assert.IsFalse(ring.enabled, "시작 전부터 링이 켜져 있음");
+
+        var attackMethod = typeof(PlayerAttack).GetMethod("Attack", BindingFlags.NonPublic | BindingFlags.Instance);
+        attackMethod.Invoke(attack, null);
+
+        Assert.IsTrue(ring.enabled, "공격 직후 링이 안 켜짐");
+
+        yield return new WaitForSeconds(0.2f); // flashDuration(0.05초)보다 넉넉히 대기
+
+        Assert.IsFalse(ring.enabled, "flashDuration이 지났는데도 링이 안 꺼짐");
+
+        Object.Destroy(playerGO);
+        yield return null;
+    }
+
     [Test]
     public void FieldBounds_ClampX_KeepsXInsideBounds()
     {

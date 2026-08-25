@@ -12,10 +12,43 @@ public class PlayerAttack : MonoBehaviour
     public float cooldown = 0.4f;
     public LayerMask enemyMask = ~0; // 기본값: 전체 레이어. Enemy 전용 레이어를 쓰기 전까지는 태그로 한 번 더 거른다.
 
+    // 공격이 눈에 보이게 하는 최소한의 표시. HANDOFF.md는 "연출 없음"이었지만,
+    // 아예 아무 표시가 없으면 Z를 눌렀을 때 뭐가 됐는지 알 길이 없어서(사용자 피드백) 추가.
+    // 정식 이펙트가 아니라 판정 반경을 잠깐 보여주는 링 하나뿐이다.
+    public float flashDuration = 0.12f;
+    LineRenderer flashRing;
+    float flashTimer;
+
     float cdTimer;
+
+    void Awake()
+    {
+        flashRing = gameObject.AddComponent<LineRenderer>();
+        flashRing.useWorldSpace = false;
+        flashRing.loop = true;
+        flashRing.widthMultiplier = 0.05f;
+        flashRing.material = new Material(Shader.Find("Sprites/Default"));
+        flashRing.startColor = flashRing.endColor = new Color(1f, 0.25f, 0.2f, 0.9f);
+        flashRing.sortingOrder = 5;
+
+        const int seg = 24;
+        flashRing.positionCount = seg;
+        for (int i = 0; i < seg; i++)
+        {
+            float a = i / (float)seg * Mathf.PI * 2f;
+            flashRing.SetPosition(i, new Vector3(Mathf.Cos(a) * range, Mathf.Sin(a) * range, 0f));
+        }
+        flashRing.enabled = false;
+    }
 
     void Update()
     {
+        if (flashTimer > 0f)
+        {
+            flashTimer -= Time.deltaTime;
+            if (flashTimer <= 0f) flashRing.enabled = false;
+        }
+
         cdTimer -= Time.deltaTime;
         if (cdTimer > 0f) return;
 
@@ -29,6 +62,9 @@ public class PlayerAttack : MonoBehaviour
 
     void Attack()
     {
+        flashRing.enabled = true;
+        flashTimer = flashDuration;
+
         Collider2D[] hits = Physics2D.OverlapCircleAll(transform.position, range, enemyMask);
         foreach (var col in hits)
         {
