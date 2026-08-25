@@ -55,6 +55,18 @@
 
 - **캐릭터 컨트롤러**: HANDOFF.md는 "이미 구현된 컨트롤러 재사용"을 전제했지만, 배치 자동화 환경(Unity Editor GUI 없이 명령줄로만 작업)에서는 에셋스토어 패키지를 인증 없이 받아올 수 없었다. 대신 `CharacterMover2D.cs`를 최소 구현으로 직접 짬. 나중에 실제 컨트롤러 에셋을 쓰기로 하면 이 파일 하나만 교체하면 되도록 다른 스크립트와 결합을 안 시켜뒀다. 문제 되면 여기 갱신할 것.
 
+- **Part B가 `main` 병합할 때 이렇게 할 것** (로컬 임시 브랜치로 `origin/feature/monster-combat` + `main`을 미리 시험 병합해서 실제로 확인해둔 내용 — 추측 아님):
+  - `git fetch origin && git merge origin/main`을 `feature/monster-combat`에서 실행하면 충돌 5개가 난다:
+    - `Assets/Scripts.meta`, `Assets/Scripts/FieldBounds.cs.meta` — 폴더/파일을 양쪽이 독립적으로 만들면서 GUID가 서로 다름. `main`(`>>>>>>> main` 아래) 쪽 GUID로 통일.
+    - `Assets/Scripts/FieldBounds.cs` — Part B가 넣어둔 스텁을 **통째로 버리고 `main` 버전으로 교체**(스텁 자체 주석에도 이미 이렇게 하라고 적혀있음).
+    - `ProjectSettings/TagManager.asset` — `Enemy` 태그·`Ground` 레이어는 자동으로 잘 합쳐지고, `serializedVersion: 2` vs `3` 딱 한 줄만 충돌. `3`(main)으로.
+    - `PROGRESS.md` — 이 파일. 양쪽 로그를 다 남기고 합칠 것(한쪽으로 덮어쓰지 말 것).
+  - **충돌 해결만으론 안 끝남 — 컴파일 에러 남는 곳 1건**: `MonsterSpawner.cs`의 `TryGetSpawnPosition()`(대략 76~77번째 줄)이 옛 `FieldBounds.Min.x/y`, `FieldBounds.Max.x/y`(Vector2) API를 쓰는데, 새 `FieldBounds`는 `MinX/MaxX/GroundY`(float)로 바뀌어서 그 필드 자체가 없다. 이렇게 고칠 것:
+    ```csharp
+    Vector2 candidate = new Vector2(FieldBounds.RandomX(), FieldBounds.GroundY);
+    ```
+  - **동작 관련(컴파일은 되지만 인터페이스 계약 위반)**: `MonsterMove.cs`의 추적 로직이 `toTarget.normalized`로 X·Y 둘 다 플레이어 쪽으로 이동한다. 위 "필드 경계" 계약("몬스터는 GroundY에서 X만 오간다")과 안 맞아서, 플레이어가 발판 위에 있으면 몬스터가 공중으로 떠올라 쫓아가는 모양이 된다. X축만 움직이고 Y는 `FieldBounds.GroundY`로 고정하도록 고칠 것.
+
 ## 로그 (최신이 위)
 
 - **2026-08-25** — **물리엔진 실물 전환 + 원본 발판 15개 + 마법사(bow) 차지샷 구현.** 사용자 피드백("왜 이렇게 퀄리티가 낮지? 물리엔진이랑 마법사 캐릭터 기본공격을 구현해줘봐 그리고 플랫폼도 구현해줘")으로 이번 스프린트 범위를 확장(HANDOFF.md 1·3번 개정, 위 표 참고).
