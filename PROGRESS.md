@@ -5,7 +5,7 @@
 ## 지금 상태
 
 **Part A(필드+카메라+플레이어+공격) `main`에 병합 완료.** Part B(몬스터+스폰) 작업 시작 가능.
-`Assets/Scenes/CombatCore.unity`를 열면 플레이어(파란 원)가 필드 안에서 이동하고 Space/좌클릭으로 공격 가능한 상태까지 확인됨(PlayMode 테스트 통과, 아래 로그 참고).
+`Assets/Scenes/CombatCore.unity`를 열면 플레이어(파란 원)가 원본과 동일한 조작(←/→ 이동, C/Space 점프, Z 공격)으로 필드 안에서 움직이고 공격 가능한 상태까지 확인됨(PlayMode 테스트 통과, 아래 로그 참고).
 
 ## 오늘의 분업 (2026-08-25) — 구현 + 병합까지 오늘 안에
 
@@ -28,7 +28,7 @@
 ### 둘을 잇는 인터페이스 계약 (임의로 바꾸지 말 것)
 - 플레이어 오브젝트 Tag = `"Player"` (씬에 이미 있음)
 - 몬스터 프리팹 Tag = `"Enemy"` (TagManager에 이미 등록돼 있음, Part B가 새로 추가할 필요 없음)
-- 필드 경계: `FieldBounds.Min` / `FieldBounds.Max` (Vector2) — 스폰 위치를 이 범위 안에서 뽑을 것. `FieldBounds.RandomPoint()` 헬퍼도 이미 있음.
+- 필드 경계: 원본처럼 횡스크롤 구조라 **X만 자유, Y는 고정 바닥**이다 — `FieldBounds.MinX` / `MaxX` / `GroundY` (float). 몬스터도 `GroundY`에서 X만 오가게 만들 것(공중부양 X). `FieldBounds.RandomX()` 헬퍼 있음.
 - 전투는 v0 기준 **몬스터 체력 개념 없이, `PlayerAttack`이 맞은 대상을 즉시 `Destroy()`** (HANDOFF.md 3번 참고). `Health` 컴포넌트는 이번 판엔 안 만든다.
 - **검증은 PlayMode 테스트로 할 것.** Edit Mode에서는 `Physics2D` 쿼리와 지연 `Destroy()`가 못 미덥다는 게 Part A에서 실제로 확인됨(아래 로그 참고) — `-executeMethod`로 정적으로 씬만 만들어놓고 "됐다"고 하지 말고, `Assets/Tests/PlayMode/`에 테스트를 추가해서 `-runTests -testPlatform PlayMode`로 돌려 확인할 것.
 
@@ -55,6 +55,7 @@
 
 ## 로그 (최신이 위)
 
+- **2026-08-25** — **버그 수정: 조작키가 원본과 다름 + 필드 구조 자체가 잘못됨.** 사용자 피드백으로 발견. 원본 `KEYMAP`은 ArrowLeft/Right(좌우) · KeyC/Space(점프) · KeyZ(공격)인데 임의로 WASD+Space/좌클릭으로 구현했었다. 더 근본적으로, "점프"가 있다는 것 자체가 원본이 횡스크롤 플랫포머(X=좌우, Y=고정바닥+점프 중력)라는 뜻인데 `FieldBounds`를 top-down 자유이동 사각형(Vector2 Min/Max)으로 잘못 설계했었다 — HANDOFF.md의 "평면 아레나(점프 없음)" 결정 자체가 안일했음. `FieldBounds`를 `MinX/MaxX/GroundY`로, `CharacterMover2D`에 실제 점프 물리(원본 상수를 100px=1유닛로 축척: moveSpeed 2.7, jumpSpeed 9.6, gravity 26) 추가, `PlayerAttack` 트리거를 Z 단독으로 수정. PlayMode 테스트도 점프 물리(실제 컴포넌트를 FixedUpdate로 직접 구동, private 필드는 리플렉션으로 점프 시작 상태만 주입)까지 추가해 재검증 — 통과. `HANDOFF.md` 1·3번 항목도 같이 수정.
 - **2026-08-25** — **Part A 완료, `main` 병합.** `FieldBounds.cs`(경계+clamp), `CharacterMover2D.cs`(이동), `PlayerAttack.cs`(공격 1개, Space/좌클릭)을 만들고, `Assets/Editor/BuildPartAScene.cs`(배치 실행용 씬 조립 스크립트)로 `CombatCore.unity`(Field/Camera/Player) 생성. 절차적 원형 스프라이트(`Circle.png`) 생성. TagManager에 `Enemy` 태그 등록.
   - **검증 과정에서 실제 이슈 하나 발견**: 처음엔 Edit Mode에서 `-executeMethod`로 물리 쿼리(`Physics2D.OverlapCircleAll`)를 직접 돌려 확인하려 했는데, 사거리 안의 Enemy가 안 죽는 것으로 나왔다(오탐). 원인은 Edit Mode에서는 Physics2D 월드가 제대로 안 돌고 `Destroy()`도 다음 프레임에 반영이 안 돼서였다 — 실제 `PlayerAttack` 로직 버그가 아니었다. `Assets/Tests/PlayMode/`에 PlayMode 테스트 2건(`PlayerAttackTests.cs`)을 만들어 `-runTests -testPlatform PlayMode`로 재검증 → 2/2 통과. **Edit Mode 배치 실행은 "씬/에셋이 예상대로 만들어졌는지" 구조 확인용으로만 쓰고, 실제 게임 로직(물리·충돌·Destroy) 검증은 항상 PlayMode 테스트로 할 것** — Part B도 동일하게 적용.
 - **2026-08-25** — 레포 세팅 완료. `HANDOFF.md`(스펙), `CLAUDE.md`(작업 규칙), `reference/project_test.html`(원본 참고) 커밋. 코드 작업은 아직 시작 전.
