@@ -26,6 +26,28 @@ public static class BuildPartAScene
         Directory.CreateDirectory("Assets/Scenes");
         bool ok = EditorSceneManager.SaveScene(scene, "Assets/Scenes/CombatCore.unity");
         Debug.Log(ok ? "[BuildPartAScene] CombatCore.unity 저장 완료" : "[BuildPartAScene] 씬 저장 실패");
+
+        RegisterAsDefaultScene();
+    }
+
+    /// <summary>
+    /// 배치모드로 씬을 만들기만 하면 "다음에 에디터를 열었을 때 이 씬이 뜨는" 상태가 저절로 안 남는다
+    /// (LastSceneManagerSetup.txt가 -quit 배치 실행에서는 갱신 안 됨 — 직접 확인함).
+    /// 그래서 두 가지를 명시적으로 해둔다:
+    /// 1) Build Settings의 씬 목록에 등록 — 어떤 씬이 "이 프로젝트의 씬"인지 명확해짐
+    /// 2) playModeStartScene 지정 — 에디터에 어떤 씬이 열려있든 Play를 누르면 무조건 CombatCore가 실행된다.
+    ///    사람이 굳이 Project 창에서 씬을 더블클릭해서 열지 않아도 바로 플레이 가능.
+    /// </summary>
+    static void RegisterAsDefaultScene()
+    {
+        var sceneAsset = AssetDatabase.LoadAssetAtPath<SceneAsset>("Assets/Scenes/CombatCore.unity");
+        EditorSceneManager.playModeStartScene = sceneAsset;
+
+        EditorBuildSettings.scenes = new[]
+        {
+            new EditorBuildSettingsScene("Assets/Scenes/CombatCore.unity", true),
+        };
+        Debug.Log("[BuildPartAScene] playModeStartScene + Build Settings를 CombatCore.unity로 등록");
     }
 
     static void BuildCamera()
@@ -39,7 +61,7 @@ public static class BuildPartAScene
         cam.orthographicSize = width / 2f / (16f / 9f);
         // 바닥(Y=0)이 화면 아래쪽에 오도록 살짝 위를 본다 — 점프 궤적이 화면 안에 들어오게
         cam.transform.position = new Vector3(0f, cam.orthographicSize * 0.35f, -10f);
-        cam.backgroundColor = new Color(0.08f, 0.08f, 0.1f);
+        cam.backgroundColor = Color.white;
         cam.clearFlags = CameraClearFlags.SolidColor;
         camGO.AddComponent<AudioListener>();
     }
@@ -60,7 +82,7 @@ public static class BuildPartAScene
         lr.widthMultiplier = 0.08f;
         lr.useWorldSpace = true;
         lr.material = new Material(Shader.Find("Sprites/Default"));
-        lr.startColor = lr.endColor = new Color(0.6f, 0.6f, 0.65f, 0.9f);
+        lr.startColor = lr.endColor = new Color(0.25f, 0.25f, 0.28f, 1f); // 흰 배경에서도 잘 보이는 어두운 회색
         lr.sortingOrder = -1;
     }
 

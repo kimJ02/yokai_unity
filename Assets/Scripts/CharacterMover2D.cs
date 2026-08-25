@@ -5,9 +5,12 @@ using UnityEngine;
 /// 배치 자동화 환경에서 에셋스토어 패키지를 인증 없이 받아올 수 없어 직접 짠 대체 구현이다.
 ///
 /// 원본(project_test.html) 그대로 횡스크롤 구조를 따른다 — X는 화살표 키로 자유 이동,
-/// Y는 고정 바닥(FieldBounds.GroundY) + 점프(C/Space) 시에만 중력을 받아 포물선을 그린다.
+/// Y는 고정 바닥(FieldBounds.GroundY) + 점프(C) 시에만 중력을 받아 포물선을 그린다.
 /// 상수는 원본 픽셀값을 100px = 1유닛 기준으로 축척했다(moveSpeed 270px/s → 2.7,
 /// jumpVel -960px/s → 9.6, gravity 2600px/s² → 26. 원본 Y+는 화면 아래 방향이라 부호 반전).
+///
+/// 점프 키는 원본 KEYMAP엔 C와 Space 둘 다 있지만, 사용자 지시로 이번 프로토타입은
+/// C만 쓴다 — 원본과의 의도적 차이. 나중에 세션이 이걸 "원본과 다르다"며 되돌리지 말 것.
 /// </summary>
 [RequireComponent(typeof(Rigidbody2D))]
 public class CharacterMover2D : MonoBehaviour
@@ -32,7 +35,7 @@ public class CharacterMover2D : MonoBehaviour
 
     void Update()
     {
-        if (grounded && (Input.GetKeyDown(KeyCode.C) || Input.GetKeyDown(KeyCode.Space)))
+        if (grounded && Input.GetKeyDown(KeyCode.C))
         {
             vy = jumpSpeed;
             grounded = false;
