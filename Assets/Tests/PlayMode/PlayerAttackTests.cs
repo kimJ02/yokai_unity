@@ -44,11 +44,51 @@ public class PlayerAttackTests
     }
 
     [Test]
-    public void FieldBounds_Clamp_KeepsPointInsideBounds()
+    public void FieldBounds_ClampX_KeepsXInsideBounds()
     {
-        Vector2 result = FieldBounds.Clamp(new Vector2(999f, -999f));
-        Assert.AreEqual(FieldBounds.Max.x, result.x, 0.001f);
-        Assert.AreEqual(FieldBounds.Min.y, result.y, 0.001f);
+        Assert.AreEqual(FieldBounds.MaxX, FieldBounds.ClampX(999f), 0.001f);
+        Assert.AreEqual(FieldBounds.MinX, FieldBounds.ClampX(-999f), 0.001f);
+    }
+
+    /// <summary>
+    /// KeyCode.C 키 입력 자체는 시뮬레이트할 수 없어서(Input은 실제 키보드만 읽음),
+    /// private vy/grounded 필드를 리플렉션으로 세팅해 "방금 점프 시작" 상태만 주입하고
+    /// 그 이후 물리 스텝은 실제 CharacterMover2D.FixedUpdate가 그대로 돌리게 한다.
+    /// 즉 중력식은 실제 프로덕션 코드 경로를 그대로 태운다 — 공식을 베껴 쓰지 않는다.
+    /// </summary>
+    [UnityTest]
+    public IEnumerator Jump_RisesThenReturnsExactlyToGroundY()
+    {
+        var go = new GameObject("JumpTestPlayer");
+        go.tag = "Player";
+        go.AddComponent<CircleCollider2D>().radius = 0.5f;
+        var rb = go.AddComponent<Rigidbody2D>();
+        rb.gravityScale = 0f;
+        var mover = go.AddComponent<CharacterMover2D>();
+
+        var vyField = typeof(CharacterMover2D).GetField("vy", BindingFlags.NonPublic | BindingFlags.Instance);
+        var groundedField = typeof(CharacterMover2D).GetField("grounded", BindingFlags.NonPublic | BindingFlags.Instance);
+        Assert.IsNotNull(vyField); Assert.IsNotNull(groundedField);
+
+        yield return null; // Awake()가 GroundY로 위치를 맞출 시간을 준다
+        vyField.SetValue(mover, mover.jumpSpeed);
+        groundedField.SetValue(mover, false);
+
+        float maxY = go.transform.position.y;
+        float t = 0f;
+        while (t < 2f)
+        {
+            yield return new WaitForFixedUpdate();
+            maxY = Mathf.Max(maxY, go.transform.position.y);
+            t += Time.fixedDeltaTime;
+            if ((bool)groundedField.GetValue(mover) && t > 0.05f) break;
+        }
+
+        Assert.Greater(maxY, FieldBounds.GroundY + 0.05f, "점프가 바닥 위로 올라가지 않았다");
+        Assert.AreEqual(FieldBounds.GroundY, go.transform.position.y, 0.02f, "점프 후 바닥으로 정확히 복귀하지 않았다");
+
+        Object.Destroy(go);
+        yield return null;
     }
 
     static GameObject NewTagged(string name, Vector3 pos, string tag)

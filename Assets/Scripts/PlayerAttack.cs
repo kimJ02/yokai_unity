@@ -19,7 +19,8 @@ public class PlayerAttack : MonoBehaviour
         cdTimer -= Time.deltaTime;
         if (cdTimer > 0f) return;
 
-        if (Input.GetKeyDown(KeyCode.Space) || Input.GetMouseButtonDown(0))
+        // 원본(project_test.html) KEYMAP: KeyZ = 기본 공격
+        if (Input.GetKeyDown(KeyCode.Z))
         {
             Attack();
             cdTimer = cooldown;

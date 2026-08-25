@@ -34,9 +34,11 @@ public static class BuildPartAScene
         camGO.tag = "MainCamera";
         var cam = camGO.AddComponent<Camera>();
         cam.orthographic = true;
-        // 필드 세로 절반 높이에 맞춘다 (FieldBounds: -4.5~4.5 → orthographicSize 4.5)
-        cam.orthographicSize = (FieldBounds.Max.y - FieldBounds.Min.y) / 2f;
-        cam.transform.position = new Vector3(0f, 0f, -10f);
+        // 필드 가로 폭 전체가 한 화면에 들어오게 (HANDOFF.md: 카메라 고정, 16:9 가정)
+        float width = FieldBounds.MaxX - FieldBounds.MinX;
+        cam.orthographicSize = width / 2f / (16f / 9f);
+        // 바닥(Y=0)이 화면 아래쪽에 오도록 살짝 위를 본다 — 점프 궤적이 화면 안에 들어오게
+        cam.transform.position = new Vector3(0f, cam.orthographicSize * 0.35f, -10f);
         cam.backgroundColor = new Color(0.08f, 0.08f, 0.1f);
         cam.clearFlags = CameraClearFlags.SolidColor;
         camGO.AddComponent<AudioListener>();
@@ -44,21 +46,18 @@ public static class BuildPartAScene
 
     static void BuildFieldBoundary()
     {
-        var go = new GameObject("FieldBoundary");
+        // 원본처럼 단일 고정 바닥 — 사각형 경계가 아니라 바닥 선 하나만 그린다.
+        var go = new GameObject("Ground");
         var lr = go.AddComponent<LineRenderer>();
-        Vector2 min = FieldBounds.Min, max = FieldBounds.Max;
+        float y = FieldBounds.GroundY;
         Vector3[] pts =
         {
-            new Vector3(min.x, min.y, 0),
-            new Vector3(max.x, min.y, 0),
-            new Vector3(max.x, max.y, 0),
-            new Vector3(min.x, max.y, 0),
-            new Vector3(min.x, min.y, 0),
+            new Vector3(FieldBounds.MinX, y, 0),
+            new Vector3(FieldBounds.MaxX, y, 0),
         };
         lr.positionCount = pts.Length;
         lr.SetPositions(pts);
-        lr.loop = false;
-        lr.widthMultiplier = 0.05f;
+        lr.widthMultiplier = 0.08f;
         lr.useWorldSpace = true;
         lr.material = new Material(Shader.Find("Sprites/Default"));
         lr.startColor = lr.endColor = new Color(0.6f, 0.6f, 0.65f, 0.9f);
@@ -69,6 +68,7 @@ public static class BuildPartAScene
     {
         var go = new GameObject("Player");
         go.tag = "Player";
+        go.transform.position = new Vector3(0f, FieldBounds.GroundY, 0f);
 
         var sr = go.AddComponent<SpriteRenderer>();
         sr.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(SpritePath);
