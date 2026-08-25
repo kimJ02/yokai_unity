@@ -1,44 +1,49 @@
 using UnityEngine;
 
 /// <summary>
-/// 최소 이동 컨트롤러. HANDOFF.md는 "이미 구현된 캐릭터 컨트롤러 재사용"을 전제했지만
-/// 배치 자동화 환경에서 에셋스토어 패키지를 인증 없이 받아올 수 없어 직접 짠 대체 구현이다.
+/// 이동 컨트롤러. 이번 개정에서 자체 중력 계산(vy 수동 적분)을 걷어내고
+/// 실제 Physics2D(Rigidbody2D 동적 바디 + 콜라이더 충돌 해석)로 교체했다 —
+/// "물리엔진 구현" 요청 반영. 전역 중력은 BuildPartAScene에서
+/// Physics2D.gravity = (0, -26)로 설정(원본 2600px/s² → 26, 100px=1유닛 축척).
 ///
-/// 원본(project_test.html) 그대로 횡스크롤 구조를 따른다 — X는 화살표 키로 자유 이동,
-/// Y는 고정 바닥(FieldBounds.GroundY) + 점프(C) 시에만 중력을 받아 포물선을 그린다.
-/// 상수는 원본 픽셀값을 100px = 1유닛 기준으로 축척했다(moveSpeed 270px/s → 2.7,
-/// jumpVel -960px/s → 9.6, gravity 2600px/s² → 26. 원본 Y+는 화면 아래 방향이라 부호 반전).
+/// X는 여전히 화살표 키로 직접 속도를 넣어 자유 이동(경계에서 clamp),
+/// Y는 더 이상 손으로 계산하지 않고 중력 + 발판/바닥 콜라이더와의 실제 충돌로 정지한다.
+/// 접지 판정은 발밑에서 Ground 레이어로 OverlapCircle — 원본처럼 여러 층 발판을 딛고
+/// 설 수 있어야 해서 "고정 바닥 하나"였던 이전 가정을 버렸다.
 ///
 /// 점프 키는 원본 KEYMAP엔 C와 Space 둘 다 있지만, 사용자 지시로 이번 프로토타입은
 /// C만 쓴다 — 원본과의 의도적 차이. 나중에 세션이 이걸 "원본과 다르다"며 되돌리지 말 것.
 /// </summary>
 [RequireComponent(typeof(Rigidbody2D))]
+[RequireComponent(typeof(Collider2D))]
 public class CharacterMover2D : MonoBehaviour
 {
     public float moveSpeed = 2.7f;
     public float jumpSpeed = 9.6f;
-    public float gravity = 26f;
+    public float groundCheckRadius = 0.12f;
+    public LayerMask groundMask;
+
+    /// <summary>마지막으로 이동한 좌우 방향(1 또는 -1). 조준 입력이 없을 때 MageAttack의 기본 발사 방향으로 쓰인다.</summary>
+    public int Facing { get; private set; } = 1;
 
     Rigidbody2D rb;
-    float vy;
-    bool grounded = true;
+    Collider2D col;
+    bool grounded;
 
     void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
-        rb.gravityScale = 0f; // 자체 중력 계산을 쓴다 — FieldBounds.GroundY 기준 단일 바닥이라 Physics2D 중력보다 이게 더 단순하다
-        rb.constraints = RigidbodyConstraints2D.FreezeRotation;
-        Vector2 p = rb.position;
-        p.y = FieldBounds.GroundY;
-        rb.position = p;
+        col = GetComponent<Collider2D>();
+        rb.freezeRotation = true;
+        rb.gravityScale = 1f;
+        if (groundMask.value == 0) groundMask = LayerMask.GetMask("Ground");
     }
 
     void Update()
     {
         if (grounded && Input.GetKeyDown(KeyCode.C))
         {
-            vy = jumpSpeed;
-            grounded = false;
+            rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpSpeed);
         }
     }
 
@@ -47,22 +52,19 @@ public class CharacterMover2D : MonoBehaviour
         float h = 0f;
         if (Input.GetKey(KeyCode.LeftArrow)) h -= 1f;
         if (Input.GetKey(KeyCode.RightArrow)) h += 1f;
+        if (h != 0f) Facing = h > 0 ? 1 : -1;
 
-        float nx = FieldBounds.ClampX(rb.position.x + h * moveSpeed * Time.fixedDeltaTime);
+        float vx = h * moveSpeed;
+        if (rb.position.x <= FieldBounds.MinX && vx < 0f) vx = 0f;
+        if (rb.position.x >= FieldBounds.MaxX && vx > 0f) vx = 0f;
+        rb.linearVelocity = new Vector2(vx, rb.linearVelocity.y);
 
-        float ny = rb.position.y;
-        if (!grounded)
-        {
-            vy -= gravity * Time.fixedDeltaTime;
-            ny += vy * Time.fixedDeltaTime;
-            if (ny <= FieldBounds.GroundY)
-            {
-                ny = FieldBounds.GroundY;
-                vy = 0f;
-                grounded = true;
-            }
-        }
+        grounded = CheckGrounded();
+    }
 
-        rb.MovePosition(new Vector2(nx, ny));
+    bool CheckGrounded()
+    {
+        Vector2 feet = (Vector2)transform.position + Vector2.down * col.bounds.extents.y;
+        return Physics2D.OverlapCircle(feet, groundCheckRadius, groundMask);
     }
 }

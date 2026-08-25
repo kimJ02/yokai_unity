@@ -7,21 +7,42 @@ using UnityEngine;
 /// Part A(필드+카메라+플레이어) 씬을 코드로 조립한다. GUI 클릭 없이
 /// `Unity.exe -batchmode -quit -executeMethod BuildPartAScene.Build`로 재현 가능하게 해서,
 /// 다른 세션도 이 스크립트만 다시 실행하면 같은 결과를 얻을 수 있다(수동 클릭 산출물이 아님).
+///
+/// 이번 개정: 손으로 계산하던 중력/바닥판정을 실제 Physics2D(Rigidbody2D+Collider2D 충돌 해석)로
+/// 바꾸고, 원본 NORMAL_PLATFORMS 배치를 그대로 옮긴 실물 발판을 추가했다(원본 3~4층 수직형 맵).
+/// 필드 폭(26유닛)이 발판을 다 넣기엔 한 화면에 담기엔 넓어서 카메라를 X-스크롤로 바꿨다.
 /// </summary>
 public static class BuildPartAScene
 {
     const string SpritePath = "Assets/Sprites/Circle.png";
+    const string GroundLayer = "Ground";
+
+    // 원본(project_test.html) NORMAL_PLATFORMS을 그대로 옮김. pl.x는 원본에서 "왼쪽 끝" 좌표였음이
+    // 충돌판정 코드(`p.x > pl.x - 6 && p.x < pl.x + pl.w + 6`)로 확인됨 — 중심이 아니다.
+    // 100px=1유닛, groundY=620 기준으로 unityY=(620-y)/100, centerX=(x+w/2)/100 로 미리 환산해뒀다.
+    static readonly float[,] Platforms =
+    {
+        // centerX, centerY, width  (전부 유닛)
+        {3.20f, 1.15f, 2.80f}, {9.00f, 1.15f, 3.20f}, {15.40f, 1.15f, 3.00f}, {21.50f, 1.15f, 3.20f}, // 1층 y=505
+        {5.90f, 2.25f, 3.00f}, {12.30f, 2.25f, 3.20f}, {18.60f, 2.25f, 3.00f}, {24.00f, 2.25f, 2.60f}, // 2층 y=395
+        {3.30f, 3.35f, 2.60f}, {9.60f, 3.35f, 3.00f}, {16.20f, 3.35f, 3.00f}, {22.00f, 3.35f, 2.60f}, // 3층 y=285
+        {6.80f, 4.35f, 2.80f}, {13.40f, 4.35f, 3.00f}, {19.70f, 4.35f, 2.80f}, // 4층 y=185
+    };
+    const float PlatformThickness = 0.15f;
 
     [MenuItem("Tools/YokaiFront/Build Part A Scene")]
     public static void Build()
     {
         EnsureCircleSprite();
+        EnsureGroundLayer();
+        Physics2D.gravity = new Vector2(0f, -26f); // 원본 2600px/s² → 26 (100px=1유닛)
 
         var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
-        BuildCamera();
-        BuildFieldBoundary();
-        BuildPlayer();
+        BuildGround();
+        BuildPlatforms();
+        var player = BuildPlayer();
+        BuildCamera(player.transform);
 
         Directory.CreateDirectory("Assets/Scenes");
         bool ok = EditorSceneManager.SaveScene(scene, "Assets/Scenes/CombatCore.unity");
@@ -36,7 +57,6 @@ public static class BuildPartAScene
     /// 그래서 두 가지를 명시적으로 해둔다:
     /// 1) Build Settings의 씬 목록에 등록 — 어떤 씬이 "이 프로젝트의 씬"인지 명확해짐
     /// 2) playModeStartScene 지정 — 에디터에 어떤 씬이 열려있든 Play를 누르면 무조건 CombatCore가 실행된다.
-    ///    사람이 굳이 Project 창에서 씬을 더블클릭해서 열지 않아도 바로 플레이 가능.
     /// </summary>
     static void RegisterAsDefaultScene()
     {
@@ -50,50 +70,120 @@ public static class BuildPartAScene
         Debug.Log("[BuildPartAScene] playModeStartScene + Build Settings를 CombatCore.unity로 등록");
     }
 
-    static void BuildCamera()
+    /// <summary>
+    /// 발판/바닥 전용 물리 레이어. 접지 판정(OverlapCircle)이 플레이어·몬스터·투사체 콜라이더를
+    /// 걸러내고 진짜 "땅"만 보게 하려고 분리했다. TagManager.asset의 layers 배열에 직접 쓴다
+    /// (Project Settings 창을 열지 않고도 배치 스크립트에서 재현 가능하게).
+    /// </summary>
+    static void EnsureGroundLayer()
+    {
+        if (LayerMask.NameToLayer(GroundLayer) != -1) return;
+
+        var tagManagerAssets = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset");
+        if (tagManagerAssets.Length == 0)
+        {
+            Debug.LogError("[BuildPartAScene] TagManager.asset을 못 찾음 — Ground 레이어 등록 실패");
+            return;
+        }
+        var tagManager = new SerializedObject(tagManagerAssets[0]);
+        var layers = tagManager.FindProperty("layers");
+        // 0~7은 내장 예약 레이어. 8번(첫 사용자 정의 슬롯)에 등록한다.
+        layers.GetArrayElementAtIndex(8).stringValue = GroundLayer;
+        tagManager.ApplyModifiedProperties();
+        AssetDatabase.SaveAssets();
+        Debug.Log("[BuildPartAScene] Ground 레이어(8번) 등록");
+    }
+
+    static void BuildCamera(Transform playerTransform)
     {
         var camGO = new GameObject("Main Camera");
         camGO.tag = "MainCamera";
         var cam = camGO.AddComponent<Camera>();
         cam.orthographic = true;
-        // 필드 가로 폭 전체가 한 화면에 들어오게 (HANDOFF.md: 카메라 고정, 16:9 가정)
-        float width = FieldBounds.MaxX - FieldBounds.MinX;
-        cam.orthographicSize = width / 2f / (16f / 9f);
-        // 바닥(Y=0)이 화면 아래쪽에 오도록 살짝 위를 본다 — 점프 궤적이 화면 안에 들어오게
-        cam.transform.position = new Vector3(0f, cam.orthographicSize * 0.35f, -10f);
+        // 원본 발판이 4층(최고 y≈4.35유닛)까지 있어 필드 전체 폭(26유닛)을 한 화면에 못 담는다
+        // (담으면 캐릭터가 너무 작아짐) — 세로는 발판이 전부 들어오는 높이로 고정하고 가로만 스크롤한다.
+        cam.orthographicSize = 5.5f;
+        cam.transform.position = new Vector3(playerTransform.position.x, 2.5f, -10f);
         cam.backgroundColor = Color.white;
         cam.clearFlags = CameraClearFlags.SolidColor;
         camGO.AddComponent<AudioListener>();
+
+        var follow = camGO.AddComponent<CameraFollow2D>();
+        follow.target = playerTransform;
     }
 
-    static void BuildFieldBoundary()
+    static void BuildGround()
     {
-        // 원본처럼 단일 고정 바닥 — 사각형 경계가 아니라 바닥 선 하나만 그린다.
+        // 원본처럼 mapW 전체 폭의 단일 고정 바닥. 실제 충돌은 BoxCollider2D(Ground 레이어)가 담당하고,
+        // LineRenderer는 눈에 보이는 표시일 뿐이다.
         var go = new GameObject("Ground");
-        var lr = go.AddComponent<LineRenderer>();
+        go.layer = LayerMask.NameToLayer(GroundLayer);
         float y = FieldBounds.GroundY;
-        Vector3[] pts =
-        {
-            new Vector3(FieldBounds.MinX, y, 0),
-            new Vector3(FieldBounds.MaxX, y, 0),
-        };
-        lr.positionCount = pts.Length;
-        lr.SetPositions(pts);
+        float width = FieldBounds.MaxX - FieldBounds.MinX;
+        float centerX = (FieldBounds.MinX + FieldBounds.MaxX) * 0.5f;
+
+        var col = go.AddComponent<BoxCollider2D>();
+        col.size = new Vector2(width, PlatformThickness * 2f);
+        go.transform.position = new Vector3(centerX, y - PlatformThickness, 0f);
+
+        var lr = go.AddComponent<LineRenderer>();
+        lr.positionCount = 2;
+        lr.SetPosition(0, new Vector3(FieldBounds.MinX, y, 0));
+        lr.SetPosition(1, new Vector3(FieldBounds.MaxX, y, 0));
         lr.widthMultiplier = 0.08f;
         lr.useWorldSpace = true;
         lr.material = new Material(Shader.Find("Sprites/Default"));
-        lr.startColor = lr.endColor = new Color(0.25f, 0.25f, 0.28f, 1f); // 흰 배경에서도 잘 보이는 어두운 회색
+        lr.startColor = lr.endColor = new Color(0.25f, 0.25f, 0.28f, 1f);
         lr.sortingOrder = -1;
     }
 
-    static void BuildPlayer()
+    /// <summary>
+    /// 원본 NORMAL_PLATFORMS 15개를 실물 콜라이더로 배치한다. 원본은 "아래에서 위로 지나가고
+    /// 위에서 착지만 되는" 원웨이 발판(dropTimer로 아래로 통과 가능)이지만, 이번 v0은 그 세부
+    /// 로직까지는 재현하지 않고 단단한(막힌) 콜라이더로 단순화했다 — "물리엔진으로 발판 위에
+    /// 설 수 있다"가 이번 요청의 핵심이라 원웨이 통과는 다음 스프린트로 미룸(확인 필요 항목에 기록).
+    /// </summary>
+    static void BuildPlatforms()
+    {
+        int groundLayer = LayerMask.NameToLayer(GroundLayer);
+        var parent = new GameObject("Platforms").transform;
+
+        for (int i = 0; i < Platforms.GetLength(0); i++)
+        {
+            float cx = Platforms[i, 0];
+            float cy = Platforms[i, 1];
+            float w = Platforms[i, 2];
+
+            var go = new GameObject($"Platform_{i}");
+            go.transform.SetParent(parent);
+            go.layer = groundLayer;
+            go.transform.position = new Vector3(cx, cy, 0f);
+
+            var col = go.AddComponent<BoxCollider2D>();
+            col.size = new Vector2(w, PlatformThickness);
+
+            var lr = go.AddComponent<LineRenderer>();
+            lr.positionCount = 2;
+            lr.SetPosition(0, new Vector3(-w / 2f, 0f, 0f));
+            lr.SetPosition(1, new Vector3(w / 2f, 0f, 0f));
+            lr.useWorldSpace = false;
+            lr.widthMultiplier = 0.08f;
+            lr.material = new Material(Shader.Find("Sprites/Default"));
+            lr.startColor = lr.endColor = new Color(0.4f, 0.32f, 0.22f, 1f); // 목조 발판 느낌의 갈색
+            lr.sortingOrder = -1;
+        }
+    }
+
+    static GameObject BuildPlayer()
     {
         var go = new GameObject("Player");
         go.tag = "Player";
-        go.transform.position = new Vector3(0f, FieldBounds.GroundY, 0f);
+        // 원본 스폰 좌표 p.x=220 그대로(100px=1유닛 → 2.2)
+        go.transform.position = new Vector3(2.2f, FieldBounds.GroundY + 0.5f, 0f);
 
         var sr = go.AddComponent<SpriteRenderer>();
-        sr.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(SpritePath);
+        var circleSprite = AssetDatabase.LoadAssetAtPath<Sprite>(SpritePath);
+        sr.sprite = circleSprite;
         sr.color = new Color(0.35f, 0.55f, 1f); // 아군 = 파랑
         go.transform.localScale = new Vector3(0.8f, 0.8f, 1f);
 
@@ -101,10 +191,13 @@ public static class BuildPartAScene
         col.radius = 0.5f;
 
         var rb = go.AddComponent<Rigidbody2D>();
-        rb.gravityScale = 0f;
+        rb.freezeRotation = true;
 
         go.AddComponent<CharacterMover2D>();
-        go.AddComponent<PlayerAttack>();
+        var mage = go.AddComponent<MageAttack>();
+        mage.boltSprite = circleSprite; // 런타임 AssetDatabase 호출(빌드에서 못 씀) 없이 미리 꽂아줌
+
+        return go;
     }
 
     /// <summary>
@@ -130,7 +223,6 @@ public static class BuildPartAScene
             for (int x = 0; x < size; x++)
             {
                 float d = Vector2.Distance(new Vector2(x + 0.5f, y + 0.5f), center);
-                // 가장자리 1.5px를 부드럽게 페더링해서 계단현상을 줄인다
                 float a = Mathf.Clamp01(r - d);
                 tex.SetPixel(x, y, new Color(1f, 1f, 1f, a));
             }

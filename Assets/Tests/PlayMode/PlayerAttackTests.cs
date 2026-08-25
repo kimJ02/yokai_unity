@@ -84,42 +84,56 @@ public class PlayerAttackTests
 
     /// <summary>
     /// KeyCode.C 키 입력 자체는 시뮬레이트할 수 없어서(Input은 실제 키보드만 읽음),
-    /// private vy/grounded 필드를 리플렉션으로 세팅해 "방금 점프 시작" 상태만 주입하고
-    /// 그 이후 물리 스텝은 실제 CharacterMover2D.FixedUpdate가 그대로 돌리게 한다.
-    /// 즉 중력식은 실제 프로덕션 코드 경로를 그대로 태운다 — 공식을 베껴 쓰지 않는다.
+    /// Rigidbody2D.linearVelocity에 "방금 점프 시작" 속도를 직접 주입하고 그 이후 물리 스텝은
+    /// 실제 Physics2D + CharacterMover2D.FixedUpdate가 그대로 돌리게 한다 — 중력·착지 판정 모두
+    /// 실제 엔진 경로를 태운다(공식을 베껴 쓰지 않는다). CharacterMover2D가 자체 중력 계산에서
+    /// 진짜 Physics2D로 바뀌면서 이 테스트도 Ground 레이어 바닥 콜라이더를 직접 세팅해야 한다.
     /// </summary>
     [UnityTest]
-    public IEnumerator Jump_RisesThenReturnsExactlyToGroundY()
+    public IEnumerator Jump_RisesThenReturnsToGround()
     {
+        var groundGO = new GameObject("TestGround");
+        groundGO.layer = LayerMask.NameToLayer("Ground");
+        groundGO.AddComponent<BoxCollider2D>().size = new Vector2(20f, 0.3f);
+        groundGO.transform.position = new Vector3(2.2f, FieldBounds.GroundY - 0.15f, 0f);
+
         var go = new GameObject("JumpTestPlayer");
         go.tag = "Player";
         go.AddComponent<CircleCollider2D>().radius = 0.5f;
         var rb = go.AddComponent<Rigidbody2D>();
-        rb.gravityScale = 0f;
+        go.transform.position = new Vector3(2.2f, FieldBounds.GroundY + 0.5f, 0f);
         var mover = go.AddComponent<CharacterMover2D>();
 
-        var vyField = typeof(CharacterMover2D).GetField("vy", BindingFlags.NonPublic | BindingFlags.Instance);
         var groundedField = typeof(CharacterMover2D).GetField("grounded", BindingFlags.NonPublic | BindingFlags.Instance);
-        Assert.IsNotNull(vyField); Assert.IsNotNull(groundedField);
+        Assert.IsNotNull(groundedField);
 
-        yield return null; // Awake()가 GroundY로 위치를 맞출 시간을 준다
-        vyField.SetValue(mover, mover.jumpSpeed);
-        groundedField.SetValue(mover, false);
+        yield return new WaitForFixedUpdate(); // 착지해서 grounded=true가 될 시간을 준다
+        yield return new WaitForFixedUpdate();
+
+        rb.linearVelocity = new Vector2(0f, mover.jumpSpeed);
 
         float maxY = go.transform.position.y;
+        float minYAfterPeak = float.MaxValue;
+        bool pastPeak = false;
         float t = 0f;
-        while (t < 2f)
+        while (t < 3f)
         {
             yield return new WaitForFixedUpdate();
-            maxY = Mathf.Max(maxY, go.transform.position.y);
+            float y = go.transform.position.y;
+            if (y > maxY) maxY = y;
+            else pastPeak = true;
+            if (pastPeak) minYAfterPeak = Mathf.Min(minYAfterPeak, y);
             t += Time.fixedDeltaTime;
-            if ((bool)groundedField.GetValue(mover) && t > 0.05f) break;
+            if (pastPeak && (bool)groundedField.GetValue(mover) && t > 0.1f) break;
         }
 
-        Assert.Greater(maxY, FieldBounds.GroundY + 0.05f, "점프가 바닥 위로 올라가지 않았다");
-        Assert.AreEqual(FieldBounds.GroundY, go.transform.position.y, 0.02f, "점프 후 바닥으로 정확히 복귀하지 않았다");
+        // 콜라이더 반지름(0.5)만큼 중심이 바닥 위에 떠서 정지한다 — transform.position은 원의 중심이지 발밑이 아니다.
+        float restY = FieldBounds.GroundY + 0.5f;
+        Assert.Greater(maxY, restY + 0.05f, "점프가 바닥 위로 올라가지 않았다");
+        Assert.AreEqual(restY, go.transform.position.y, 0.05f, "점프 후 바닥으로 복귀하지 않았다");
 
         Object.Destroy(go);
+        Object.Destroy(groundGO);
         yield return null;
     }
 
