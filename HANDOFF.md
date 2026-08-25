@@ -31,9 +31,10 @@
 
 **결정: 원본과 동일하게 횡스크롤 구조.** 원본은 X(좌우)만 자유 이동이고 Y(높이)는 고정 바닥 + 점프 시에만 중력을 받는 사이드뷰 플랫포머다.
 
-- **개정(2026-08-25): "바닥 1개만"이던 축소 결정을 철회하고 원본 발판(NORMAL_PLATFORMS) 15개 + Physics2D 실제 충돌로 확장.** 사용자가 "물리엔진이랑 플랫폼도 구현해줘"라고 명시적으로 요청. `CharacterMover2D`가 손으로 계산하던 중력(vy 수동 적분)을 걷어내고 `Rigidbody2D`(동적 바디, 실제 gravityScale) + `Collider2D` 충돌 해석으로 교체했고, 원본 `NORMAL_PLATFORMS` 좌표를 그대로 옮긴 `BoxCollider2D` 발판을 배치했다(전용 `Ground` 물리 레이어, `BuildPartAScene.cs` 참고).
-  - **단순화 하나 있음**: 원본 발판은 아래에서 위로는 통과하고 위에서만 착지되는 원웨이 발판(dropTimer로 아래로 뛰어내리기 가능)인데, 이번 v0은 그냥 막힌(solid) 콜라이더로 구현했다 — "발판 위에 실제로 설 수 있다"가 핵심이라 원웨이 통과 로직은 다음 스프린트로 미룸.
-- 필드 폭은 원본 mapW(2600px) 그대로 100px=1유닛 축척 → `FieldBounds.MinX=0, MaxX=26`. 발판 4개 층이 원본 y=505/395/285/185 그대로(유닛 환산은 `BuildPartAScene.Platforms` 배열 주석 참고).
+- **개정(2026-08-25): "바닥 1개만"이던 축소 결정을 철회하고 원본 발판(NORMAL_PLATFORMS) 15개 + Physics2D 실제 충돌로 확장.** 사용자가 "물리엔진이랑 플랫폼도 구현해줘"라고 명시적으로 요청. `CharacterMover2D`가 손으로 계산하던 중력(vy 수동 적분)을 걷어내고 `Rigidbody2D`(동적 바디, 실제 gravityScale) + `Collider2D` 충돌 해석으로 교체했고, 원본 `NORMAL_PLATFORMS` 좌표를 그대로 옮긴 발판을 배치했다(전용 `Ground` 물리 레이어, `BuildPartAScene.cs` 참고).
+- **추가 개정(같은 날): 발판을 원본처럼 원웨이(아래/옆 통과, 위에서만 착지)로 수정.** 처음엔 막힌(solid) 콜라이더로 단순화했는데, 이게 원본과 달리 점프 중 발판 밑면에 머리가 막히는 버그였다(사용자가 직접 플레이해보고 지적). `PlatformEffector2D`(`useOneWay=true`) + `Collider2D.usedByEffector=true`로 교체해 해결 — 원본의 `dropTimer`(아래로 뛰어내리기 입력)까지는 재현하지 않음(범위 밖). `PhysicsAndMageTests.Player_PassesThroughOneWayPlatformFromBelow_ThenLandsOnTopFromAbove`로 검증됨.
+- **발판 층간 간격도 원본(1.0~1.1유닛)보다 넓힘(1.35유닛)** — 사용자가 "간격이 너무 작다"고 명시적으로 요청한 의도적 편차. 점프 최대 높이(1.772유닛) 대비 76% 지점이라 여유 있게 닿는다. X 배치(각 층의 발판 개수·폭·좌우 위치)는 원본 그대로 유지, Y(층 높이) 값만 조정했다 — 나중에 "원본이랑 다르다"며 1.0~1.1로 되돌리지 말 것.
+- 필드 폭은 원본 mapW(2600px) 그대로 100px=1유닛 축척 → `FieldBounds.MinX=0, MaxX=26`. 발판 X 배치(개수·폭·좌우 위치)는 원본 그대로, Y(층 높이)는 위 항목대로 넓혔다(유닛 환산은 `BuildPartAScene.Platforms` 배열 주석 참고).
 - 원본 상수를 100px = 1유닛 기준으로 축척: 이동속도 270px/s → 2.7 · 점프속도 960px/s → 9.6 · 중력 2600px/s² → 26 (원본 Y+는 화면 아래라 부호 반전 주의, `Physics2D.gravity`로 전역 설정).
 - 캐릭터는 필드 X 경계 밖으로 못 나가게 clamp. Y는 자유 이동이 아니라 점프 물리 + 발판/바닥 충돌로만 바뀐다.
 - **카메라 개정**: 필드가 26유닛으로 넓어져 "고정 카메라로 전체를 한 화면에" 두면 캐릭터가 너무 작아진다 — X축만 플레이어를 따라가는 스크롤 카메라(`CameraFollow2D`)로 바꿈. Y는 발판이 전부 한 화면에 들어오는 높이라 고정.

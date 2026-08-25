@@ -17,16 +17,22 @@ public static class BuildPartAScene
     const string SpritePath = "Assets/Sprites/Circle.png";
     const string GroundLayer = "Ground";
 
-    // 원본(project_test.html) NORMAL_PLATFORMS을 그대로 옮김. pl.x는 원본에서 "왼쪽 끝" 좌표였음이
-    // 충돌판정 코드(`p.x > pl.x - 6 && p.x < pl.x + pl.w + 6`)로 확인됨 — 중심이 아니다.
-    // 100px=1유닛, groundY=620 기준으로 unityY=(620-y)/100, centerX=(x+w/2)/100 로 미리 환산해뒀다.
+    // 원본(project_test.html) NORMAL_PLATFORMS의 X 배치(centerX/width)는 그대로 옮김. pl.x는
+    // 원본에서 "왼쪽 끝" 좌표였음이 충돌판정 코드(`p.x > pl.x - 6 && p.x < pl.x + pl.w + 6`)로
+    // 확인됨 — 중심이 아니다. 100px=1유닛, groundY=620 기준 centerX=(x+w/2)/100 로 환산.
+    //
+    // Y(층 간격)는 원본 그대로(y=505/395/285/185, 층간 1.0~1.1유닛)가 아니라 사용자 요청으로
+    // 층간 1.35유닛으로 넓혔다 — 의도적 편차(점프 최대 높이 1.772유닛 대비 76% 지점, 원본의
+    // ~60%보다 여유 있게). "간격이 너무 작다"는 피드백을 반영한 것이라 나중에 원본 값으로
+    // 되돌리지 말 것. 아래에서 위로 통과 가능한 원웨이 발판(BuildPlatforms 참고)이라
+    // 이 정도 간격에서도 막힘 없이 오갈 수 있다.
     static readonly float[,] Platforms =
     {
         // centerX, centerY, width  (전부 유닛)
-        {3.20f, 1.15f, 2.80f}, {9.00f, 1.15f, 3.20f}, {15.40f, 1.15f, 3.00f}, {21.50f, 1.15f, 3.20f}, // 1층 y=505
-        {5.90f, 2.25f, 3.00f}, {12.30f, 2.25f, 3.20f}, {18.60f, 2.25f, 3.00f}, {24.00f, 2.25f, 2.60f}, // 2층 y=395
-        {3.30f, 3.35f, 2.60f}, {9.60f, 3.35f, 3.00f}, {16.20f, 3.35f, 3.00f}, {22.00f, 3.35f, 2.60f}, // 3층 y=285
-        {6.80f, 4.35f, 2.80f}, {13.40f, 4.35f, 3.00f}, {19.70f, 4.35f, 2.80f}, // 4층 y=185
+        {3.20f, 1.35f, 2.80f}, {9.00f, 1.35f, 3.20f}, {15.40f, 1.35f, 3.00f}, {21.50f, 1.35f, 3.20f}, // 1층
+        {5.90f, 2.70f, 3.00f}, {12.30f, 2.70f, 3.20f}, {18.60f, 2.70f, 3.00f}, {24.00f, 2.70f, 2.60f}, // 2층
+        {3.30f, 4.05f, 2.60f}, {9.60f, 4.05f, 3.00f}, {16.20f, 4.05f, 3.00f}, {22.00f, 4.05f, 2.60f}, // 3층
+        {6.80f, 5.40f, 2.80f}, {13.40f, 5.40f, 3.00f}, {19.70f, 5.40f, 2.80f}, // 4층
     };
     const float PlatformThickness = 0.15f;
 
@@ -100,10 +106,10 @@ public static class BuildPartAScene
         camGO.tag = "MainCamera";
         var cam = camGO.AddComponent<Camera>();
         cam.orthographic = true;
-        // 원본 발판이 4층(최고 y≈4.35유닛)까지 있어 필드 전체 폭(26유닛)을 한 화면에 못 담는다
+        // 원본 발판이 4층(최고 y=5.40유닛)까지 있어 필드 전체 폭(26유닛)을 한 화면에 못 담는다
         // (담으면 캐릭터가 너무 작아짐) — 세로는 발판이 전부 들어오는 높이로 고정하고 가로만 스크롤한다.
         cam.orthographicSize = 5.5f;
-        cam.transform.position = new Vector3(playerTransform.position.x, 2.5f, -10f);
+        cam.transform.position = new Vector3(playerTransform.position.x, 3f, -10f);
         cam.backgroundColor = Color.white;
         cam.clearFlags = CameraClearFlags.SolidColor;
         camGO.AddComponent<AudioListener>();
@@ -138,10 +144,12 @@ public static class BuildPartAScene
     }
 
     /// <summary>
-    /// 원본 NORMAL_PLATFORMS 15개를 실물 콜라이더로 배치한다. 원본은 "아래에서 위로 지나가고
-    /// 위에서 착지만 되는" 원웨이 발판(dropTimer로 아래로 통과 가능)이지만, 이번 v0은 그 세부
-    /// 로직까지는 재현하지 않고 단단한(막힌) 콜라이더로 단순화했다 — "물리엔진으로 발판 위에
-    /// 설 수 있다"가 이번 요청의 핵심이라 원웨이 통과는 다음 스프린트로 미룸(확인 필요 항목에 기록).
+    /// 원본 NORMAL_PLATFORMS 15개를 실물 콜라이더로 배치한다. 원본처럼 "아래/옆에서는 그냥
+    /// 통과하고 위에서 떨어질 때만 착지되는" 원웨이 발판 — Unity 내장 PlatformEffector2D(
+    /// useOneWay=true) + Collider2D.usedByEffector로 구현했다(막힌 콜라이더였던 이전 버전은
+    /// 원본과 달리 점프 중 발판 밑면에 머리가 막히는 버그가 있었음 — 사용자 피드백으로 수정).
+    /// 원본의 dropTimer(아래로 뛰어내리기 입력)는 이번엔 안 넣음 — "위에서 착지, 아래서 통과"
+    /// 자체가 요청받은 핵심이라 그 이상은 범위 밖.
     /// </summary>
     static void BuildPlatforms()
     {
@@ -161,6 +169,10 @@ public static class BuildPartAScene
 
             var col = go.AddComponent<BoxCollider2D>();
             col.size = new Vector2(w, PlatformThickness);
+            col.usedByEffector = true;
+
+            var effector = go.AddComponent<PlatformEffector2D>();
+            effector.useOneWay = true;
 
             var lr = go.AddComponent<LineRenderer>();
             lr.positionCount = 2;

@@ -57,6 +57,58 @@ public class PhysicsAndMageTests
     }
 
     /// <summary>
+    /// 원본과 동일하게 원웨이 발판이어야 한다 — 밑에서 위로 뚫고 지나갈 땐 안 막히고(점프 중 머리
+    /// 박힘 버그가 있었음, 사용자 피드백으로 발견), 위에서 떨어질 땐 그 위에 착지해야 한다.
+    /// PlatformEffector2D(useOneWay=true) 적용이 실제로 두 방향 다 맞게 동작하는지 확인.
+    /// </summary>
+    [UnityTest]
+    public IEnumerator Player_PassesThroughOneWayPlatformFromBelow_ThenLandsOnTopFromAbove()
+    {
+        int groundLayer = LayerMask.NameToLayer("Ground");
+        var platformGO = new GameObject("TestOneWayPlatform");
+        platformGO.layer = groundLayer;
+        platformGO.transform.position = new Vector3(5f, 3f, 0f);
+        var col = platformGO.AddComponent<BoxCollider2D>();
+        col.size = new Vector2(3f, 0.15f);
+        col.usedByEffector = true;
+        var effector = platformGO.AddComponent<PlatformEffector2D>();
+        effector.useOneWay = true;
+
+        var go = new GameObject("OneWayTestPlayer");
+        go.tag = "Player";
+        go.AddComponent<CircleCollider2D>().radius = 0.5f;
+        var rb = go.AddComponent<Rigidbody2D>();
+        go.transform.position = new Vector3(5f, 1f, 0f); // 발판 한참 아래에서 시작
+        go.AddComponent<CharacterMover2D>();
+
+        rb.linearVelocity = new Vector2(0f, 14f); // 발판을 확실히 뚫고 지나갈 만큼 세게 쏴올림(실제 점프 속도보다 큼 — 통과 여부만 확인 목적)
+
+        float platformTop = 3f + 0.075f;
+        float maxY = go.transform.position.y;
+        float t = 0f;
+        while (t < 1f)
+        {
+            yield return new WaitForFixedUpdate();
+            maxY = Mathf.Max(maxY, go.transform.position.y);
+            t += Time.fixedDeltaTime;
+        }
+        Assert.Greater(maxY, platformTop + 0.3f, "아래에서 위로 지나갈 때 발판에 막혔다(원웨이가 아니라 막힌 콜라이더처럼 동작함)");
+
+        t = 0f; // 다시 떨어지길 기다렸다가 발판 위에 착지하는지 확인
+        while (t < 2f)
+        {
+            yield return new WaitForFixedUpdate();
+            t += Time.fixedDeltaTime;
+        }
+        float expectedRestY = platformTop + 0.5f;
+        Assert.AreEqual(expectedRestY, go.transform.position.y, 0.05f, "위에서 떨어질 때 발판 위에 착지하지 않았다");
+
+        Object.Destroy(go);
+        Object.Destroy(platformGO);
+        yield return null;
+    }
+
+    /// <summary>
     /// 원본 bowFire 차지 공식(dmg = base*(1+chargeDmg*k), pierce = base+floor(k*chargePierce),
     /// speed = base*(1+0.3*k))을 그대로 옮겼는지, chargeK를 0과 1로 바꿔가며 실제 발사된
     /// MageProjectile/Rigidbody2D 속도를 읽어 검증한다. Input은 시뮬레이트 못 하므로
