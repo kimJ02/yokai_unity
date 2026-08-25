@@ -22,9 +22,61 @@ Unity 씬(`.unity`)·프리팹(`.prefab`) 파일은 내부적으로 GUID/fileID�
 
 1. **같은 씬 파일을 동시에 편집하지 않는다.** 씬에 손대는 작업은 항상 한 세션만, 순차적으로.
 2. **작업은 스크립트/프리팹 단위로 나눈다.** 프리팹은 별도 에셋 파일이라 메인 씬과 충돌하지 않는다 — 새 프리팹을 만드는 작업은 누구와도 안 겹친다.
-3. **각자 `feature/xxx` 브랜치에서 작업하고 `main`에는 직접 푸시하지 않는다.** 작업 끝나면 병합 순서를 정해서(보통 씬 뼈대를 만든 쪽이 먼저) 한 명씩 `main`에 합친다.
+3. **새 기능/새 스프린트를 시작할 땐 `feature/xxx` 브랜치에서 작업하고 `main`에는 직접 푸시하지 않는다.** 작업 끝나면 병합 순서를 정해서(보통 씬 뼈대를 만든 쪽이 먼저) 한 명씩 `main`에 합친다.
+   - **예외**: 이미 `main`에 병합된 기능에 대한 사용자 피드백 기반의 작은 후속 수정(버그 수정, 수치 조정 등 — 새 기능 추가가 아닌 것)은 혼자 이어서 고치는 상황이라면 `main`에 바로 커밋해도 된다. 두 세션이 동시에 같은 영역을 만지고 있을 땐 이 예외를 쓰지 말 것.
+   - **다른 세션이 PROGRESS.md 로그에 "고쳤다"고 적어놨어도, 그 브랜치를 받는 쪽은 실제 파일 diff(`git show <branch>:<path>`)로 재확인한다.** 로그와 실제 커밋 내용이 다른 경우가 실제로 있었다(2026-08-25, Part B 병합 시도).
 4. **다른 세션의 코드와 맞닿는 지점(태그 이름, 클래스/메서드 시그니처, static 클래스 등)은 미리 문서로 고정해둔다.** 그날그날의 분업 내용과 인터페이스 계약은 `PROGRESS.md`의 "오늘의 분업" 섹션에 적는다 — 없으면 만들 것.
 5. 병합 직전엔 항상 `git pull` 또는 `git fetch && git rebase origin/main`으로 최신 상태를 받은 뒤 자기 변경을 얹는다.
+
+## 코딩/파일 정리 규칙
+
+최종 목표(캐릭터 4종·가챠·아이템 35종·지역 9종·윤회까지 포팅)를 감안하면 파일 수가 많이 늘어난다. 지금(스크립트 10개 이하)은 아직 안 아프지만, 여기서 정한 기준은 **"지금 하기 귀찮아도 나중에 편한" 쪽으로 고른 것**이다 — 나중에 "번거롭다"며 되돌리지 말 것. 새로 만드는 코드는 지금부터 이 기준을 따르고, 기존 코드는 다음에 Unity 배치 검증이 가능할 때(에디터 GUI가 안 열려있을 때) 순서대로 맞춘다.
+
+### 폴더 구조
+- `Assets/Scripts/`는 도메인별 하위 폴더로 나눈다: `Combat/`(공격·투사체), `Characters/`(플레이어 캐릭터별 무기·컨트롤러), `Enemies/`(몬스터), `World/`(FieldBounds·카메라·발판 등 필드 관련), `Systems/`(스폰·가챠·세이브 등 매니저급), `UI/`.
+- `Assets/Tests/PlayMode/`도 같은 도메인 이름으로 하위 폴더를 맞춘다.
+- `Assets/Prefabs/`, `Assets/Sprites/`도 `Characters/`, `Enemies/`, `Items/` 등으로 나눈다 — 다만 그 종류가 실제로 2개 이상 생기는 시점에 폴더를 만들면 됨(지금 빈 폴더를 미리 만들 필요는 없음).
+
+### 네임스페이스
+- 모든 런타임 스크립트는 `YokaiFront.<도메인>` 네임스페이스를 쓴다(예: `YokaiFront.Combat`, `YokaiFront.Enemies`, `YokaiFront.World`). 폴더 구조와 네임스페이스 이름을 일치시킨다.
+- Editor 스크립트는 `YokaiFront.Editor`, 테스트는 `YokaiFront.Tests.PlayMode`.
+- `FieldBounds` 같은 기존 클래스는 다음 리팩터링 때 네임스페이스를 붙인다(지금 당장 깨는 변경은 하지 않음).
+
+### Assembly Definition 경계
+- 폴더 구조에 맞춰 asmdef도 도메인별로 나눈다: `YokaiFront.Core`(FieldBounds 등 여러 도메인이 같이 쓰는 것), `YokaiFront.Combat`, `YokaiFront.Characters`, `YokaiFront.Enemies`, `YokaiFront.Systems`.
+- 참조 방향은 위→아래만: 각 도메인 asmdef는 `Core`만 참조 가능, 형제 도메인끼리는 직접 참조 금지(예: `Enemies`가 `Characters`를 직접 참조하지 않는다 — 공유가 필요하면 인터페이스를 `Core`에 둔다).
+
+### 데이터(밸런스 값) — ScriptableObject로
+- 무기·몬스터 스탯 같은 튜닝 수치는 스크립트에 하드코딩하지 않고 ScriptableObject 데이터 에셋으로 관리한다(원본의 `CONFIG`/`WEAPONS`/`MONSTERS` 데이터 테이블 구조를 그대로 반영하는 것 — 원본 자체가 이미 데이터 우선 설계였다).
+- 예: `WeaponData`(쿨다운·데미지·차지 배율), `MonsterData`(체력·공격력·이동속도). 스크립트는 데이터를 읽기만 하고 로직만 담당.
+- 데이터 에셋 위치: `Assets/Data/Weapons/`, `Assets/Data/Monsters/`.
+- 지금(`MageAttack`이 무기 1종)은 필드 하드코딩 그대로 두되, **무기나 몹 종류가 2번째로 늘어나는 시점에는 반드시 SO로 전환**하고 그 전에 새로 안 만든다.
+
+### 입력 처리
+- 원본 `KEYMAP`처럼, 모든 키 입력은 `GameInput`이라는 중앙 정적 클래스를 통해서만 읽는다(`GameInput.Jump`, `GameInput.Attack`, `GameInput.Left` 등 named 프로퍼티). 스크립트에서 `Input.GetKey(KeyCode.X)`를 직접 호출하지 않는다.
+- 새 액션(스킬키 등)이 추가될 때 이 클래스 하나만 고치면 되게.
+
+### 데미지/피격 인터페이스
+- 피격 가능한 대상(플레이어·몬스터)은 `IDamageable`(`TakeDamage(float amount, GameObject source)`)을 구현한다.
+- 공격 스크립트는 `Destroy()`를 직접 부르지 않고 `IDamageable.TakeDamage()`를 호출한다. v0(Health 시스템 없음)에서는 구현체가 그냥 `Destroy(gameObject)`만 해도 됨 — Health가 생기면 그 구현체 하나만 바꾸면 됨.
+
+### 물리 레이어 배정표 (새 레이어 필요하면 여기 먼저 적고 번호 예약)
+| 번호 | 이름 | 용도 |
+|---|---|---|
+| 8 | Ground | 바닥·발판(접지 판정) |
+
+두 세션이 같은 번호를 다른 용도로 잡는 사고를 막기 위한 표다(TagManager.asset에서 실제로 겪음).
+
+### 테스트
+- `Rigidbody2D`/`Collider2D`가 얽힌 로직(이동·공격 판정·발판 등)은 PlayMode 테스트 필수.
+- 순수 계산/데이터 클래스는 EditMode 테스트로 충분하거나 생략 가능.
+
+### 문서 구조
+- `HANDOFF.md`는 스프린트가 늘어나면 `docs/sprints/01-combat-core.md`처럼 스프린트별 파일로 분리한다(다음 스프린트 시작 시점에 실행 — 지금 당장 옮기지 않음, 진행 중인 작업의 파일 경로를 바꾸지 않기 위해).
+- 원본과의 의도적 편차는 항상 `> **의도적 편차 —`로 시작하는 콜아웃으로 통일해서 문서 전체에서 grep 가능하게 남긴다.
+
+### 에셋 임포트
+- 모든 스프라이트는 `pixelsPerUnit = 100`으로 임포트한다 — 월드 스케일 규칙(100px=1유닛)과 항상 일치시키기 위해서다. 안 맞으면 시각적 크기와 물리 콜라이더 크기가 어긋난다.
 
 ## 지금 프로젝트 상태
 

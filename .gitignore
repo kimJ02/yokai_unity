@@ -44,8 +44,10 @@ sysinfo.txt
 crashlytics-build.properties
 
 # ===== 배치모드 실행 시 생기는 임시 로그/결과 파일 (재현 가능, 커밋 금지) =====
+# 검증용 스크립트/명령은 항상 이 패턴에 맞는 파일명(.log, *_results*.xml)을 쓸 것 —
+# .txt로 잘못 저장하면 여기 안 걸려서 수동으로 지워야 한다(2026-08-25에 실제로 그랬음).
 *.log
-*_results.xml
+*_results*.xml
 
 # ===== Addressables 빌드 캐시 =====
 /[Aa]ssets/[Aa]ddressableAssetsData/*/*.bin*
