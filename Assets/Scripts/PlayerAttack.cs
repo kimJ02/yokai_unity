@@ -1,0 +1,82 @@
+using UnityEngine;
+
+/// <summary>
+/// 공격 버튼 1개. HANDOFF.md 3번 스펙: 반경 R 안의 Enemy 태그 오브젝트에게 즉시 피해.
+/// v0에서는 Health 컴포넌트 없이 맞으면 즉시 Destroy — Part B(몬스터)와 서로 안 기다리기 위한
+/// 의도적 단순화다(PROGRESS.md 인터페이스 계약 참고). Health를 나중에 도입해도
+/// 이 스크립트가 바뀌는 범위는 TakeDamage 호출 한 줄뿐이도록 만들어뒀다.
+/// </summary>
+public class PlayerAttack : MonoBehaviour
+{
+    public float range = 1.5f;
+    public float cooldown = 0.4f;
+    public LayerMask enemyMask = ~0; // 기본값: 전체 레이어. Enemy 전용 레이어를 쓰기 전까지는 태그로 한 번 더 거른다.
+
+    // 공격이 눈에 보이게 하는 최소한의 표시. HANDOFF.md는 "연출 없음"이었지만,
+    // 아예 아무 표시가 없으면 Z를 눌렀을 때 뭐가 됐는지 알 길이 없어서(사용자 피드백) 추가.
+    // 정식 이펙트가 아니라 판정 반경을 잠깐 보여주는 링 하나뿐이다.
+    public float flashDuration = 0.12f;
+    LineRenderer flashRing;
+    float flashTimer;
+
+    float cdTimer;
+
+    void Awake()
+    {
+        flashRing = gameObject.AddComponent<LineRenderer>();
+        flashRing.useWorldSpace = false;
+        flashRing.loop = true;
+        flashRing.widthMultiplier = 0.05f;
+        flashRing.material = new Material(Shader.Find("Sprites/Default"));
+        flashRing.startColor = flashRing.endColor = new Color(1f, 0.25f, 0.2f, 0.9f);
+        flashRing.sortingOrder = 5;
+
+        const int seg = 24;
+        flashRing.positionCount = seg;
+        for (int i = 0; i < seg; i++)
+        {
+            float a = i / (float)seg * Mathf.PI * 2f;
+            flashRing.SetPosition(i, new Vector3(Mathf.Cos(a) * range, Mathf.Sin(a) * range, 0f));
+        }
+        flashRing.enabled = false;
+    }
+
+    void Update()
+    {
+        if (flashTimer > 0f)
+        {
+            flashTimer -= Time.deltaTime;
+            if (flashTimer <= 0f) flashRing.enabled = false;
+        }
+
+        cdTimer -= Time.deltaTime;
+        if (cdTimer > 0f) return;
+
+        // 원본(project_test.html) KEYMAP: KeyZ = 기본 공격
+        if (Input.GetKeyDown(KeyCode.Z))
+        {
+            Attack();
+            cdTimer = cooldown;
+        }
+    }
+
+    void Attack()
+    {
+        flashRing.enabled = true;
+        flashTimer = flashDuration;
+
+        Collider2D[] hits = Physics2D.OverlapCircleAll(transform.position, range, enemyMask);
+        foreach (var col in hits)
+        {
+            if (!col.CompareTag("Enemy")) continue;
+            Destroy(col.gameObject);
+        }
+    }
+
+    // 씬 뷰에서 판정 반경을 눈으로 확인하기 위한 디버그용 표시. 게임 화면(빌드)엔 안 나온다.
+    void OnDrawGizmosSelected()
+    {
+        Gizmos.color = Color.red;
+        Gizmos.DrawWireSphere(transform.position, range);
+    }
+}

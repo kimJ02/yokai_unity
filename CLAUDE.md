@@ -28,5 +28,6 @@ Unity 씬(`.unity`)·프리팹(`.prefab`) 파일은 내부적으로 GUID/fileID�
 
 ## 지금 프로젝트 상태
 
-- Unity: 2D (URP) 템플릿, 아직 게임플레이 코드 없음
-- 진행 단계: 1단계 전투 코어 프로토타입 (HANDOFF.md 참조)
+- Unity: 2D (URP) 템플릿
+- 진행 단계: 1단계 전투 코어 프로토타입 (HANDOFF.md 참조) — Part A(필드/카메라/플레이어/공격) 완료·병합됨, Part B(몬스터/스폰) 진행 중. 자세한 건 `PROGRESS.md` 참조.
+- 게임 로직 검증은 항상 PlayMode 테스트로 한다(`Assets/Tests/PlayMode/`). Edit Mode 배치 실행에서 Physics2D 쿼리를 신뢰하지 말 것 — 이유는 `PROGRESS.md` 로그 참고.

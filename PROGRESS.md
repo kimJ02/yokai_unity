@@ -5,59 +5,84 @@
 ## 지금 상태
 
 **1단계 — 전투 코어 프로토타입 (HANDOFF.md 참조).**
-Part B(몬스터 & 스폰, `feature/monster-combat`) 스크립트+프리팹 작성 완료, 임시 GameObject(`MonsterSpawner` + `Monster` 프리팹)로 웨이브 스폰 확인 완료. 아직 커밋 전. Part A(플레이어 & 필드, `feature/player-field`)는 별도 세션이 진행 중.
+Part A(필드+카메라+플레이어+공격) `main`에 병합 완료, 이후 물리엔진/발판/마법사 공격으로 확장 완료(PlayMode 테스트 7/7 통과). `Assets/Scenes/CombatCore.unity`가 실제 메인 씬.
+Part B(몬스터+스폰)는 스크립트(`MonsterSpawner.cs`/`MonsterMove.cs`)와 `Assets/Prefabs/Monster.prefab` 작성 완료, 임시 GameObject로 로컬 웨이브 스폰 테스트도 통과. 지금은 `feature/monster-combat`에서 `main`을 병합해 들어오는 중 — 충돌 5건 해결 + `FieldBounds` 신규 API 대응 + 스케일/이동축 버그 수정 진행.
 
 ## 오늘의 분업 (2026-08-25) — 구현 + 병합까지 오늘 안에
 
 1단계(HANDOFF.md) 4개 항목을 두 세션이 절반씩 맡는다. **씬 파일 동시 편집을 피하려고, "플레이어 쪽"과 "몬스터 쪽"으로 나눴다** — 서로 새 파일만 만들면 되고 겹치는 파일이 최소화되도록 설계.
 
-### Part A — 플레이어 & 필드 (다른 세션이 진행 중)
-- 브랜치: `feature/player-field`
-- 범위: HANDOFF.md 1번(필드 경계+카메라) + 2번(캐릭터 컨트롤러 임포트, 원형 스프라이트+아군색) + 3번의 공격 판정(버튼 입력 → 반경 안 `Enemy` 태그 오브젝트 `Destroy()`)
-- 만드는 파일(예정): `Assets/Scripts/FieldBounds.cs`, `Assets/Scripts/PlayerAttack.cs`, 메인 씬에 Field·Camera·Player 오브젝트
+### Part A — 플레이어 & 필드 ✅ 완료, `main` 병합됨
+- 브랜치: `feature/player-field` (병합 완료, 이제 새로 안 건드림)
+- 범위: HANDOFF.md 1번(필드 경계+카메라, 이후 실제 Physics2D+발판 15개로 확장) + 2번(캐릭터 컨트롤러, 원형 스프라이트+아군색) + 3번(공격 판정, 이후 마법사 차지샷으로 구체화)
+- 만든 파일: 아래 "로그" 참고
 
-### Part B — 몬스터 & 스폰 (이 세션이 진행 중)
+### Part B — 몬스터 & 스폰 (병합 마무리 단계)
 - 브랜치: `feature/monster-combat`
-- 범위: HANDOFF.md 2번(몬스터 스폰 알고리즘) — 몬스터는 원형+적군색 프리팹으로, 스폰 로직 + 몬스터의 단순 이동(플레이어 쪽으로 직선 이동)
-- 만든 파일: `Assets/Scripts/MonsterSpawner.cs`, `Assets/Scripts/MonsterMove.cs`, `Assets/Prefabs/Monster.prefab` (전부 완료 + 임시 GameObject로 웨이브 스폰 확인됨)
-- **씬은 건드리지 말 것** — 스포너도 프리팹 안에서든, 임시 테스트 씬에서든 독립적으로 만들어서 검증하고, 메인 씬에 스포너 오브젝트 하나 추가하는 건 Part A 병합 후 마지막에. (검증용으로 만든 임시 `MonsterSpawner` GameObject는 커밋 전에 Hierarchy에서 지울 것 — 씬에 남기지 않는다.)
+- 범위: HANDOFF.md 2번(몬스터 스폰 알고리즘) — 몬스터는 원형+적군색 프리팹으로, 스폰 로직 + 몬스터의 단순 이동
+- 완료: `Assets/Scripts/MonsterSpawner.cs`, `Assets/Scripts/MonsterMove.cs`, `Assets/Prefabs/Monster.prefab` 작성 + 임시 GameObject로 로컬 웨이브 스폰 테스트 통과
+- 지금: `main` 병합 충돌 5건 해결(아래 로그 참고) + `FieldBounds`가 `Vector2 Min/Max`(top-down)에서 `MinX/MaxX/GroundY`(횡스크롤 플랫포머)로 바뀐 데 맞춰 `MonsterSpawner`/`MonsterMove` 코드 수정 + 몬스터 이동속도가 원본 px/s 값(76)을 축척(÷100) 없이 그대로 썼던 버그 수정(→0.76)
+- 남은 것: 메인 씬(`CombatCore.unity`)에 스포너 오브젝트 하나 추가 → 로컬 재검증(가능하면 PlayMode 테스트) → 커밋 → push → `main` 병합 → 최종 플레이 테스트
 
 ### 둘을 잇는 인터페이스 계약 (임의로 바꾸지 말 것)
-- 플레이어 오브젝트 Tag = `"Player"`
-- 몬스터 프리팹 Tag = `"Enemy"` (`ProjectSettings/TagManager.asset`에 추가 완료)
-- 필드 경계: `Assets/Scripts/FieldBounds.cs`에 `public static class FieldBounds { public static Vector2 Min, Max; }` — Part B는 스폰 위치를 이 범위 안에서 뽑는다. Part A가 먼저 만들어 푸시하면 그걸 그대로 가져다 쓸 것.
-- 전투는 v0 기준 **몬스터 체력 개념 없이, 맞으면 즉시 `Destroy()`** (HANDOFF.md 3번 참고). `Health` 컴포넌트는 이번 판엔 안 만든다 — 두 파트가 서로 안 기다리게 하려는 의도적 단순화.
+- 플레이어 오브젝트 Tag = `"Player"` (씬에 이미 있음, Unity 기본 제공 태그라 TagManager에 별도 등록 불필요)
+- 몬스터 프리팹 Tag = `"Enemy"` (TagManager에 등록 완료)
+- **필드 경계(2026-08-25 개정): `FieldBounds.MinX=0, MaxX=26`, 횡스크롤 플랫포머로 구조 자체가 바뀜.** 원본 mapW(2600px) 그대로 100px=1유닛 축척. `FieldBounds.RandomX()` 헬퍼로 새 범위가 자동 반영되니 그대로 쓸 것.
+- **Y축은 고정 바닥 하나가 아니라 실제 Physics2D**(원본 발판 15개, `Ground` 물리 레이어)다. 몬스터는 HANDOFF.md 2번 스펙대로 `GroundY`에서만 X로 오간다(발판을 오르내리는 AI는 범위 밖).
+- 전투는 v0 기준 **몬스터 체력 개념 없이 즉시 `Destroy()`** — 근접형 `PlayerAttack`과 마법사 차지샷(`MageProjectile`) 둘 다 동일 정책(HANDOFF.md 3번 참고). `Health` 컴포넌트는 이번 판엔 안 만든다.
+- **검증은 가능하면 PlayMode 테스트로.** Part A에서 Edit Mode 배치 실행으로는 `Physics2D`/지연 `Destroy()`가 못 미덥다는 걸 실제로 확인함(아래 로그 참고) — Part B도 여유가 되면 `Assets/Tests/PlayMode/`에 스폰/이동 테스트를 추가하는 걸 권장(필수는 아님, 지금은 수동 Play 테스트로 대체).
 
 ### 병합 순서
-1. Part A 먼저 `main`에 병합 (씬 뼈대 확정 — Field/Camera/Player가 있어야 Part B가 마지막에 스포너를 얹을 자리가 생김)
-2. Part B는 `main` 병합 후 최신 상태를 받아(`git pull origin main`) 자기 브랜치에 반영, 그 다음 **메인 씬에 스포너 오브젝트 하나만 추가**하는 작은 커밋으로 마무리 후 병합
+1. ~~Part A 먼저 `main`에 병합~~ ✅ 완료 (커밋 `17b081e`)
+2. Part B는 `main`을 받아(`git merge origin/main`) 자기 브랜치에 반영 — ✅ 충돌 해결 + 코드 수정 진행 중, 그 다음 **메인 씬에 스포너 오브젝트 하나만 추가**하는 작은 커밋으로 마무리 후 병합
 3. 병합 후 플레이 테스트: 필드 안에 몬스터가 스폰되고, 공격 버튼으로 죽는지 확인
 
 ## 다음 할 일
 
 **→ Part B 남은 작업:**
-1. 검증용 임시 `MonsterSpawner` GameObject를 씬에서 지운 뒤(위 "씬은 건드리지 말 것" 참고) `git add` + `git commit`으로 이 브랜치 작업 저장
-2. Part A가 `main`에 병합될 때까지 대기
-3. Part A 병합 후 `git pull origin main` 받고, 이 브랜치의 임시 `FieldBounds.cs` 스텁을 Part A 버전으로 교체(충돌 예상), `TagManager.asset`도 Part A가 `Player` 태그를 따로 추가했다면 합치기(작은 충돌 예상)
-4. 그 다음 메인 씬에 스포너 오브젝트 하나 추가하는 작은 커밋으로 마무리 후 병합
-5. 병합된 `main`에서 최종 플레이 테스트 (필드+몬스터 스폰+공격 판정 전부 붙여서 확인)
+1. (이번 커밋에 포함) 병합 충돌 5건 해결 + `MonsterSpawner.cs`/`MonsterMove.cs`를 새 `FieldBounds` API에 맞춰 수정 + `Monster.prefab`의 `moveSpeed` 스케일 버그 수정
+2. Unity에서 병합 커밋(`Commit merge`) 완료 후, 프로젝트 재오픈해서 컴파일 에러 없는지 확인
+3. `CombatCore.unity`를 열어 빈 GameObject에 `MonsterSpawner` 붙이고 `Monster.prefab` 연결해서 Play로 재검증(플레이어와 함께 있는 상태에서 웨이브 스폰 + 몬스터가 X축으로만 쫓아오는지 + 공격에 맞아 죽는지까지 전부 확인 — 이전엔 Player가 없어서 이동은 확인 못 했었음)
+4. 확인되면 스포너 오브젝트를 씬에 정식으로 남기고 커밋
+5. `git push` → `feature/monster-combat`을 `main`으로 병합
+6. 병합된 `main`에서 최종 플레이 테스트 (필드+몬스터 스폰+공격 판정 전부 붙여서 확인)
 
 ## 체크리스트 (HANDOFF.md 개발 순서)
 
-- [ ] 필드 경계 + 고정 카메라 (Part A)
-- [ ] 캐릭터 컨트롤러 임포트 → 원형 스프라이트 + 색 적용 (Part A)
-- [x] 몬스터 스폰 로직 (HANDOFF.md 2번) — 코드 작성 + 프리팹 제작 + 임시 GameObject로 웨이브 스폰 확인 완료
-- [ ] 공격 판정 (HANDOFF.md 3번) (Part A)
-- [ ] 위 4개 다 붙어서 핵심 루프 한 번 플레이 가능
+- [x] 필드 경계 + 카메라 (처음엔 고정이었으나 발판 추가로 X축 스크롤로 개정, 아래 로그 참고)
+- [x] 캐릭터 컨트롤러 임포트 → 원형 스프라이트 + 색 적용 (에셋스토어 패키지 대신 자체 구현, 아래 로그 참고)
+- [x] 실제 Physics2D 중력/충돌 + 원본 발판 15개 (범위 확장, 아래 로그 참고)
+- [ ] 몬스터 스폰 로직 (HANDOFF.md 2번) — 코드+프리팹 완료, 로컬 단독 테스트 통과. `main` 병합 및 씬 통합 진행 중, 병합 후 플레이어와 함께 최종 확인 필요
+- [x] 공격 판정 — 마법사 차지샷으로 구체화(HANDOFF.md 3번)
+- [ ] 위 항목 다 붙어서 핵심 루프 한 번 플레이 가능 (Part B 병합 후)
 
 ## 확인 필요 / 막힌 것
 
-- **`FieldBounds.cs` 임시 스텁 추가함** — Part B 단독 컴파일/테스트를 위해 계약대로(`Vector2 Min, Max`) 최소 버전을 이 브랜치에 넣었다(값은 임시: Min(-8,-4.5)/Max(8,4.5)). Part A가 `main`에 병합된 뒤 `git pull` 받으면 이 파일에서 충돌 날 것 — 그때 Part A 버전으로 덮어쓰면 됨. Part A 세션도 이 점 인지해두면 좋음.
-- **`TagManager.asset`에 `Enemy` 태그만 추가함** — Part A가 `Player` 태그를 독립적으로 추가한다면 병합 시 같은 파일에서 작은 충돌이 날 수 있음(리스트 두 줄 합치기 수준이라 위험하지 않음).
-- **몬스터의 "접촉 시 공격"은 실제 데미지 미구현** — HANDOFF.md 2번엔 "접촉 시 공격"이라고만 나와 있고, 플레이어 Health(체력) 시스템 자체가 이번 스프린트 범위 밖(HANDOFF.md "범위 밖" 목록)이라 `MonsterMove.TryAttack()`에 자리만 만들어두고 실제 데미지 적용은 비워뒀다. 이후 스프린트에서 플레이어 Health가 생기면 연결. 지금 범위에서 이대로 둬도 되는지 확인 필요.
+- **캐릭터 컨트롤러**: HANDOFF.md는 "이미 구현된 컨트롤러 재사용"을 전제했지만, 배치 자동화 환경(Unity Editor GUI 없이 명령줄로만 작업)에서는 에셋스토어 패키지를 인증 없이 받아올 수 없었다. 대신 `CharacterMover2D.cs`를 최소 구현으로 직접 짬. 나중에 실제 컨트롤러 에셋을 쓰기로 하면 이 파일 하나만 교체하면 되도록 다른 스크립트와 결합을 안 시켜뒀다. 문제 되면 여기 갱신할 것.
+- **몬스터의 "접촉 시 공격"은 실제 데미지 미구현** — HANDOFF.md 2번엔 "접촉 시 공격"이라고만 나와 있고, 플레이어 Health(체력) 시스템 자체가 이번 스프린트 범위 밖이라 `MonsterMove.TryAttack()`에 자리만 만들어두고 실제 데미지 적용은 비워뒀다. 이후 스프린트에서 플레이어 Health가 생기면 연결.
+- **Part B 스폰/이동 로직에 PlayMode 테스트 없음** — Part A 권고(위 인터페이스 계약 참고)대로 `Assets/Tests/PlayMode/`에 추가하면 좋음. 지금은 시간 관계상 수동 Play 테스트로 대체. 병합 후 여유 있으면 추가.
+- **몬스터 스프라이트는 Unity 기본 내장 Circle을 그대로 씀** (`Assets/Sprites/Circle.png`로 통일하진 않음) — HANDOFF.md 4번 스펙("유니티 기본 Circle 스프라이트로 충분")은 만족하지만, 플레이어 쪽과 완전히 같은 텍스처 에셋으로 맞추고 싶으면 나중에 `Circle.png`로 교체 가능. 기능상 문제는 없음.
 
 ## 로그 (최신이 위)
 
+- **2026-08-25** — **Part B: `main` 병합 + 신규 `FieldBounds` API 대응.** `git merge origin/main`에서 충돌 5건 발생, 다음과 같이 해결:
+  - `Assets/Scripts.meta`, `Assets/Scripts/FieldBounds.cs.meta` — GUID 충돌, `main` 쪽 GUID로 통일
+  - `Assets/Scripts/FieldBounds.cs` — Part B가 넣어둔 임시 스텁을 버리고 `main`(Part A) 버전으로 완전 교체
+  - `ProjectSettings/TagManager.asset` — `Enemy` 태그·`Ground` 레이어는 자동으로 잘 합쳐졌고, `serializedVersion: 2` vs `3` 한 줄만 `3`(main)으로
+  - `PROGRESS.md` — 이 파일. 양쪽 로그 다 보존해서 병합
+  - 충돌 해결만으론 컴파일이 안 돼서 추가로 고침: `MonsterSpawner.TryGetSpawnPosition()`이 옛 `FieldBounds.Min/Max`(Vector2) API를 쓰고 있었는데, 새 `FieldBounds`엔 그 필드가 없어져서 `FieldBounds.RandomX()`/`FieldBounds.GroundY`를 쓰도록 수정
+  - 인터페이스 계약 위반도 같이 수정: `MonsterMove`의 추적 로직이 X·Y 둘 다 플레이어를 쫓아가고 있어서, 플레이어가 발판 위에 있으면 몬스터가 공중으로 떠오르는 문제가 있었음 — X축만 이동하고 Y는 `FieldBounds.GroundY`에 고정하도록 수정
+  - 병합 중 추가로 발견한 버그: `Monster.prefab`/`MonsterMove.cs`의 `moveSpeed`가 원본 오니 스탯(76, px/s 스케일)을 캐릭터 이동속도와 같은 규칙(100px=1유닛, ÷100)으로 축척하지 않고 그대로 쓰고 있었음 — 26유닛 필드를 0.34초에 주파하는 셈이라 명백한 버그. `0.76`로 수정.
+- **2026-08-25** — **물리엔진 실물 전환 + 원본 발판 15개 + 마법사(bow) 차지샷 구현.** 사용자 피드백("왜 이렇게 퀄리티가 낮지? 물리엔진이랑 마법사 캐릭터 기본공격을 구현해줘봐 그리고 플랫폼도 구현해줘")으로 이번 스프린트 범위를 확장(HANDOFF.md 1·3번 개정, 위 표 참고).
+  - `CharacterMover2D`: 손으로 적분하던 중력(vy 변수)을 없애고 `Rigidbody2D`(실제 gravityScale) + `Physics2D.OverlapCircle` 접지 판정으로 교체. 전역 중력은 `Physics2D.gravity=(0,-26)`(원본 2600px/s² 축척).
+  - `Ground` 물리 레이어 신설(`BuildPartAScene.EnsureGroundLayer`가 TagManager.asset에 직접 등록) — 바닥·발판만 여기 소속, 접지 판정이 플레이어/적/투사체를 오탐하지 않게.
+  - 원본 `NORMAL_PLATFORMS`(15개, 4개 층) 좌표를 100px=1유닛로 환산해 실물 `BoxCollider2D` 발판으로 배치. **원웨이(아래서 통과) 로직은 이번엔 뺌** — 막힌 콜라이더로 단순화(위 HANDOFF.md 표 아래 단순화 항목 참고).
+  - 필드 폭을 원본 그대로(`FieldBounds.MinX/MaxX` = 0/26, mapW 2600px)로 넓히고, 카메라를 고정 → X축 스크롤(`CameraFollow2D`, 플레이어를 따라가되 필드 경계에서 clamp)로 바꿈 — 넓어진 필드를 고정 카메라로 다 담으면 캐릭터가 너무 작아져서.
+  - `MageAttack`/`MageProjectile` 신설: 원본 `bowFire()`/`CONFIG.bow` 차지 공식(데미지·관통·탄속 전부 차지율에 비례) 그대로 이식, ↑/↓로 상하 조준까지 지원. 근접형 `PlayerAttack`을 씬에서 빼고 이걸로 교체(코드는 남겨둠, 재사용 대비).
+  - PlayMode 테스트 3건 추가(`PhysicsAndMageTests.cs`: 발판 착지, 풀차지/무차지 탄속·관통 비교, pierce 정확히 base+1타에서 멈추는지) + 기존 점프 테스트를 새 Rigidbody2D 기반 구현에 맞게 재작성. **7/7 전체 통과.**
+- **2026-08-25** — **버그 수정: 조작키가 원본과 다름 + 필드 구조 자체가 잘못됨.** 사용자 피드백으로 발견. 원본 `KEYMAP`은 ArrowLeft/Right(좌우) · KeyC/Space(점프) · KeyZ(공격)인데 임의로 WASD+Space/좌클릭으로 구현했었다. 더 근본적으로, "점프"가 있다는 것 자체가 원본이 횡스크롤 플랫포머(X=좌우, Y=고정바닥+점프 중력)라는 뜻인데 `FieldBounds`를 top-down 자유이동 사각형(Vector2 Min/Max)으로 잘못 설계했었다 — HANDOFF.md의 "평면 아레나(점프 없음)" 결정 자체가 안일했음. `FieldBounds`를 `MinX/MaxX/GroundY`로, `CharacterMover2D`에 실제 점프 물리(원본 상수를 100px=1유닛로 축척: moveSpeed 2.7, jumpSpeed 9.6, gravity 26) 추가, `PlayerAttack` 트리거를 Z 단독으로 수정. PlayMode 테스트도 점프 물리(실제 컴포넌트를 FixedUpdate로 직접 구동, private 필드는 리플렉션으로 점프 시작 상태만 주입)까지 추가해 재검증 — 통과. `HANDOFF.md` 1·3번 항목도 같이 수정.
+- **2026-08-25** — **Part A 완료, `main` 병합.** `FieldBounds.cs`(경계+clamp), `CharacterMover2D.cs`(이동), `PlayerAttack.cs`(공격 1개, Space/좌클릭)을 만들고, `Assets/Editor/BuildPartAScene.cs`(배치 실행용 씬 조립 스크립트)로 `CombatCore.unity`(Field/Camera/Player) 생성. 절차적 원형 스프라이트(`Circle.png`) 생성. TagManager에 `Enemy` 태그 등록.
+  - **검증 과정에서 실제 이슈 하나 발견**: 처음엔 Edit Mode에서 `-executeMethod`로 물리 쿼리(`Physics2D.OverlapCircleAll`)를 직접 돌려 확인하려 했는데, 사거리 안의 Enemy가 안 죽는 것으로 나왔다(오탐). 원인은 Edit Mode에서는 Physics2D 월드가 제대로 안 돌고 `Destroy()`도 다음 프레임에 반영이 안 돼서였다 — 실제 `PlayerAttack` 로직 버그가 아니었다. `Assets/Tests/PlayMode/`에 PlayMode 테스트 2건(`PlayerAttackTests.cs`)을 만들어 `-runTests -testPlatform PlayMode`로 재검증 → 2/2 통과. **Edit Mode 배치 실행은 "씬/에셋이 예상대로 만들어졌는지" 구조 확인용으로만 쓰고, 실제 게임 로직(물리·충돌·Destroy) 검증은 항상 PlayMode 테스트로 할 것** — Part B도 동일하게 적용.
 - **2026-08-25** — `Assets/Prefabs/Monster.prefab` 에디터에서 제작(SpriteRenderer+CircleCollider2D+`MonsterMove`, Tag=`Enemy`), `ProjectSettings/TagManager.asset`에 `Enemy` 태그 추가. 임시 GameObject에 `MonsterSpawner` 올리고 프리팹 연결해서 Play 테스트 — 웨이브 스폰 정상 동작 확인. 커밋 전.
 - **2026-08-25** — Part B(몬스터&스폰) 착수. `Assets/Scripts/MonsterSpawner.cs`(웨이브 스폰: 3.6초 간격, 웨이브당 최대 7마리, 전체 상한 22, 최소 간격 유지 랜덤 배치·10회 재시도), `Assets/Scripts/MonsterMove.cs`(가장 가까운 Player 태그로 직선 이동 + 접촉 시 정지, 실제 데미지는 미구현) 작성. 브랜치 단독 컴파일용 `Assets/Scripts/FieldBounds.cs` 임시 스텁 추가(Part A 병합 시 교체 예정). `Monster.prefab`은 에디터 작업으로 남김.
 - **2026-08-25** — 레포 세팅 완료. `HANDOFF.md`(스펙), `CLAUDE.md`(작업 규칙), `reference/project_test.html`(원본 참고) 커밋. 코드 작업은 아직 시작 전.
