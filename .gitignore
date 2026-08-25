@@ -43,6 +43,10 @@ sysinfo.txt
 *.app
 crashlytics-build.properties
 
+# ===== 배치모드 실행 시 생기는 임시 로그/결과 파일 (재현 가능, 커밋 금지) =====
+*.log
+*_results.xml
+
 # ===== Addressables 빌드 캐시 =====
 /[Aa]ssets/[Aa]ddressableAssetsData/*/*.bin*
 /[Aa]ssets/[Ss]treamingAssets/aa.meta
