@@ -49,6 +49,7 @@ public static class BuildPartAScene
         BuildPlatforms();
         var player = BuildPlayer();
         BuildCamera(player.transform);
+        BuildMonsterSpawner();
 
         Directory.CreateDirectory("Assets/Scenes");
         bool ok = EditorSceneManager.SaveScene(scene, "Assets/Scenes/CombatCore.unity");
@@ -210,6 +211,26 @@ public static class BuildPartAScene
         mage.boltSprite = circleSprite; // 런타임 AssetDatabase 호출(빌드에서 못 씀) 없이 미리 꽂아줌
 
         return go;
+    }
+
+    const string MonsterPrefabPath = "Assets/Prefabs/Monster.prefab";
+
+    /// <summary>
+    /// Part B(HANDOFF.md 2번) 웨이브 스포너를 씬에 등록. 프리팹은 Part B가 만든
+    /// Assets/Prefabs/Monster.prefab을 그대로 참조한다 — 여기서 새로 만들지 않는다.
+    /// </summary>
+    static void BuildMonsterSpawner()
+    {
+        var monsterPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(MonsterPrefabPath);
+        if (monsterPrefab == null)
+        {
+            Debug.LogWarning($"[BuildPartAScene] {MonsterPrefabPath}를 못 찾아 MonsterSpawner를 건너뜀.");
+            return;
+        }
+
+        var go = new GameObject("MonsterSpawner");
+        var spawner = go.AddComponent<MonsterSpawner>();
+        spawner.monsterPrefab = monsterPrefab;
     }
 
     /// <summary>

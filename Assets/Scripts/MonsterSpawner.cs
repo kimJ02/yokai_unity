@@ -10,10 +10,8 @@ using UnityEngine;
 ///     각 마리마다 필드 안에서 무작위 위치를 뽑고, 기존 몹과 너무 가까우면(minSpacing 미달)
 ///     다시 뽑는다 — 최대 maxPlacementRetries(10)회. 그래도 실패하면 이번 마리는 스킵.
 ///
-/// 필드 경계는 FieldBounds.Min / FieldBounds.Max를 그대로 소비한다.
-/// FieldBounds는 Part A(feature/player-field)가 소유하는 계약 파일이다 — 이 브랜치에는
-/// 독립적으로 컴파일/검증하기 위한 임시 최소 버전만 같이 넣어뒀다(FieldBounds.cs 상단 주석 참고).
-/// main 병합 시 Part A 버전으로 교체될 예정.
+/// 필드는 횡스크롤 플랫포머라 X만 자유롭고 Y는 고정 바닥이다 — 몹은 발판을 오르내리지 않으므로
+/// (PROGRESS.md 인터페이스 계약) 스폰 위치는 FieldBounds.RandomX()로 X만 뽑고 Y는 GroundY로 고정한다.
 /// </summary>
 public class MonsterSpawner : MonoBehaviour
 {
@@ -72,9 +70,7 @@ public class MonsterSpawner : MonoBehaviour
     {
         for (int attempt = 0; attempt < maxPlacementRetries; attempt++)
         {
-            Vector2 candidate = new Vector2(
-                Random.Range(FieldBounds.Min.x, FieldBounds.Max.x),
-                Random.Range(FieldBounds.Min.y, FieldBounds.Max.y));
+            Vector2 candidate = new Vector2(FieldBounds.RandomX(), FieldBounds.GroundY);
 
             if (IsFarEnoughFromExisting(candidate))
             {

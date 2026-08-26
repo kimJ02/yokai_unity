@@ -11,8 +11,8 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public class MonsterMove : MonoBehaviour
 {
-    [Header("스탯 (HANDOFF.md 2번 - 오니 기준 시작값)")]
-    public float moveSpeed = 76f;
+    [Header("스탯 (HANDOFF.md 2번 - 오니 기준 시작값, 원본 76px/s를 100px=1유닛로 축척)")]
+    public float moveSpeed = 0.76f;
     public float attackPower = 13f;
 
     [Header("접촉 판정")]
@@ -33,13 +33,15 @@ public class MonsterMove : MonoBehaviour
             if (target == null) return;
         }
 
-        Vector2 toTarget = (Vector2)target.position - (Vector2)transform.position;
-        float distance = toTarget.magnitude;
+        // 필드는 횡스크롤이라 몹도 GroundY에서 X로만 오간다(PROGRESS.md 인터페이스 계약) —
+        // Y까지 플레이어를 쫓아가면 플레이어가 발판 위에 있을 때 몹이 공중으로 떠오른다.
+        float toTargetX = target.position.x - transform.position.x;
+        float distance = Mathf.Abs(toTargetX);
 
         if (distance > contactDistance)
         {
-            Vector2 dir = toTarget.normalized;
-            transform.position += (Vector3)(dir * moveSpeed * Time.deltaTime);
+            float dirX = Mathf.Sign(toTargetX);
+            transform.position += new Vector3(dirX * moveSpeed * Time.deltaTime, 0f, 0f);
         }
         else
         {
