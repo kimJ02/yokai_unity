@@ -48,6 +48,10 @@ public class MageProjectile : MonoBehaviour
     void OnTriggerEnter2D(Collider2D other)
     {
         if (!other.CompareTag("Enemy")) return;
+        // 원본은 `if (e.spawnInvuln > 0) continue`로 스폰 직후 무적 대상을 hitSet에 아예 안 넣는다
+        // — pierce도 안 깎이고, 무적이 풀린 뒤 다시 판정에 걸릴 수 있다. 그대로 이식.
+        var mover = other.GetComponent<MonsterMove>();
+        if (mover != null && mover.IsSpawnProtected) return;
         if (!alreadyHit.Add(other)) return;
 
         Destroy(other.gameObject); // v0: 체력 시스템 없음(PlayerAttack과 동일한 단순화)

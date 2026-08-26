@@ -16,25 +16,8 @@ public static class BuildPartAScene
 {
     const string SpritePath = "Assets/Sprites/Circle.png";
     const string GroundLayer = "Ground";
-
-    // 원본(project_test.html) NORMAL_PLATFORMS의 X 배치(centerX/width)는 그대로 옮김. pl.x는
-    // 원본에서 "왼쪽 끝" 좌표였음이 충돌판정 코드(`p.x > pl.x - 6 && p.x < pl.x + pl.w + 6`)로
-    // 확인됨 — 중심이 아니다. 100px=1유닛, groundY=620 기준 centerX=(x+w/2)/100 로 환산.
-    //
-    // Y(층 간격)는 원본 그대로(y=505/395/285/185, 층간 1.0~1.1유닛)가 아니라 사용자 요청으로
-    // 층간 1.35유닛으로 넓혔다 — 의도적 편차(점프 최대 높이 1.772유닛 대비 76% 지점, 원본의
-    // ~60%보다 여유 있게). "간격이 너무 작다"는 피드백을 반영한 것이라 나중에 원본 값으로
-    // 되돌리지 말 것. 아래에서 위로 통과 가능한 원웨이 발판(BuildPlatforms 참고)이라
-    // 이 정도 간격에서도 막힘 없이 오갈 수 있다.
-    static readonly float[,] Platforms =
-    {
-        // centerX, centerY, width  (전부 유닛)
-        {3.20f, 1.35f, 2.80f}, {9.00f, 1.35f, 3.20f}, {15.40f, 1.35f, 3.00f}, {21.50f, 1.35f, 3.20f}, // 1층
-        {5.90f, 2.70f, 3.00f}, {12.30f, 2.70f, 3.20f}, {18.60f, 2.70f, 3.00f}, {24.00f, 2.70f, 2.60f}, // 2층
-        {3.30f, 4.05f, 2.60f}, {9.60f, 4.05f, 3.00f}, {16.20f, 4.05f, 3.00f}, {22.00f, 4.05f, 2.60f}, // 3층
-        {6.80f, 5.40f, 2.80f}, {13.40f, 5.40f, 3.00f}, {19.70f, 5.40f, 2.80f}, // 4층
-    };
-    const float PlatformThickness = 0.15f;
+    // 발판 좌표/두께는 FieldLayout.cs로 옮겨서 MonsterSpawner의 스폰 포인트 계산과 공유한다
+    // (두 군데 따로 들고 있으면 나중에 발판 배치가 또 바뀔 때 하나만 고치는 실수가 남).
 
     [MenuItem("Tools/YokaiFront/Build Part A Scene")]
     public static void Build()
@@ -130,8 +113,8 @@ public static class BuildPartAScene
         float centerX = (FieldBounds.MinX + FieldBounds.MaxX) * 0.5f;
 
         var col = go.AddComponent<BoxCollider2D>();
-        col.size = new Vector2(width, PlatformThickness * 2f);
-        go.transform.position = new Vector3(centerX, y - PlatformThickness, 0f);
+        col.size = new Vector2(width, FieldLayout.PlatformThickness * 2f);
+        go.transform.position = new Vector3(centerX, y - FieldLayout.PlatformThickness, 0f);
 
         var lr = go.AddComponent<LineRenderer>();
         lr.positionCount = 2;
@@ -157,11 +140,11 @@ public static class BuildPartAScene
         int groundLayer = LayerMask.NameToLayer(GroundLayer);
         var parent = new GameObject("Platforms").transform;
 
-        for (int i = 0; i < Platforms.GetLength(0); i++)
+        for (int i = 0; i < FieldLayout.Platforms.GetLength(0); i++)
         {
-            float cx = Platforms[i, 0];
-            float cy = Platforms[i, 1];
-            float w = Platforms[i, 2];
+            float cx = FieldLayout.Platforms[i, 0];
+            float cy = FieldLayout.Platforms[i, 1];
+            float w = FieldLayout.Platforms[i, 2];
 
             var go = new GameObject($"Platform_{i}");
             go.transform.SetParent(parent);
@@ -169,7 +152,7 @@ public static class BuildPartAScene
             go.transform.position = new Vector3(cx, cy, 0f);
 
             var col = go.AddComponent<BoxCollider2D>();
-            col.size = new Vector2(w, PlatformThickness);
+            col.size = new Vector2(w, FieldLayout.PlatformThickness);
             col.usedByEffector = true;
 
             var effector = go.AddComponent<PlatformEffector2D>();

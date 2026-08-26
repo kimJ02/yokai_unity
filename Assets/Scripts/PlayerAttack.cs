@@ -69,6 +69,10 @@ public class PlayerAttack : MonoBehaviour
         foreach (var col in hits)
         {
             if (!col.CompareTag("Enemy")) continue;
+            // 원본은 스폰 직후(spawnInvuln>0) 모든 피해 판정을 건너뛴다 — 여기선 HP가 없어
+            // "무효화 표시" 대신 그냥 파괴하지 않는 것으로 이식했다(MonsterMove 클래스 주석 참고).
+            var mover = col.GetComponent<MonsterMove>();
+            if (mover != null && mover.IsSpawnProtected) continue;
             Destroy(col.gameObject);
         }
     }

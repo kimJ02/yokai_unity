@@ -7,6 +7,11 @@ using UnityEngine;
 /// 주의: 플레이어 Health(체력) 시스템은 이번 스프린트 범위 밖이다(HANDOFF.md "범위 밖" 참고).
 /// 따라서 접촉 시 실제 데미지 적용은 아직 연결하지 않았다 — TryAttack()에 자리만 만들어뒀다.
 /// PROGRESS.md "확인 필요" 항목 참고.
+///
+/// 스폰 직후 무적(원본 `CONFIG.run.spawnProtect: 2.0`, `spawnInvuln`)도 이식했다 — 원본은
+/// `dealDamage()`를 포함한 모든 피해 판정 함수가 `if (e.spawnInvuln > 0) continue/return`으로
+/// 이 시간 동안 상호작용 자체를 건너뛴다. PlayerAttack/MageProjectile이 파괴하기 전에
+/// IsSpawnProtected를 확인하는 방식으로 이식(HP가 없어 "무효화"가 아니라 "그냥 안 죽음"으로 대체).
 /// </summary>
 [DisallowMultipleComponent]
 public class MonsterMove : MonoBehaviour
@@ -22,11 +27,25 @@ public class MonsterMove : MonoBehaviour
     [Tooltip("접촉 상태에서 공격을 재시도하는 간격(초). 실제 데미지 로직은 아직 없음.")]
     public float attackInterval = 1f;
 
+    [Tooltip("스폰 직후 무적 시간(초) — 원본 CONFIG.run.spawnProtect 그대로.")]
+    public float spawnProtectDuration = 2f;
+
+    /// <summary>스폰 직후 무적 상태인지. 공격 스크립트는 이 몹을 파괴하기 전에 반드시 확인한다.</summary>
+    public bool IsSpawnProtected => spawnProtectTimer > 0f;
+
+    float spawnProtectTimer;
     Transform target;
     float attackTimer;
 
+    void Awake()
+    {
+        spawnProtectTimer = spawnProtectDuration;
+    }
+
     void Update()
     {
+        if (spawnProtectTimer > 0f) spawnProtectTimer -= Time.deltaTime;
+
         if (target == null || !target.gameObject.activeInHierarchy)
         {
             target = FindNearestPlayer();
