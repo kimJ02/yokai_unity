@@ -62,7 +62,7 @@ Unity 씬(`.unity`)·프리팹(`.prefab`) 파일은 내부적으로 GUID/fileID�
 
 ### 폴더 구조
 - `Assets/Scripts/`는 도메인별 하위 폴더로 나눈다. **폴더 이름 = 네임스페이스 = asmdef 이름**으로 셋을 항상 일치시킨다(아래 asmdef 계층표와 같은 구분).
-  - `Core/` — 여러 도메인이 같이 쓰는 것(`FieldBounds`, `GameInput`, `IDamageable`, 데이터 SO 타입)
+  - `Core/` — 여러 도메인이 같이 쓰는 것(`FieldBounds`, `ISpawnProtectable`, `GameInput`, `IDamageable`, 데이터 SO 기본 타입, `PlayerProfile` — 뒤 셋은 아직 미구현. `PlayerProfile`은 SO가 아님, 아래 "세이브 데이터 vs 설정 데이터" 참고)
   - `World/` — 필드·카메라·발판
   - `Combat/` — **무기에 종속되지 않는 전투 공용 인프라**(투사체 기반 클래스, 피해 판정 헬퍼)
   - `Characters/` — 플레이어 컨트롤러 + **캐릭터별 무기 구현**(`MageAttack`·`MageProjectile`은 마법사 무기이므로 여기)
@@ -75,28 +75,52 @@ Unity 씬(`.unity`)·프리팹(`.prefab`) 파일은 내부적으로 GUID/fileID�
 ### 네임스페이스
 - 모든 런타임 스크립트는 `YokaiFront.<도메인>` 네임스페이스를 쓴다(예: `YokaiFront.Combat`, `YokaiFront.Enemies`, `YokaiFront.World`). 폴더 구조와 네임스페이스 이름을 일치시킨다.
 - Editor 스크립트는 `YokaiFront.Editor`, 테스트는 `YokaiFront.Tests.PlayMode`.
-- `FieldBounds` 같은 기존 클래스는 다음 리팩터링 때 네임스페이스를 붙인다(지금 당장 깨는 변경은 하지 않음).
+- 모든 스크립트가 이미 이 규칙대로 네임스페이스가 붙어 있다(2026-08-26 리팩터링으로 적용 완료).
 
 ### Assembly Definition 경계 — 계층 순서로 정의
-"형제끼리 참조 금지"만으로는 실제 코드가 바로 위반된다(`MonsterSpawner`는 몬스터를 스폰해야 하고, 무기 스크립트는 투사체 인프라를 써야 함). 그래서 **단순 계층(낮은 층은 높은 층을 모른다)**으로 정의한다:
+"형제끼리 참조 금지"만으로는 실제 코드가 바로 위반된다(`EnemySpawner`는 적을 스폰해야 하고, 무기 스크립트는 투사체 인프라를 써야 함). 그래서 **단순 계층(낮은 층은 높은 층을 모른다)**으로 정의한다:
 
 | 층 | asmdef | 참조 가능 대상 | 들어가는 것 |
 |---|---|---|---|
-| 0 | `YokaiFront.Core` | (없음) | `FieldBounds`, `GameInput`, `IDamageable`, 데이터 SO 기본 타입 |
+| 0 | `YokaiFront.Core` | (없음) | `FieldBounds`, `ISpawnProtectable`, `GameInput`(미구현), `IDamageable`(미구현), 데이터 SO 기본 타입, `PlayerProfile`(미구현) |
 | 1 | `YokaiFront.World` · `YokaiFront.Combat` | 0 | 필드/카메라/발판 · 투사체·피해판정 공용 인프라 |
 | 2 | `YokaiFront.Characters` · `YokaiFront.Enemies` | 0~1 | 플레이어 컨트롤러·무기별 공격 · 몬스터 AI |
 | 3 | `YokaiFront.Systems` | 0~2 | 스포너·가챠·세이브 등 오케스트레이션 |
 | 4 | `YokaiFront.UI` | 0~3 | HUD·메뉴 |
 
 - **같은 층끼리는 서로 참조 금지.** 특히 `Characters` ↔ `Enemies`는 절대 직접 참조하지 않는다 — 서로 때리는 건 `Core`의 태그(`CompareTag("Enemy")`)와 `ISpawnProtectable` 같은 `Core` 인터페이스로만 한다. `IDamageable`은 아직 없음(Health 시스템과 함께 나중에 `Core`에 추가 예정) — 그 전까지 공격 스크립트는 `Destroy()`를 직접 부른다.
+- **낮은 층이 높은 층의 기능을 "요청"해야 하는 경우(예: 몹이 죽을 때 새 몹을 스폰)는 직접 참조하지 않고 `Core`의 이벤트로 방향을 뒤집는다.** 이 상황이 실제로 곧 온다 — 원본은 분열귀(splitter) 타입이 죽으면 `spawnEnemyAt()`을 직접 호출해 새끼 2마리를 낳는다(`project_test.html:1840`). 지금 저장소에서 `Assets/Scripts/Systems/YokaiFront.Systems.asmdef`를 실제로 열어보면 이미 `"YokaiFront.Enemies"`를 참조하고 있다(3층→2층, 스포너가 몹 프리팹을 다뤄야 하니 당연함) — 그런데 `splitter` 같은 몹을 만들려고 `Enemies`가 거꾸로 `Systems`(스포너)를 참조하면 두 asmdef가 서로를 참조하는 순환참조가 되어 Unity가 "circular assembly definition reference"로 **컴파일 자체를 거부한다**(스타일 위반이 아니라 빌드가 깨짐).
+
+  **확정된 해결 패턴 — 이 시그니처 그대로 쓸 것**(`Combat`/`Characters`가 `Enemies`를 몰라도 스폰 무적 상태를 물을 수 있게 만든 `ISpawnProtectable`, `Core/ISpawnProtectable.cs`와 정확히 같은 구조 — 구체 타입 대신 `Core`의 추상화만 아래층이 참조):
+  ```csharp
+  // Core/EnemySpawnRequestBus.cs — namespace YokaiFront.Core
+  public static class EnemySpawnRequestBus
+  {
+      public static event Action<Vector2, string> Requested; // (스폰 위치, 몹 타입 식별자 — 원본 'splitlet' 같은 문자열 키)
+      public static void Request(Vector2 position, string enemyTypeId) => Requested?.Invoke(position, enemyTypeId);
+  }
+  ```
+  - `Enemies`(예: 나중에 만들 `EnemySplitOnDeath.cs`)는 죽는 순간 `EnemySpawnRequestBus.Request(deathPos, "splitlet")`만 호출한다 — `Systems`를 몰라도 됨(`Core`만 참조, 이미 허용된 방향).
+  - `Systems.EnemySpawner`는 `OnEnable()`에서 `EnemySpawnRequestBus.Requested += HandleSpawnRequest;`, **`OnDisable()`에서 반드시 `-=`로 구독 해제**(안 하면 오브젝트가 파괴된 뒤에도 정적 이벤트가 참조를 들고 있어 `MissingReferenceException`/메모리 누수로 이어진다). `HandleSpawnRequest(Vector2 pos, string enemyTypeId)`가 타입id→프리팹 매핑 후 실제 `Instantiate`를 담당한다(이미 `monsterPrefab` 필드로 프리팹을 들고 있는 클래스라 이 매핑을 갖기 자연스러운 위치).
+  - **지금 이 파일을 만들지는 않는다** — splitter류 다종 몹은 HANDOFF.md 범위 밖이라 "HANDOFF.md에 없는 시스템은 손대지 않는다" 규칙대로, 실제로 몹 종류를 늘리는 스프린트가 시작될 때 위 시그니처 그대로 만든다(시그니처 자체는 이미 확정이니 그때 재설계하지 말 것).
 - **위 표는 실제 적용 완료 상태다(2026-08-26 리팩터링).** `Assets/Scripts/`가 여섯 asmdef로 분리돼 있고 `YokaiFront.Runtime`은 더 이상 없다.
 
 ### 데이터(밸런스 값) — ScriptableObject로
 - 무기·적 스탯 같은 튜닝 수치는 스크립트에 하드코딩하지 않고 ScriptableObject 데이터 에셋으로 관리한다(원본의 `CONFIG`/`WEAPONS`/`MONSTERS` 데이터 테이블 구조를 그대로 반영하는 것 — 원본 자체가 이미 데이터 우선 설계였다).
 - 예: `WeaponData`(쿨다운·데미지·차지 배율), `EnemyData`(체력·공격력·이동속도). 스크립트는 데이터를 읽기만 하고 로직만 담당.
+- **SO는 "수치"만 책임진다 — 타입마다 "행동"이 다르면 SO 하나로 안 끝난다.** 원본을 실제로 확인하면 몹 종류가 최소 6종(`wisp`/`oni`/`charger`/`shooter`/`splitter`/`bigOni`, `project_test.html:3933` `rollSpawnType`)이고 스탯만 다른 게 아니라 로직 자체가 다르다 — wisp는 날아다니고(`:3956`, y좌표를 지면이 아니라 `y-50`으로 스폰), charger는 돌진 상태머신(`:4061`), shooter는 투사체를 쏘고(`:4084`), splitter는 죽을 때 새끼를 낳는다(`:1840`, 위 "낮은 층이 높은 층을 요청" 항목 참고). `Enemies/`에 새 몹 종류를 추가할 때 `EnemyMove` 하나에 분기를 계속 늘리지 말고, `Characters/`가 무기마다 이미 하고 있는 패턴(별도 스크립트, `MageAttack`/`MageProjectile`) 그대로 **타입 전용 스크립트를 추가**하고 `EnemyData`는 그 스크립트들이 공통으로 읽는 수치만 담당하게 한다. 단순히 스탯만 다른 타입(예: `bigOni`는 `CONFIG.enemyBase`에 자기 stat row만 따로 있고(`:710`, hp/dmg/speed/w/h), 넉백 저항 배율 하나만 별도 분기(`:1678`)일 뿐 이동/AI 로직은 일반 오니와 완전히 같다 — `updateEnemies()`에 `e.type === 'bigOni'`로 갈리는 이동 로직이 전혀 없음, 색과 그리기 함수 분기(`:4797`)만 다름)은 기존 `EnemyMove` + 다른 `EnemyData` 값으로 충분 — 새 스크립트는 **행동 자체가 다를 때만** 만든다.
+- **여기서 지금 못박는 건 이 원칙 하나뿐이다**("SO엔 수치만, 행동이 다르면 스크립트를 분리한다"). `wisp`/`charger`/`shooter`/`splitter`를 정확히 몇 개의 클래스로, 어떤 이름으로 나눌지·공통 인터페이스가 필요한지는 **몹 종류를 실제로 추가하는 스프린트가 시작될 때 그 스프린트의 HANDOFF.md에서 확정한다.** 지금 미리 스크립트 이름까지 정하면 그 스프린트가 실제로 몇 종을 어떤 순서로 다룰지(사용자가 아직 안 정함, `PROGRESS.md` "다음 할 일" 참고)와 어긋날 수 있다 — "HANDOFF.md에 없는 시스템은 손대지 않는다" 규칙과 같은 이유로, 이름/개수까지는 지금 정하지 않는다.
 - 데이터 에셋 위치: `Assets/Data/Weapons/`, `Assets/Data/Enemies/`.
 - 지금(`MageAttack`이 무기 1종)은 필드 하드코딩 그대로 둔다. **2번째 무기/적 종류를 만들기 전에, SO 전환을 먼저 끝내고 병합한다** — 2종을 하드코딩으로 만든 뒤 전환하면 두 배로 뜯어고쳐야 하므로 순서가 중요하다.
 - **SO 전환은 한 세션이 단독으로 수행하고, 그동안 다른 세션은 해당 도메인 파일을 건드리지 않는다**(전환이 여러 파일을 동시에 바꾸므로). 착수 전 `PROGRESS.md`에 "SO 전환 진행 중 — 이 도메인 손대지 말 것"으로 선언한다.
+
+### 세이브 데이터 vs 설정 데이터 (혼동 주의 — 위 SO 규칙과 다른 카테고리)
+원본의 `meta` 오브젝트(`project_test.html:1129` `function defaultMeta()`)를 실제로 읽어보면 레벨·골드·**아이템 보유 개수**(`meta.items`, `:1148` "// { 아이템id: 보유 개수 }")·윤회 횟수·지역별 진행·업적·설정까지 전부 담겨 있고, `localStorage.setItem(SAVE_KEY, JSON.stringify(meta))`(`:1214`)로 저장된다 — **플레이어마다 다르고 런타임에 계속 바뀌는 진행 상태**다. 이건 위 "데이터(밸런스 값)" 규칙이 말하는 것과 다른 카테고리라 섞으면 안 된다:
+- **설정 데이터**(정적, 모든 플레이어 동일, 기획자가 에디터에서 미리 튜닝) → ScriptableObject. 예: `WeaponData`, `EnemyData`, 그리고 아이템의 "정의"(`ItemDefinition` — 원본 `ITEMS` 테이블 `:759`의 `nm/icon/grade/kind/stat/per`처럼 등급·효과 공식 자체는 고정값이라 SO가 맞다).
+- **세이브 데이터**(가변, 플레이어마다 다름, 파일로 직렬화) → SO가 아니다. `PlayerProfile` 같은 **순수 직렬화 가능 C# 클래스**(`[System.Serializable]`, `MonoBehaviour`도 `ScriptableObject`도 아님)로 관리하고 `Systems/`의 세이브 시스템이 파일 입출력을 담당한다. 예: 레벨·골드, **아이템 보유 개수**(정의가 아니라 "몇 개 갖고 있나"), 윤회 횟수, 지역별 진행도, 달성한 업적, 설정값.
+- **SO를 세이브 데이터에 쓰면 안 되는 이유**: 에디터에서 SO 값이 바뀌면 그 변경이 에셋 파일에 영구 반영된다 — 런타임에 계속 바뀌는 플레이어 진행 상태를 SO로 관리하면 에디터에서 플레이 테스트하다가 실수로 에셋 자체를 오염시키기 쉽고, 애초에 "플레이어마다 다른 값 여러 벌"이라는 걸 SO 하나로 표현할 수 없다.
+- `PlayerProfile`은 `Core/`에 둔다(모든 도메인이 자기 슬라이스를 읽어야 함 — `Characters`는 레벨/골드, `Systems`는 아이템/윤회/지역, `UI`는 표시용으로 전부). 실제 파일 입출력(직렬화·역직렬화)은 `Systems/`의 세이브 시스템이 담당 — `Core`는 데이터 형태만 정의하고 로직은 `Systems`(현재 계층표 그대로, 구조 변경 필요 없음).
+- **여기서 지금 못박는 것도 카테고리 분류뿐이다**("SO 아님, `Core`에 위치하는 순수 직렬화 클래스"). `PlayerProfile`의 정확한 필드 목록(레벨·골드·아이템 보유량·윤회 횟수·지역 진행·업적 중 정확히 무엇이 언제 추가되는지)은 **Health/아이템/가챠/윤회 각 스프린트가 실제로 시작될 때 그 스프린트의 HANDOFF.md에서 그때그때 확정한다.** 원본 `meta`(`:1129`)를 지금 통째로 옮겨적지 않는다 — 그러면 아직 스코프에 없는 시스템(가챠·윤회 등)까지 미리 설계하게 되어 "HANDOFF.md에 없는 시스템은 손대지 않는다" 규칙과 어긋난다.
 
 ### 입력 처리
 - 원본 `KEYMAP`처럼, 모든 키 입력은 `GameInput`이라는 중앙 정적 클래스를 통해서만 읽는다(`GameInput.Jump`, `GameInput.Attack`, `GameInput.Left` 등 named 프로퍼티). 스크립트에서 `Input.GetKey(KeyCode.X)`를 직접 호출하지 않는다.
