@@ -91,10 +91,22 @@ public static class BuildPartAScene
         camGO.tag = "MainCamera";
         var cam = camGO.AddComponent<Camera>();
         cam.orthographic = true;
-        // 원본 발판이 4층(최고 y=5.40유닛)까지 있어 필드 전체 폭(26유닛)을 한 화면에 못 담는다
-        // (담으면 캐릭터가 너무 작아짐) — 세로는 발판이 전부 들어오는 높이로 고정하고 가로만 스크롤한다.
-        cam.orthographicSize = 5.5f;
-        cam.transform.position = new Vector3(playerTransform.position.x, 3f, -10f);
+        // 개정(2026-08-26): "맵이 원본보다 좁아 보인다"는 사용자 지적으로 재계산.
+        // 원본 캔버스는 1280×720px 고정이고 mapW=2600px — 화면엔 항상 맵의 1280/2600≈49%만 보이고
+        // 나머지는 가로 스크롤로 드러난다. 이전엔 이 비율과 무관하게 orthographicSize=5.5(발판이
+        // 다 보이는 정도)로 임의로 잡아서 화면에 맵의 75%(19.6/26유닛)가 보였다 — 원본보다 훨씬
+        // 넓게 보여서 "안 넓어 보인다"는 체감이 났다. 100px=1유닛 규칙을 카메라에도 그대로 적용:
+        // 세로 절반 크기 = 720px/2 ÷100 = 3.6유닛. 가로는 orthographicSize×aspect로 자동 결정되는데
+        // 원본 캔버스 비율(1280:720=16:9)로 맞추면 가로도 정확히 1280px÷100=12.8유닛이 되고,
+        // 26/12.8 ≈ 2.03 ≈ 원본의 2600/1280 ≈ 2.03과 일치한다.
+        // 세로 하단은 원본 그대로: 원본 캔버스는 groundY(620)가 화면 하단에서 100px(=1유닛) 위라
+        // 바닥 아래 여백 1유닛을 그대로 가져온다(viewBottom=-1.0). 다만 세로 상단은 원본 값(6.2,
+        // 발판이 y=185=4.35유닛까지였을 때 기준)을 그대로 쓰면 발판 층간 간격을 넓힌 우리 필드에선
+        // 최상단 발판(5.40유닛) 위에 선 캐릭터 머리가 화면 위로 살짝 잘린다(발판 간격을 넓힌 건
+        // 사용자가 명시적으로 요청한 편차라 되돌리지 않음 — HANDOFF.md 1번 참고). 그래서 상단만
+        // 우리 발판 높이 기준으로 다시 계산: 최상단 발판 위 캐릭터 전체(중심+반지름) + 여유 0.2.
+        cam.orthographicSize = 3.84f;
+        cam.transform.position = new Vector3(playerTransform.position.x, 2.84f, -10f);
         cam.backgroundColor = Color.white;
         cam.clearFlags = CameraClearFlags.SolidColor;
         camGO.AddComponent<AudioListener>();
