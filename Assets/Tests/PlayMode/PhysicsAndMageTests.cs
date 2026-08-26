@@ -185,4 +185,42 @@ public class PhysicsAndMageTests
         Object.Destroy(go);
         yield return null;
     }
+
+    /// <summary>
+    /// 원본 bowFire: life는 차지와 무관하게 항상 B.range/B.speed(880/1080≈0.8148초)로 고정이고,
+    /// 이 시간이 지나면 아무것도 못 맞혀도 스스로 사라진다(기본 티어엔 벽/맵경계 충돌 로직이
+    /// 따로 없음 — 그건 fireTier 스킬트리 전용, 범위 밖). 아무것도 없는 허공에 쏴서 실제로
+    /// 그 시간에 사라지는지, 그때까지 얼마나 이동했는지(≈8.8유닛, 필드 26유닛보다 훨씬 짧음) 확인한다.
+    /// </summary>
+    [UnityTest]
+    public IEnumerator Projectile_DespawnsAfterFixedLife_NotOnFieldEdge()
+    {
+        var go = new GameObject("MageTestCaster");
+        go.transform.position = new Vector3(2.2f, 0.36f, 0f); // 원본 스폰 X 그대로
+        var mage = go.AddComponent<MageAttack>();
+        var fireMethod = typeof(MageAttack).GetMethod("Fire", BindingFlags.NonPublic | BindingFlags.Instance);
+
+        fireMethod.Invoke(mage, new object[] { 0f }); // 무차지 → life = range/speed = 8.8/10.8 ≈ 0.8148초
+        yield return null;
+
+        var bolt = GameObject.Find("MageBolt");
+        Assert.IsNotNull(bolt, "발사했는데 투사체가 안 생겼다");
+        float startX = bolt.transform.position.x;
+
+        float expectedLife = mage.projectileRange / mage.projectileSpeed;
+
+        // 예상 수명 직전: 아직 살아있어야 한다.
+        yield return new WaitForSeconds(expectedLife - 0.15f);
+        Assert.IsTrue(bolt != null, $"예상 수명({expectedLife:F3}초)보다 일찍 사라졌다");
+        float xBeforeExpiry = bolt.transform.position.x;
+        float traveled = xBeforeExpiry - startX;
+        Assert.Less(Mathf.Abs(traveled), 26f, "이 시점에 이미 필드 폭(26유닛)만큼 이동했다 — 사거리 제한이 사실상 없는 것과 같음");
+
+        // 예상 수명 이후: 사라져 있어야 한다 + 맵 끝(0 또는 26)까지 간 게 아니라 사거리(≈8.8유닛)만큼만 이동했어야 한다.
+        yield return new WaitForSeconds(0.35f);
+        Assert.IsTrue(bolt == null, $"예상 수명({expectedLife:F3}초)이 한참 지났는데도 안 사라졌다 — life 소멸 로직이 안 먹히는 것 아닌지 확인");
+
+        Object.Destroy(go);
+        yield return null;
+    }
 }

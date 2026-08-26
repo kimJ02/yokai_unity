@@ -84,8 +84,9 @@ public class MageAttack : MonoBehaviour
         int pierce = basePierce + Mathf.FloorToInt(chargeK * chargePierce);
         float spd = projectileSpeed * (1f + 0.3f * chargeK);
         float life = projectileRange / projectileSpeed; // 원본과 동일하게 차지와 무관한 고정 수명
+        float sizeMul = 1f + chargeK * 0.9f; // 원본 `size: 1 + chargeK*0.9` — 판정/시각 크기 배율
 
         Vector3 spawnPos = transform.position + new Vector3(aim.x >= 0 ? 0.26f : -0.26f, 0.36f, 0f);
-        MageProjectile.Spawn(spawnPos, aim * spd, dmg, pierce, life, 0.22f + chargeK * 0.15f, boltSprite, boltColor);
+        MageProjectile.Spawn(spawnPos, aim * spd, dmg, pierce, life, sizeMul, boltSprite, boltColor);
     }
 }
