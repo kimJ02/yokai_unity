@@ -24,6 +24,7 @@ public static class BuildPartAScene
     {
         EnsureCircleSprite();
         EnsureGroundLayer();
+        EnsureMonsterPrefabPhysics();
         Physics2D.gravity = new Vector2(0f, -26f); // 원본 2600px/s² → 26 (100px=1유닛)
 
         var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -214,6 +215,33 @@ public static class BuildPartAScene
         var go = new GameObject("MonsterSpawner");
         var spawner = go.AddComponent<MonsterSpawner>();
         spawner.monsterPrefab = monsterPrefab;
+    }
+
+    /// <summary>
+    /// Monster.prefab에 Rigidbody2D가 없었다 — 몹이 발판 높이에 스폰돼도 중력을 안 받아 허공에
+    /// 뜬 채로 있거나(또는 발판 콜라이더를 그냥 통과)였다. 실제로 발판 위에 서 있으려면 플레이어와
+    /// 동일하게 진짜 물리(Rigidbody2D + 이미 있는 CircleCollider2D)가 필요해서 프리팹에 직접 추가한다.
+    ///
+    /// 주의: `MonsterMove`에 `[RequireComponent(typeof(Rigidbody2D))]`를 붙여놨더니, 프리팹 파일에
+    /// 실제로는 없는데도 로드 시점에 엔진이 메모리상으로만 자동 보충해서
+    /// `prefab.GetComponent&lt;Rigidbody2D&gt;() != null`이 거짓으로 참이 되는 걸 직접 확인했다
+    /// (그래서 "이미 있으면 건너뛴다"는 가드를 넣었다가 실제 파일엔 한 번도 저장 안 된 채로
+    /// 넘어간 적이 있음). 그래서 "있는지 검사 후 건너뛰기"를 하지 않고 항상 로드 → 설정 → 저장한다
+    /// — freezeRotation=true를 매번 명시적으로 세팅하는 것도 같은 이유(자동 보충된 기본값은 false).
+    /// </summary>
+    static void EnsureMonsterPrefabPhysics()
+    {
+        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(MonsterPrefabPath);
+        if (prefab == null) return;
+
+        var contents = PrefabUtility.LoadPrefabContents(MonsterPrefabPath);
+        var rb = contents.GetComponent<Rigidbody2D>();
+        if (rb == null) rb = contents.AddComponent<Rigidbody2D>();
+        rb.freezeRotation = true;
+        rb.gravityScale = 1f;
+        PrefabUtility.SaveAsPrefabAsset(contents, MonsterPrefabPath);
+        PrefabUtility.UnloadPrefabContents(contents);
+        Debug.Log("[BuildPartAScene] Monster.prefab Rigidbody2D 확인/설정 완료");
     }
 
     /// <summary>

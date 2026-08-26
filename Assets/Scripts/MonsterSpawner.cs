@@ -13,14 +13,14 @@ using UnityEngine;
 ///     spawnWave()의 `const placed=[]`가 호출마다 새로 시작 — 이전 웨이브에서 이미 살아있는
 ///     몹과는 겹쳐도 됨. 전체 생존 몹과 비교하면 필드가 찰수록 원본보다 스폰 실패가 잦아진다).
 ///
-/// 필드는 횡스크롤 플랫포머라 X만 자유롭고 Y는 고정 바닥이다 — 몹은 발판을 오르내리지 않으므로
-/// (PROGRESS.md 인터페이스 계약) Y는 항상 FieldBounds.GroundY로 고정한다.
-///
-/// X는 원본 buildSpawnPoints()를 그대로 반영한다 — 원본은 필드 전체에서 균등 랜덤이 아니라
+/// 스폰 지점은 원본 buildSpawnPoints()를 그대로 반영한다 — 필드 전체에서 균등 랜덤이 아니라
 /// "발판 15개의 중심 X + 바닥 위 380px 간격 지점(6곳)" 총 21개의 정해진 스폰 포인트 중 하나를
-/// 골라 그 지점 폭(w) 안에서 살짝 흔든다(spawnWave, rand(-pt.w/2+26, pt.w/2-26)). 필드 전체에서
-/// 균등 랜덤으로 뽑던 이전 버전은 몹이 아무 데서나 나타나는 게 원본과 확연히 달랐다(사용자 피드백).
-/// FieldLayout이 발판/바닥그리드 X 좌표의 단일 출처다.
+/// 골라 그 지점 폭(w) 안에서 살짝 흔든다(spawnWave, rand(-pt.w/2+26, pt.w/2-26)).
+///
+/// **발판 스폰 포인트는 실제로 그 발판 높이에 스폰한다**(Y를 항상 GroundY로 고정했던 이전
+/// 버전은 "발판 위에도 나온다"는 말과 실제 동작이 달랐음 — 사용자가 직접 확인하고 지적).
+/// 몹은 이제 Rigidbody2D로 실제 중력을 받으므로(MonsterMove 참고) 발판 위에 스폰하면 물리로
+/// 그 위에 서 있는다. FieldLayout이 발판/바닥그리드 좌표의 단일 출처다.
 /// </summary>
 public class MonsterSpawner : MonoBehaviour
 {
@@ -39,6 +39,8 @@ public class MonsterSpawner : MonoBehaviour
 
     readonly List<Transform> aliveMonsters = new List<Transform>();
     float waveTimer;
+    float cachedMonsterRadius = -1f; // Awake 시점엔 monsterPrefab이 아직 할당 전이라(씬 빌드 순서상)
+                                      // 필요할 때 지연 계산한다(GetMonsterRadius 참고).
 
     void Update()
     {
@@ -82,8 +84,8 @@ public class MonsterSpawner : MonoBehaviour
     {
         for (int attempt = 0; attempt < maxPlacementRetries; attempt++)
         {
-            float x = FieldBounds.ClampX(PickSpawnPointX());
-            Vector2 candidate = new Vector2(x, FieldBounds.GroundY);
+            Vector2 candidate = PickSpawnPoint();
+            candidate.x = FieldBounds.ClampX(candidate.x);
 
             if (IsFarEnoughFromPlaced(candidate, placedThisWave))
             {
@@ -99,38 +101,55 @@ public class MonsterSpawner : MonoBehaviour
     /// <summary>
     /// 원본 spawnWave()의 `spawnPoints[randInt(...)]` + `rand(-pt.w/2+26, pt.w/2-26)`를 그대로 옮김.
     /// 발판 중심(15개)과 바닥 그리드(6개) 중 하나를 균등 랜덤으로 고른 뒤 그 지점 폭 안에서 흔든다.
-    /// Y는 항상 GroundY라 발판 스폰 포인트도 "그 발판이 있는 X 위치의 바닥"으로만 쓰인다 — 몹이
-    /// 발판 위에 뜨지 않는다(범위 밖).
+    /// 발판 포인트는 **그 발판의 실제 착지 Y**(발판 윗면 + 몹 반지름)를 쓴다 — 몹이 물리로
+    /// 그 위에 서 있게 된다. 바닥그리드 포인트는 FieldBounds.GroundY.
     /// </summary>
-    float PickSpawnPointX()
+    Vector2 PickSpawnPoint()
     {
         int platformCount = FieldLayout.Platforms.GetLength(0);
         int groundCount = FieldLayout.GroundGridX.Length;
         int idx = Random.Range(0, platformCount + groundCount);
 
-        float centerX, width;
+        float centerX, centerY, width;
+        float radius = GetMonsterRadius();
         if (idx < platformCount)
         {
             centerX = FieldLayout.Platforms[idx, 0];
+            centerY = FieldLayout.PlatformLandingY(idx, radius);
             width = FieldLayout.Platforms[idx, 2];
         }
         else
         {
             centerX = FieldLayout.GroundGridX[idx - platformCount];
+            centerY = FieldBounds.GroundY + radius;
             width = FieldLayout.GroundGridPointWidth;
         }
 
         const float margin = 0.26f; // 원본 26px 여백 ÷100
         float halfSpan = Mathf.Max(0f, width / 2f - margin);
-        return centerX + Random.Range(-halfSpan, halfSpan);
+        return new Vector2(centerX + Random.Range(-halfSpan, halfSpan), centerY);
+    }
+
+    float GetMonsterRadius()
+    {
+        if (cachedMonsterRadius < 0f)
+        {
+            var col = monsterPrefab != null ? monsterPrefab.GetComponent<CircleCollider2D>() : null;
+            cachedMonsterRadius = col != null ? col.radius : 0.5f;
+        }
+        return cachedMonsterRadius;
     }
 
     bool IsFarEnoughFromPlaced(Vector2 candidate, List<Vector2> placedThisWave)
     {
-        // 원본: `Math.abs(q.x - x) < 52` — X축 거리만 본다(Y는 항상 GroundY라 원본의 Y조건은 항상 참).
+        // 원본: `Math.abs(q.x-x)<52 && Math.abs(q.y-y)<12` — 둘 다 만족해야(AND) "너무 가깝다".
+        // 발판 층마다 Y가 다르므로(이전엔 전부 GroundY라 Y조건이 항상 참이었음) 이제 Y차이가
+        // 크면(다른 층) 겹쳐도 통과시킨다 — 원본과 동일.
+        const float yThreshold = 0.12f; // 원본 12px ÷100
         foreach (var p in placedThisWave)
         {
-            if (Mathf.Abs(p.x - candidate.x) < minSpacing) return false;
+            if (Mathf.Abs(p.x - candidate.x) < minSpacing && Mathf.Abs(p.y - candidate.y) < yThreshold)
+                return false;
         }
         return true;
     }

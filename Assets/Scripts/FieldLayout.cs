@@ -29,4 +29,9 @@ public static class FieldLayout
     // → mapW=2600 기준 x=260,640,1020,1400,1780,2160(px), 100px=1유닛로 축척.
     public static readonly float[] GroundGridX = { 2.6f, 6.4f, 10.2f, 14.0f, 17.8f, 21.6f };
     public const float GroundGridPointWidth = 3.0f; // 원본 w:300px → 3.0유닛
+
+    /// <summary>발판 i번 위에 반지름 radius인 원형 콜라이더가 안착했을 때의 중심 Y(발판 윗면+반지름).</summary>
+    public static float PlatformLandingY(int index, float radius) => Platforms[index, 1] + PlatformThickness / 2f + radius;
+    public static float PlatformLeftX(int index) => Platforms[index, 0] - Platforms[index, 2] / 2f;
+    public static float PlatformRightX(int index) => Platforms[index, 0] + Platforms[index, 2] / 2f;
 }
