@@ -3,6 +3,12 @@ using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
+using YokaiFront.Characters;
+using YokaiFront.Combat;
+using YokaiFront.Core;
+
+namespace YokaiFront.Tests.PlayMode
+{
 
 /// <summary>
 /// 실제 Play Mode에서 Physics2D를 돌려 PlayerAttack이 사거리 안의 Enemy만 파괴하는지 확인한다.
@@ -145,4 +151,6 @@ public class PlayerAttackTests
         go.AddComponent<CircleCollider2D>().radius = 0.3f;
         return go;
     }
+}
+
 }

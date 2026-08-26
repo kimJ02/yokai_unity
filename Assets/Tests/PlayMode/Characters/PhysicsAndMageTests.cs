@@ -3,6 +3,11 @@ using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
+using YokaiFront.Characters;
+using YokaiFront.Core;
+
+namespace YokaiFront.Tests.PlayMode
+{
 
 /// <summary>
 /// 물리엔진 전환(CharacterMover2D가 Rigidbody2D 실제 충돌로 바닥/발판에 서는지)과
@@ -223,4 +228,6 @@ public class PhysicsAndMageTests
         Object.Destroy(go);
         yield return null;
     }
+}
+
 }

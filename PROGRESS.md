@@ -4,9 +4,7 @@
 
 ## 지금 상태
 
-> ⚠️ **대규모 리팩터링 진행 중(2026-08-26) — 다른 세션은 이 레포에 커밋하지 말 것.** CLAUDE.md "대규모 리팩터링 절차"에 따라 폴더 분리·네임스페이스·asmdef 분리·`Monster`→`Enemy` 리네임을 한 번에 진행 중. 완료되면 이 경고를 지우고 커밋 하나로 병합·푸시한다.
-
-**1단계 — 전투 코어 프로토타입, Part A + Part B 전부 `main`에 병합·검증·`origin` push까지 완료.** 사용자가 직접 플레이해보고 확인 예정(아래 "다음 할 일" 참고).
+**1단계 — 전투 코어 프로토타입, Part A + Part B 전부 `main`에 병합·검증·`origin` push까지 완료. 대규모 리팩터링(폴더/네임스페이스/asmdef 분리 + Monster→Enemy 리네임)도 완료.** 사용자가 직접 플레이해보고 확인 예정(아래 "다음 할 일" 참고).
 
 `Assets/Scenes/CombatCore.unity`를 열면 플레이어(파란 원)가 원본과 동일한 조작(←/→ 이동, **C만** 점프, Z 길게 눌러 차지 후 발사)으로 실제 Physics2D 중력을 받으며 원본 발판 15개(원웨이, 층간 1.35유닛)를 오르내리고, 마법탄(사거리 8.8~11.4유닛, 원본 크기의 판정 박스)으로 Enemy 태그 대상을 관통 공격 가능. 몬스터도 3.6초마다 웨이브 스폰돼 원본처럼 발판/바닥그리드 스폰 포인트(균등 랜덤 아님) 중 하나의 **실제 높이**에서 나타나 물리로 그 위에 서고, 스폰 직후 2초 무적, 추적범위(3유닛) 안이면 플레이어를 쫓고 밖이면 배회하며, 발판 위에서는 가장자리에서 되돌아가 걸어서 떨어지지 않음. **카메라도 원본 캔버스(1280×720px) 비율로 재계산**해서 화면에 맵의 약 절반만 보이는 스크롤 체감까지 원본과 맞춤. 점프엔 코요테 타임/입력 버퍼, 차지 중엔 이동속도 50% 감소, 낙하엔 종단속도 상한, 필드 경계엔 원본과 같은 여백까지 반영. PlayMode 테스트 **20/20 통과**.
 
@@ -41,8 +39,8 @@ Part B 병합 직후 컴파일 에러 포함 5건 + 사용자가 직접 플레�
 
 ## 다음 할 일
 
-1. **사용자가 에디터에서 직접 플레이해서 이번 세션 전체 수정 확인** — `origin/main`엔 이미 push 완료(2026-08-26, 커밋 `9b111ed`). 배치 컴파일 + PlayMode 20/20 통과는 확인됐지만 에디터 직접 플레이 확인은 아직.
-2. 그다음 스프린트로 넘어가기 전에 **CLAUDE.md "코딩/파일 정리 규칙"을 기존 코드에 적용하는 대규모 리팩터**(폴더 분리·네임스페이스·asmdef·Monster→Enemy 리네임). 미병합 브랜치가 0개인 지금 시점이 적기 — 절차는 CLAUDE.md "대규모 리팩터링 절차" 참고.
+1. **사용자가 에디터에서 직접 플레이해서 이번 세션 전체 수정(이동/점프 디테일 + 리팩터링) 확인** — 배치 컴파일 + PlayMode 20/20 통과는 확인됐지만 에디터 직접 플레이 확인은 아직.
+2. **다음 스프린트(신규 기능) 범위는 아직 미정 — 사용자에게 확인 필요.** 후보: 플레이어 Health/체력바, 몹 종류 추가, 무기 2종째(+ ScriptableObject 데이터 전환), 아이템, 가챠, 지역 등. 세션이 임의로 정하지 말 것(HANDOFF.md 맨 아래 "따로 논의" 참고).
 
 ## 체크리스트 (HANDOFF.md 개발 순서)
 
@@ -52,6 +50,7 @@ Part B 병합 직후 컴파일 에러 포함 5건 + 사용자가 직접 플레�
 - [x] 몬스터 스폰 로직 (HANDOFF.md 2번) — 병합·수정·PlayMode 테스트까지 완료
 - [x] 공격 판정 — 마법사 차지샷으로 구체화(HANDOFF.md 3번)
 - [x] 위 항목 다 붙어서 핵심 루프 한 번 플레이 가능 — 배치모드로 검증(PlayMode 20/20). 스폰/이동/공격판정 로직은 사용자가 직접 플레이해서 원본과 다른 점을 네 차례 지적 → 재수정함(위 로그 참고), **이 수정에 대한 재확인은 아직**(위 "다음 할 일" 참고)
+- [x] 대규모 리팩터링(폴더/네임스페이스/asmdef 분리 + Monster→Enemy 리네임) — CLAUDE.md "대규모 리팩터링 절차"대로 단일 커밋으로 완료, 배치 컴파일+PlayMode 20/20 재검증 완료
 
 ## 확인 필요 / 막힌 것
 
@@ -63,6 +62,17 @@ Part B 병합 직후 컴파일 에러 포함 5건 + 사용자가 직접 플레�
 
 ## 로그 (최신이 위)
 
+- **2026-08-26** — **대규모 리팩터링 완료 — 폴더/네임스페이스/asmdef 분리 + `Monster`→`Enemy` 리네임.** 사용자가 "리펙터링 ㄱㄱㄱ"로 승인, CLAUDE.md "대규모 리팩터링 절차"(미병합 브랜치 0개 확인 → 진행 중 선언 → 단일 커밋 → 배치 검증 → 병합)를 그대로 따라 진행. 착수 전 미병합 브랜치 0개 확인(`feature/monster-combat`/`feature/player-field` 둘 다 `main` 대비 unique 커밋 없음).
+  - **폴더 = 네임스페이스 = asmdef 이름 일치**: `Assets/Scripts/`를 `Core/World/Combat/Characters/Enemies/Systems` 6개 폴더로 분리(전부 `git mv`로 이동해 히스토리 보존), 각각 `YokaiFront.<도메인>` 네임스페이스 + 같은 이름의 asmdef 신설. 계층(`Core`←`World`/`Combat`←`Characters`/`Enemies`←`Systems`)대로 `references` 설정, 같은 층(`Characters`↔`Enemies`)은 서로 참조 안 함. 기존 단일 `YokaiFront.Runtime.asmdef`는 삭제.
+  - **`Core/ISpawnProtectable.cs` 신설** — 리팩터 도중 실제 계층 위반을 발견: `MageProjectile`(`Characters`)·`PlayerAttack`(`Combat`)이 `MonsterMove`(`Enemies` 예정) 타입을 직접 `GetComponent`하고 있었다. `Enemies`를 모르는 도메인이 스폰 무적 상태만 물을 수 있게 `Core`에 인터페이스를 만들고 `EnemyMove`가 구현, 공격 스크립트는 `GetComponent<ISpawnProtectable>()`로 전환.
+  - **`Monster`→`Enemy` 리네임**: `MonsterMove.cs`→`EnemyMove.cs`, `MonsterSpawner.cs`→`EnemySpawner.cs`(클래스명도 동일하게), `Monster.prefab`→`Enemy_Oni.prefab`(내부 `m_Name`도 갱신). `BuildPartAScene.cs`의 프리팹 경로 상수·타입 참조 전부 갱신.
+  - `Assets/Editor/BuildPartAScene.cs`도 `YokaiFront.Editor` 네임스페이스로 감쌈 — **배치모드 `-executeMethod`는 이제 `YokaiFront.Editor.BuildPartAScene.Build`처럼 전체 경로가 필요**(옛 짧은 이름은 "class could not be found"로 실패).
+  - `Assets/Tests/PlayMode/`도 도메인별 하위 폴더(`Combat/Characters/Enemies/`)로 재배치, `MonsterSpawnAndMoveTests.cs`→`Enemies/EnemySpawnAndMoveTests.cs`로 리네임하며 내부 타입 참조 갱신, 전부 `YokaiFront.Tests.PlayMode` 네임스페이스로 감쌈. `YokaiFront.PlayModeTests.asmdef`의 참조를 옛 `YokaiFront.Runtime` 대신 새 6개 asmdef로 교체.
+  - **1차 배치 검증에서 실제 컴파일 에러 발견**: `EnemySpawnAndMoveTests.cs`에 `using YokaiFront.Enemies;`를 빠뜨려서 `EnemyMove`를 못 찾음(CS0246) — 추가하고 재검증. 두 번째 시도에선 컴파일은 통과했지만 `-executeMethod BuildPartAScene.Build`(옛 이름)가 네임스페이스 이동 때문에 실패 — `YokaiFront.Editor.BuildPartAScene.Build`로 고쳐서 씬 재생성 성공.
+  - 최종 배치 컴파일 + PlayMode 테스트 전체 재실행 → **20/20 통과**(리팩터 전과 동일한 개수, 회귀 없음).
+  - ScriptableObject 데이터 전환·`GameInput` 중앙화는 CLAUDE.md 규칙상 **이번 리팩터 범위 밖**(SO는 "2번째 무기/적 종류를 만들기 전" 시점으로, GameInput은 새 코드부터 — 둘 다 명시적으로 유보).
+  - `CLAUDE.md`에 "문서 3종 동기화" 규칙 신설(사용자가 세 문서 갱신이 잘 안 지켜지는 것 같다고 지적) + "지금 프로젝트 상태"를 리팩터 완료 상태로 갱신.
+  - `origin/main`에 이 리팩터 커밋 push까지 완료.
 - **2026-08-26** — **"만들어진 것 전체를 원본과 대조" 전수 감사 — 플레이어 이동/점프 디테일 4건 발견해 이식.** 사용자가 지금까지 구현된 전체를 원본과 다시 대조해달라고 요청 → 원본 플레이어 업데이트 루프(`bowFire` 호출부 포함 3500~3560행)를 처음부터 재검토:
   - 원본에 `bladeMove()`(관성 가속 이동)가 있어서 "이것도 빠졌나" 싶었는데, 확인해보니 **블레이드 캐릭터 전용**(`if (meta.weapon==='blade') updateBladePlayer()`로 분기)이고 활(마법사, 우리 스코프)은 원래 즉시-속도 이동이 맞다 — 헛다리 아니었음, 기존 구현 그대로 유지.
   - **코요테 타임(0.10초)·점프 입력 버퍼(0.13초)** 완전히 빠져있었음(`CharacterMover2D`에 추가, 원본 `COYOTE_T`/`INPUT_BUF_T`) — 이전엔 "grounded인 바로 그 프레임에 keydown"만 인정해서 원본보다 조작감이 빡빡했다.

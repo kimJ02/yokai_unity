@@ -1,5 +1,7 @@
 using UnityEngine;
 
+namespace YokaiFront.Characters
+{
 /// <summary>
 /// 마법사(원본 무기 "bow"="마법 지팡이") 기본 공격 — 원본 `bowFire()`/`CONFIG.bow` 그대로 이식.
 /// Z를 누르고 있으면 차지, 떼면 그 시점 차지율(chargeK = chargeT/chargeMax)로 마법탄 하나를 발사한다.
@@ -99,4 +101,5 @@ public class MageAttack : MonoBehaviour
         Vector3 spawnPos = transform.position + new Vector3(aim.x >= 0 ? 0.26f : -0.26f, 0.36f, 0f);
         MageProjectile.Spawn(spawnPos, aim * spd, dmg, pierce, life, sizeMul, boltSprite, boltColor);
     }
+}
 }

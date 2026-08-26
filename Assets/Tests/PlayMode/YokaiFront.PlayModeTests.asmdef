@@ -4,7 +4,12 @@
     "references": [
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
-        "YokaiFront.Runtime"
+        "YokaiFront.Core",
+        "YokaiFront.World",
+        "YokaiFront.Combat",
+        "YokaiFront.Characters",
+        "YokaiFront.Enemies",
+        "YokaiFront.Systems"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

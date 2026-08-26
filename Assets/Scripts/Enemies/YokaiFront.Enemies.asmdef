@@ -1,7 +1,10 @@
 {
-    "name": "YokaiFront.Runtime",
+    "name": "YokaiFront.Enemies",
     "rootNamespace": "",
-    "references": [],
+    "references": [
+        "YokaiFront.Core",
+        "YokaiFront.World"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

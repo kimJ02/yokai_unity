@@ -2,6 +2,13 @@ using System.IO;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using YokaiFront.Characters;
+using YokaiFront.Core;
+using YokaiFront.Systems;
+using YokaiFront.World;
+
+namespace YokaiFront.Editor
+{
 
 /// <summary>
 /// Part A(필드+카메라+플레이어) 씬을 코드로 조립한다. GUI 클릭 없이
@@ -16,7 +23,7 @@ public static class BuildPartAScene
 {
     const string SpritePath = "Assets/Sprites/Circle.png";
     const string GroundLayer = "Ground";
-    // 발판 좌표/두께는 FieldLayout.cs로 옮겨서 MonsterSpawner의 스폰 포인트 계산과 공유한다
+    // 발판 좌표/두께는 FieldLayout.cs로 옮겨서 EnemySpawner의 스폰 포인트 계산과 공유한다
     // (두 군데 따로 들고 있으면 나중에 발판 배치가 또 바뀔 때 하나만 고치는 실수가 남).
 
     [MenuItem("Tools/YokaiFront/Build Part A Scene")]
@@ -33,7 +40,7 @@ public static class BuildPartAScene
         BuildPlatforms();
         var player = BuildPlayer();
         BuildCamera(player.transform);
-        BuildMonsterSpawner();
+        BuildEnemySpawner();
 
         Directory.CreateDirectory("Assets/Scenes");
         bool ok = EditorSceneManager.SaveScene(scene, "Assets/Scenes/CombatCore.unity");
@@ -209,32 +216,32 @@ public static class BuildPartAScene
         return go;
     }
 
-    const string MonsterPrefabPath = "Assets/Prefabs/Monster.prefab";
+    const string MonsterPrefabPath = "Assets/Prefabs/Enemy_Oni.prefab";
 
     /// <summary>
     /// Part B(HANDOFF.md 2번) 웨이브 스포너를 씬에 등록. 프리팹은 Part B가 만든
-    /// Assets/Prefabs/Monster.prefab을 그대로 참조한다 — 여기서 새로 만들지 않는다.
+    /// Assets/Prefabs/Enemy_Oni.prefab(구 Monster.prefab)을 그대로 참조한다 — 여기서 새로 만들지 않는다.
     /// </summary>
-    static void BuildMonsterSpawner()
+    static void BuildEnemySpawner()
     {
         var monsterPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(MonsterPrefabPath);
         if (monsterPrefab == null)
         {
-            Debug.LogWarning($"[BuildPartAScene] {MonsterPrefabPath}를 못 찾아 MonsterSpawner를 건너뜀.");
+            Debug.LogWarning($"[BuildPartAScene] {MonsterPrefabPath}를 못 찾아 EnemySpawner를 건너뜀.");
             return;
         }
 
-        var go = new GameObject("MonsterSpawner");
-        var spawner = go.AddComponent<MonsterSpawner>();
+        var go = new GameObject("EnemySpawner");
+        var spawner = go.AddComponent<EnemySpawner>();
         spawner.monsterPrefab = monsterPrefab;
     }
 
     /// <summary>
-    /// Monster.prefab에 Rigidbody2D가 없었다 — 몹이 발판 높이에 스폰돼도 중력을 안 받아 허공에
-    /// 뜬 채로 있거나(또는 발판 콜라이더를 그냥 통과)였다. 실제로 발판 위에 서 있으려면 플레이어와
-    /// 동일하게 진짜 물리(Rigidbody2D + 이미 있는 CircleCollider2D)가 필요해서 프리팹에 직접 추가한다.
+    /// Enemy_Oni.prefab(구 Monster.prefab)에 Rigidbody2D가 없었다 — 몹이 발판 높이에 스폰돼도 중력을
+    /// 안 받아 허공에 뜬 채로 있거나(또는 발판 콜라이더를 그냥 통과)였다. 실제로 발판 위에 서 있으려면
+    /// 플레이어와 동일하게 진짜 물리(Rigidbody2D + 이미 있는 CircleCollider2D)가 필요해서 프리팹에 직접 추가한다.
     ///
-    /// 주의: `MonsterMove`에 `[RequireComponent(typeof(Rigidbody2D))]`를 붙여놨더니, 프리팹 파일에
+    /// 주의: `EnemyMove`에 `[RequireComponent(typeof(Rigidbody2D))]`를 붙여놨더니, 프리팹 파일에
     /// 실제로는 없는데도 로드 시점에 엔진이 메모리상으로만 자동 보충해서
     /// `prefab.GetComponent&lt;Rigidbody2D&gt;() != null`이 거짓으로 참이 되는 걸 직접 확인했다
     /// (그래서 "이미 있으면 건너뛴다"는 가드를 넣었다가 실제 파일엔 한 번도 저장 안 된 채로
@@ -253,7 +260,7 @@ public static class BuildPartAScene
         rb.gravityScale = 1f;
         PrefabUtility.SaveAsPrefabAsset(contents, MonsterPrefabPath);
         PrefabUtility.UnloadPrefabContents(contents);
-        Debug.Log("[BuildPartAScene] Monster.prefab Rigidbody2D 확인/설정 완료");
+        Debug.Log("[BuildPartAScene] Enemy_Oni.prefab Rigidbody2D 확인/설정 완료");
     }
 
     /// <summary>
@@ -298,4 +305,6 @@ public static class BuildPartAScene
         importer.mipmapEnabled = false;
         importer.SaveAndReimport();
     }
+}
+
 }

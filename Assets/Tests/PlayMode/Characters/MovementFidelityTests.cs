@@ -3,12 +3,17 @@ using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
+using YokaiFront.Characters;
+using YokaiFront.Core;
+
+namespace YokaiFront.Tests.PlayMode
+{
 
 /// <summary>
 /// 2026-08-26 "빠짐없이 원본과 대조" 감사에서 새로 발견해 이식한 디테일들을 검증한다:
 /// 코요테 타임, 점프 입력 버퍼, 차지 중 이동속도 50% 감소, 낙하 종단속도, 필드 경계 여백.
 /// Input.GetKeyDown은 실제 키 이벤트 큐에 의존해 테스트에서 시뮬레이트할 수 없으므로,
-/// CharacterMover2D/MonsterMove의 private 타이머 필드를 리플렉션으로 직접 주입해서
+/// CharacterMover2D/EnemyMove의 private 타이머 필드를 리플렉션으로 직접 주입해서
 /// "방금 이런 입력이 있었다"는 상태만 만들고, 그 이후 판정/물리는 실제 Update/FixedUpdate가 돈다.
 /// </summary>
 public class MovementFidelityTests
@@ -151,4 +156,6 @@ public class MovementFidelityTests
         Object.Destroy(go);
         yield return null;
     }
+}
+
 }

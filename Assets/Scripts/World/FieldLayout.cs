@@ -1,14 +1,16 @@
 using UnityEngine;
 
-/// <summary>
-/// 필드의 정적 공간 데이터(발판 배치, 원본 스폰 포인트) — 씬 조립(BuildPartAScene)과
-/// 몬스터 스폰(MonsterSpawner)이 공유하는 단일 출처. 예전엔 이 발판 좌표가
-/// BuildPartAScene.cs 안에만 있어서 스폰 포인트 계산 때 값을 복붙해야 했는데,
-/// 그러면 나중에 발판 배치가 또 바뀔 때(오늘 층간 간격을 넓힌 것처럼) 두 군데를
-/// 따로 고쳐야 하는 위험이 있어 여기 하나로 합쳤다.
-/// </summary>
-public static class FieldLayout
+namespace YokaiFront.World
 {
+    /// <summary>
+    /// 필드의 정적 공간 데이터(발판 배치, 원본 스폰 포인트) — 씬 조립(BuildPartAScene)과
+    /// 몬스터 스폰(EnemySpawner)이 공유하는 단일 출처. 예전엔 이 발판 좌표가
+    /// BuildPartAScene.cs 안에만 있어서 스폰 포인트 계산 때 값을 복붙해야 했는데,
+    /// 그러면 나중에 발판 배치가 또 바뀔 때(오늘 층간 간격을 넓힌 것처럼) 두 군데를
+    /// 따로 고쳐야 하는 위험이 있어 여기 하나로 합쳤다.
+    /// </summary>
+    public static class FieldLayout
+    {
     // 원본(project_test.html) NORMAL_PLATFORMS의 X 배치(centerX/width)는 그대로 옮김. pl.x는
     // 원본에서 "왼쪽 끝" 좌표였음이 충돌판정 코드(`p.x > pl.x - 6 && p.x < pl.x + pl.w + 6`)로
     // 확인됨 — 중심이 아니다. 100px=1유닛, groundY=620 기준 centerX=(x+w/2)/100 로 환산.
@@ -34,4 +36,5 @@ public static class FieldLayout
     public static float PlatformLandingY(int index, float radius) => Platforms[index, 1] + PlatformThickness / 2f + radius;
     public static float PlatformLeftX(int index) => Platforms[index, 0] - Platforms[index, 2] / 2f;
     public static float PlatformRightX(int index) => Platforms[index, 0] + Platforms[index, 2] / 2f;
+    }
 }

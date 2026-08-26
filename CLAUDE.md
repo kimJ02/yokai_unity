@@ -17,6 +17,13 @@
 - 커밋 메시지는 무엇을 했는지 + (필요하면) 왜. 예: `몬스터 스폰 알고리즘 구현 — HANDOFF.md 2번 스펙 반영`
 - 막히거나 HANDOFF.md 스펙이 애매하면 임의로 확장하지 말고 `PROGRESS.md`에 "확인 필요" 항목으로 남겨둔다.
 
+### 문서 3종 동기화 (2026-08-26, 사용자 지적 — 이게 잘 안 지켜지고 있었음)
+`CLAUDE.md`/`PROGRESS.md`/`HANDOFF.md`는 역할이 다르고, **커밋 하나가 셋 다 건드릴 필요는 없지만 각자의 트리거가 오면 반드시 그 자리에서 같이 갱신한다** — "나중에 몰아서" 하지 않는다. 세션 끝에 세 파일이 실제 코드 상태와 안 맞으면 다음 세션(또는 사용자)이 잘못된 전제로 작업을 시작하게 된다.
+- **`PROGRESS.md`**: 매 커밋마다(위 규칙 그대로) — 로그 추가 + "지금 상태"/"다음 할 일"/"체크리스트"를 그 커밋 이후 사실에 맞게.
+- **`HANDOFF.md`**: 원본과 대조해서 **수치·알고리즘·범위가 바뀔 때마다** — 스펙을 다시 읽는 사람이 최신 확정값을 보게. 의도적 편차는 `> **의도적 편차 —` 콜아웃으로.
+- **`CLAUDE.md`**: (a) 작업 규칙 자체가 바뀔 때, (b) **스프린트/단계가 완료되거나 전환될 때 "지금 프로젝트 상태" 섹션을** — 이 섹션이 낡으면 새 세션이 시작하자마자 잘못된 다음 할 일을 고른다. 리팩터링·대형 마일스톤 완료 직후가 특히 놓치기 쉬운 시점이니 커밋 체크리스트에 넣을 것.
+- 셋 중 하나라도 갱신을 빠뜨린 채 커밋했다는 걸 나중에 발견하면, 그 자리에서 바로 따라잡는 커밋을 만든다(다음 세션에 떠넘기지 않는다).
+
 ## 협업 규칙 (두 세션이 동시에 작업할 때)
 
 Unity 씬(`.unity`)·프리팹(`.prefab`) 파일은 내부적으로 GUID/fileID로 오브젝트를 참조하는 구조라, **두 사람이 같은 씬을 동시에 건드리면 git이 병합하다가 씬이 깨진다.** 순수 C# 스크립트(`.cs`)는 일반 코드처럼 잘 병합된다. 이 차이 때문에 아래 규칙을 따른다.
@@ -81,8 +88,8 @@ Unity 씬(`.unity`)·프리팹(`.prefab`) 파일은 내부적으로 GUID/fileID�
 | 3 | `YokaiFront.Systems` | 0~2 | 스포너·가챠·세이브 등 오케스트레이션 |
 | 4 | `YokaiFront.UI` | 0~3 | HUD·메뉴 |
 
-- **같은 층끼리는 서로 참조 금지.** 특히 `Characters` ↔ `Enemies`는 절대 직접 참조하지 않는다 — 서로 때리는 건 `Core`의 `IDamageable`과 태그로만 한다(지금 `MageProjectile`이 `CompareTag("Enemy")`를 쓰는 방식이 정확히 이 원칙에 맞다).
-- 위 표는 **목표 구조**다. 지금은 `YokaiFront.Runtime` 하나뿐이고, 분리는 아래 "대규모 리팩터링" 절차를 따라 한 번에 수행한다.
+- **같은 층끼리는 서로 참조 금지.** 특히 `Characters` ↔ `Enemies`는 절대 직접 참조하지 않는다 — 서로 때리는 건 `Core`의 태그(`CompareTag("Enemy")`)와 `ISpawnProtectable` 같은 `Core` 인터페이스로만 한다. `IDamageable`은 아직 없음(Health 시스템과 함께 나중에 `Core`에 추가 예정) — 그 전까지 공격 스크립트는 `Destroy()`를 직접 부른다.
+- **위 표는 실제 적용 완료 상태다(2026-08-26 리팩터링).** `Assets/Scripts/`가 여섯 asmdef로 분리돼 있고 `YokaiFront.Runtime`은 더 이상 없다.
 
 ### 데이터(밸런스 값) — ScriptableObject로
 - 무기·적 스탯 같은 튜닝 수치는 스크립트에 하드코딩하지 않고 ScriptableObject 데이터 에셋으로 관리한다(원본의 `CONFIG`/`WEAPONS`/`MONSTERS` 데이터 테이블 구조를 그대로 반영하는 것 — 원본 자체가 이미 데이터 우선 설계였다).
@@ -99,10 +106,9 @@ Unity 씬(`.unity`)·프리팹(`.prefab`) 파일은 내부적으로 GUID/fileID�
 - 피격 가능한 대상(플레이어·적)은 `IDamageable`(`TakeDamage(float amount, GameObject source)`)을 구현한다.
 - 공격 스크립트는 `Destroy()`를 직접 부르지 않고 `IDamageable.TakeDamage()`를 호출한다. v0(Health 시스템 없음)에서는 구현체가 그냥 `Destroy(gameObject)`만 해도 됨 — Health가 생기면 그 구현체 하나만 바꾸면 됨.
 
-### 용어 통일 (지금 섞여 있음 — 다음 리팩터에서 정리)
-같은 대상을 `Monster`(클래스명)·`Enemy`(태그)·`Enemies`(폴더)로 부르고 있어서, 몹 종류가 늘면 검색·명명이 계속 헷갈린다. **`Enemy`로 통일한다**(태그가 프리팹·씬에 이미 직렬화돼 있어 바꾸기 가장 비싸고, 원본 JS도 `enemies`를 씀).
-- 태그 `Enemy` · 폴더 `Enemies/` · 네임스페이스 `YokaiFront.Enemies` · 클래스 `EnemySpawner`/`EnemyMove` · 프리팹 `Enemy_Oni.prefab`
-- 기존 `MonsterSpawner`/`MonsterMove`/`Monster.prefab` 리네임은 **Part B 병합이 끝난 뒤** 대규모 리팩터에 포함한다(진행 중인 작업과 충돌 방지).
+### 용어 통일 — `Enemy`로 완료(2026-08-26)
+같은 대상을 `Monster`(클래스명)·`Enemy`(태그)·`Enemies`(폴더)로 따로 부르던 걸 **`Enemy`로 통일 완료**(원본 JS도 `enemies`를 씀).
+- 태그 `Enemy` · 폴더 `Enemies/` · 네임스페이스 `YokaiFront.Enemies` · 클래스 `EnemySpawner`/`EnemyMove` · 프리팹 `Enemy_Oni.prefab` — 전부 적용 끝. 새 코드에서 `Monster`라는 이름을 다시 쓰지 말 것.
 - 에셋 파일명은 `<도메인>_<고유이름>` 형식: `Enemy_Oni.prefab`, `Weapon_Bow.asset`, `Region_Forest.asset`.
 
 ### 번호/이름 예약표 (새로 추가하기 전에 여기 먼저 적고 커밋)
@@ -152,8 +158,7 @@ Unity 씬(`.unity`)·프리팹(`.prefab`) 파일은 내부적으로 GUID/fileID�
 ## 지금 프로젝트 상태
 
 - Unity: 2D (URP) 템플릿
-- 진행 단계: **1단계 전투 코어 프로토타입 완료.** Part A(필드/카메라/플레이어/공격) + Part B(몬스터/스폰) 전부 `main`에 병합·검증·`origin` push까지 끝났다(2026-08-26). HANDOFF.md "개발 순서 제안" 1~5번 전부 체크 완료 — "핵심 루프"가 돌아가는 상태. 자세한 건 `PROGRESS.md` 참조.
-- **다음 할 일은 두 단계로 나뉜다** (`PROGRESS.md` "다음 할 일" 참고):
-  1. **대규모 리팩터링을 지금 한다.** 미병합 브랜치가 0개인 지금이 적기 — 아래 "코딩/파일 정리 규칙"(폴더 분리·네임스페이스·asmdef 분리·ScriptableObject 데이터화·Monster→Enemy 리네임)을 기존 코드에 실제로 적용한다. 지금은 규칙만 정해져 있고 코드는 그대로다(폴더 평평, 네임스페이스 없음, asmdef 1개).
-  2. **그다음 스프린트(신규 기능)는 아직 미정이다.** HANDOFF.md 맨 아래 "여기까지 되면 핵심 루프 완성 — 이후 확장(체력바, 몹 종류 추가 등)은 따로 논의"라고 명시돼 있다 — 세션이 임의로 다음 스프린트 범위를 정하지 말고 사용자에게 확인할 것. 최종 목표(HANDOFF.md 맨 위) 기준 후보: 플레이어 Health/체력바, 몹 종류 추가, 무기 2종째(그리고 ScriptableObject 전환), 아이템, 가챠, 지역 등.
-- 게임 로직 검증은 항상 PlayMode 테스트로 한다(`Assets/Tests/PlayMode/`). Edit Mode 배치 실행에서 Physics2D 쿼리를 신뢰하지 말 것 — 이유는 `PROGRESS.md` 로그 참고.
+- 진행 단계: **1단계 전투 코어 프로토타입 완료 + 대규모 리팩터링 완료(2026-08-26).** Part A(필드/카메라/플레이어/공격) + Part B(몬스터/스폰) 전부 `main`에 병합·검증·`origin` push 완료. HANDOFF.md "개발 순서 제안" 1~5번 전부 체크 완료 — "핵심 루프"가 돌아가는 상태. 이어서 **"코딩/파일 정리 규칙"의 폴더/네임스페이스/asmdef 분리 + `Monster`→`Enemy` 리네임을 실제 코드에 적용 완료** — 더 이상 "규칙만 있고 코드는 평평한" 상태가 아니다. `Assets/Scripts/`는 `Core/World/Combat/Characters/Enemies/Systems` 여섯 폴더 = 여섯 네임스페이스(`YokaiFront.*`) = 여섯 asmdef로 실제 분리돼 있고, 계층 참조 규칙(하위 asmdef가 상위를 모름)도 강제된다. 클래스명은 `EnemyMove`/`EnemySpawner`, 프리팹은 `Enemy_Oni.prefab`. 자세한 건 `PROGRESS.md` 참조.
+- **배치모드 `-executeMethod`는 이제 전체 네임스페이스 경로가 필요하다**: `YokaiFront.Editor.BuildPartAScene.Build` (리팩터 전엔 `BuildPartAScene.Build`였음 — 네임스페이스 없는 옛 명령어를 쓰면 "class could not be found"로 실패한다).
+- **다음 스프린트(신규 기능)는 아직 미정이다.** HANDOFF.md 맨 아래 "여기까지 되면 핵심 루프 완성 — 이후 확장(체력바, 몹 종류 추가 등)은 따로 논의"라고 명시돼 있다 — 세션이 임의로 다음 스프린트 범위를 정하지 말고 사용자에게 확인할 것. 최종 목표(HANDOFF.md 맨 위) 기준 후보: 플레이어 Health/체력바, 몹 종류 추가, 무기 2종째(그리고 ScriptableObject 데이터 전환 — 위 "데이터(밸런스 값)" 절 참고, 이건 아직 안 함), 아이템, 가챠, 지역 등.
+- 게임 로직 검증은 항상 PlayMode 테스트로 한다(`Assets/Tests/PlayMode/`, 도메인별 하위 폴더로 분리됨). Edit Mode 배치 실행에서 Physics2D 쿼리를 신뢰하지 말 것 — 이유는 `PROGRESS.md` 로그 참고.

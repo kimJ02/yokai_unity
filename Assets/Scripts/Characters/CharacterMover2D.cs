@@ -1,5 +1,8 @@
 using UnityEngine;
+using YokaiFront.Core;
 
+namespace YokaiFront.Characters
+{
 /// <summary>
 /// 이동 컨트롤러. 실제 Physics2D(Rigidbody2D 동적 바디 + 콜라이더 충돌 해석) 기반 — 전역 중력은
 /// BuildPartAScene에서 Physics2D.gravity = (0, -26)로 설정(원본 2600px/s² → 26, 100px=1유닛 축척).
@@ -101,4 +104,5 @@ public class CharacterMover2D : MonoBehaviour
         Vector2 feet = (Vector2)transform.position + Vector2.down * col.bounds.extents.y;
         return Physics2D.OverlapCircle(feet, groundCheckRadius, groundMask);
     }
+}
 }

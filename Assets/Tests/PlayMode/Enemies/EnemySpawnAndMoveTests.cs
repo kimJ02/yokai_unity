@@ -3,13 +3,21 @@ using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
+using YokaiFront.Combat;
+using YokaiFront.Core;
+using YokaiFront.Enemies;
+using YokaiFront.Systems;
+using YokaiFront.World;
+
+namespace YokaiFront.Tests.PlayMode
+{
 
 /// <summary>
 /// Part B(몬스터 스폰/이동) 관련 PlayMode 테스트. 필드 경계 API 전환 + 이동축 수정(X만 이동) +
 /// 원본과 비교해 다시 이식한 것들(스폰 포인트를 균등 랜덤이 아니라 발판/바닥그리드 기반으로,
 /// 스폰 직후 2초 무적)이 실제로 맞물려 동작하는지 검증한다.
 /// </summary>
-public class MonsterSpawnAndMoveTests
+public class EnemySpawnAndMoveTests
 {
     /// <summary>
     /// 웨이브 하나를 강제로 발생시켜, 스폰된 몹이 전부 필드 X 경계 안 + "알려진 착지 Y" 중
@@ -25,12 +33,12 @@ public class MonsterSpawnAndMoveTests
         prefab.AddComponent<CircleCollider2D>().radius = 0.3f;
 
         var spawnerGO = new GameObject("TestSpawner");
-        var spawner = spawnerGO.AddComponent<MonsterSpawner>();
+        var spawner = spawnerGO.AddComponent<EnemySpawner>();
         spawner.monsterPrefab = prefab;
         spawner.maxSpawnPerWave = 5;
 
-        var spawnWave = typeof(MonsterSpawner).GetMethod("SpawnWave", BindingFlags.NonPublic | BindingFlags.Instance);
-        var aliveField = typeof(MonsterSpawner).GetField("aliveMonsters", BindingFlags.NonPublic | BindingFlags.Instance);
+        var spawnWave = typeof(EnemySpawner).GetMethod("SpawnWave", BindingFlags.NonPublic | BindingFlags.Instance);
+        var aliveField = typeof(EnemySpawner).GetField("aliveMonsters", BindingFlags.NonPublic | BindingFlags.Instance);
         Assert.IsNotNull(spawnWave);
         Assert.IsNotNull(aliveField);
 
@@ -77,7 +85,7 @@ public class MonsterSpawnAndMoveTests
     /// 바로 잡아낼 수 있게 했다.
     /// </summary>
     [UnityTest]
-    public IEnumerator MonsterMove_ChasesTowardPlayerWithinAggroRange_XOnly()
+    public IEnumerator EnemyMove_ChasesTowardPlayerWithinAggroRange_XOnly()
     {
         var playerGO = new GameObject("TestPlayer");
         playerGO.tag = "Player";
@@ -85,7 +93,7 @@ public class MonsterSpawnAndMoveTests
 
         var monsterGO = new GameObject("TestMover");
         monsterGO.transform.position = new Vector3(2f, FieldBounds.GroundY, 0f); // 플레이어까지 거리 2 < 기본 추적범위(3)
-        var move = monsterGO.AddComponent<MonsterMove>(); // RequireComponent로 Rigidbody2D도 같이 붙음
+        var move = monsterGO.AddComponent<EnemyMove>(); // RequireComponent로 Rigidbody2D도 같이 붙음
         move.moveSpeed = 5f; // 테스트를 빨리 끝내려고 크게
         monsterGO.GetComponent<Rigidbody2D>().gravityScale = 0f; // 이 테스트는 추적 판단만 봄, 낙하/착지는 별도 테스트
 
@@ -105,10 +113,10 @@ public class MonsterSpawnAndMoveTests
     /// <summary>
     /// 몹을 발판 위에서 살짝 위쪽에 놓고 떨어뜨렸을 때 실제 Physics2D로 그 발판 위에 착지해서
     /// 멈추는지 확인한다 — "발판 위에도 스폰된다"는 게 실제로 물리적으로 성립하는지의 핵심 검증.
-    /// 예전엔 MonsterMove가 순수 transform 이동이라 발판 콜라이더를 그냥 통과했다.
+    /// 예전엔 EnemyMove가 순수 transform 이동이라 발판 콜라이더를 그냥 통과했다.
     /// </summary>
     [UnityTest]
-    public IEnumerator MonsterMove_LandsOnPlatform_ViaRealPhysics()
+    public IEnumerator EnemyMove_LandsOnPlatform_ViaRealPhysics()
     {
         int groundLayer = LayerMask.NameToLayer("Ground");
         Assert.AreNotEqual(-1, groundLayer, "Ground 레이어가 없음 — BuildPartAScene.Build()를 한 번도 안 돌린 프로젝트인가?");
@@ -125,7 +133,7 @@ public class MonsterSpawnAndMoveTests
         monsterGO.tag = "Enemy";
         monsterGO.transform.position = new Vector3(5f, 4f, 0f); // 발판 한참 위에서 떨어뜨림
         monsterGO.AddComponent<CircleCollider2D>().radius = 0.3f;
-        var move = monsterGO.AddComponent<MonsterMove>(); // RequireComponent로 Rigidbody2D도 같이 붙음(중력 적용)
+        var move = monsterGO.AddComponent<EnemyMove>(); // RequireComponent로 Rigidbody2D도 같이 붙음(중력 적용)
         // 이 발판은 FieldLayout 좌표와 안 맞아서 가장자리 반전이 안 걸린다 — 순수 착지 물리만
         // 보려고 배회 이동(수평 드리프트)을 꺼서 대기 시간 동안 발판 밖으로 안 나가게 한다.
         move.moveSpeed = 0f;
@@ -151,7 +159,7 @@ public class MonsterSpawnAndMoveTests
     /// 반전해서 계속 그 발판 위에 남아있어야 한다(걸어서 떨어지면 안 됨).
     /// </summary>
     [UnityTest]
-    public IEnumerator MonsterMove_TurnsBackAtPlatformEdge_DoesNotWalkOff()
+    public IEnumerator EnemyMove_TurnsBackAtPlatformEdge_DoesNotWalkOff()
     {
         int groundLayer = LayerMask.NameToLayer("Ground");
         Assert.AreNotEqual(-1, groundLayer, "Ground 레이어가 없음");
@@ -176,7 +184,7 @@ public class MonsterSpawnAndMoveTests
         monsterGO.tag = "Enemy";
         monsterGO.transform.position = new Vector3(rightEdgeX - 0.2f, landingY, 0f); // 이미 발판 위, 오른쪽 끝 근처
         monsterGO.AddComponent<CircleCollider2D>().radius = radius;
-        monsterGO.AddComponent<MonsterMove>(); // 플레이어 없음 → 배회, 기본 dir=1(오른쪽)이라 곧 가장자리에 닿음
+        monsterGO.AddComponent<EnemyMove>(); // 플레이어 없음 → 배회, 기본 dir=1(오른쪽)이라 곧 가장자리에 닿음
 
         float minY = monsterGO.transform.position.y;
         float t = 0f;
@@ -210,13 +218,13 @@ public class MonsterSpawnAndMoveTests
         prefab.AddComponent<CircleCollider2D>().radius = 0.3f;
 
         var spawnerGO = new GameObject("TestSpawner");
-        var spawner = spawnerGO.AddComponent<MonsterSpawner>();
+        var spawner = spawnerGO.AddComponent<EnemySpawner>();
         spawner.monsterPrefab = prefab;
         spawner.maxSpawnPerWave = 7;
         spawner.minSpacing = 0f; // 이 테스트는 분포만 보는 거라 간격 재시도로 흔들리지 않게
 
-        var spawnWave = typeof(MonsterSpawner).GetMethod("SpawnWave", BindingFlags.NonPublic | BindingFlags.Instance);
-        var aliveField = typeof(MonsterSpawner).GetField("aliveMonsters", BindingFlags.NonPublic | BindingFlags.Instance);
+        var spawnWave = typeof(EnemySpawner).GetMethod("SpawnWave", BindingFlags.NonPublic | BindingFlags.Instance);
+        var aliveField = typeof(EnemySpawner).GetField("aliveMonsters", BindingFlags.NonPublic | BindingFlags.Instance);
 
         // 여러 웨이브를 돌려서 스폰 포인트 21개 중 일부만 우연히 걸리는 걸 방지
         for (int wave = 0; wave < 5; wave++)
@@ -268,10 +276,10 @@ public class MonsterSpawnAndMoveTests
         enemyGO.tag = "Enemy";
         enemyGO.transform.position = playerGO.transform.position; // 사거리 안에 확실히 들어오게
         enemyGO.AddComponent<CircleCollider2D>().radius = 0.3f;
-        var move = enemyGO.AddComponent<MonsterMove>(); // AddComponent가 Awake를 동기 실행하므로
+        var move = enemyGO.AddComponent<EnemyMove>(); // AddComponent가 Awake를 동기 실행하므로
         // spawnProtectDuration 필드를 나중에 바꿔도 이미 실행된 Awake엔 반영 안 됨 — private
         // 타이머 자체를 리플렉션으로 직접 짧게 세팅한다(테스트를 빨리 끝내려고, 원본 값은 2초).
-        var timerField = typeof(MonsterMove).GetField("spawnProtectTimer", BindingFlags.NonPublic | BindingFlags.Instance);
+        var timerField = typeof(EnemyMove).GetField("spawnProtectTimer", BindingFlags.NonPublic | BindingFlags.Instance);
         Assert.IsNotNull(timerField);
         timerField.SetValue(move, 0.1f);
 
@@ -288,4 +296,6 @@ public class MonsterSpawnAndMoveTests
         Object.Destroy(playerGO);
         yield return null;
     }
+}
+
 }

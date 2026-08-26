@@ -1,5 +1,9 @@
 using UnityEngine;
+using YokaiFront.Core;
+using YokaiFront.World;
 
+namespace YokaiFront.Enemies
+{
 /// <summary>
 /// Part B (feature/monster-combat) - 몬스터 이동 AI. HANDOFF.md 2번 스탯 범위(몹 1종=오니 기준)를
 /// 원본 updateEnemies()의 "오니·분열귀·새끼" 분기(기본 보행 AI)를 그대로 이식해서 구현한다 —
@@ -27,7 +31,7 @@ using UnityEngine;
 [DisallowMultipleComponent]
 [RequireComponent(typeof(Rigidbody2D))]
 [RequireComponent(typeof(CircleCollider2D))]
-public class MonsterMove : MonoBehaviour
+public class EnemyMove : MonoBehaviour, ISpawnProtectable
 {
     [Header("스탯 (HANDOFF.md 2번 - 오니 기준 시작값, 원본 76px/s를 100px=1유닛로 축척)")]
     public float moveSpeed = 0.76f;
@@ -194,4 +198,5 @@ public class MonsterMove : MonoBehaviour
         // TODO(확인 필요): 플레이어 Health 컴포넌트가 생기면 여기서 attackPower만큼 데미지를 준다.
         // 이번 스프린트는 Health 개념 자체가 범위 밖이라 의도적으로 비워둠 (PROGRESS.md 참고).
     }
+}
 }

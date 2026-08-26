@@ -1,6 +1,10 @@
 using System.Collections.Generic;
 using UnityEngine;
+using YokaiFront.Core;
+using YokaiFront.World;
 
+namespace YokaiFront.Systems
+{
 /// <summary>
 /// Part B (feature/monster-combat) - 몬스터 스폰 알고리즘 (HANDOFF.md 2번).
 ///
@@ -19,10 +23,10 @@ using UnityEngine;
 ///
 /// **발판 스폰 포인트는 실제로 그 발판 높이에 스폰한다**(Y를 항상 GroundY로 고정했던 이전
 /// 버전은 "발판 위에도 나온다"는 말과 실제 동작이 달랐음 — 사용자가 직접 확인하고 지적).
-/// 몹은 이제 Rigidbody2D로 실제 중력을 받으므로(MonsterMove 참고) 발판 위에 스폰하면 물리로
+/// 몹은 이제 Rigidbody2D로 실제 중력을 받으므로(EnemyMove 참고) 발판 위에 스폰하면 물리로
 /// 그 위에 서 있는다. FieldLayout이 발판/바닥그리드 좌표의 단일 출처다.
 /// </summary>
-public class MonsterSpawner : MonoBehaviour
+public class EnemySpawner : MonoBehaviour
 {
     [Header("몬스터 프리팹")]
     public GameObject monsterPrefab;
@@ -58,7 +62,7 @@ public class MonsterSpawner : MonoBehaviour
     {
         if (monsterPrefab == null)
         {
-            Debug.LogWarning("[MonsterSpawner] monsterPrefab이 비어 있어 스폰을 건너뜀.");
+            Debug.LogWarning("[EnemySpawner] monsterPrefab이 비어 있어 스폰을 건너뜀.");
             return;
         }
 
@@ -153,4 +157,5 @@ public class MonsterSpawner : MonoBehaviour
         }
         return true;
     }
+}
 }
