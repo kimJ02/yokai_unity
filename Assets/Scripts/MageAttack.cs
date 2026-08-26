@@ -7,6 +7,10 @@ using UnityEngine;
 /// 탄속↑(speed*(1+0.3*chargeK)) — 전부 원본 수치 그대로, 사거리(range)만큼의 수명 후 소멸.
 /// 스킬트리(fireTier/frostTier)·중력구슬 분기는 이번 스프린트 범위 밖(HANDOFF.md 3번=버튼 1개)이라 뺐다.
 /// PlayerAttack(범용 근접 판정)을 대체한다 — 이 캐릭터를 쓰는 동안은 씬에 둘 다 안 붙인다.
+///
+/// 개정(2026-08-26): 원본은 차지 중(`p.charging`) 이동속도가 절반(`chargeSlow = p.charging ? 0.5 : 1`,
+/// `p.vx = mx * moveSpeed * ... * chargeSlow`)이다 — 완전히 빠져 있었다. `CharacterMover2D.SpeedMultiplier`를
+/// 매 프레임 갱신해서 이식.
 /// </summary>
 public class MageAttack : MonoBehaviour
 {
@@ -19,6 +23,7 @@ public class MageAttack : MonoBehaviour
     public int chargePierce = 4;           // B.chargePierce
     public float projectileSpeed = 10.8f;  // B.speed 1080px/s
     public float projectileRange = 8.8f;   // B.range 880px
+    public float chargeMoveSlow = 0.5f;    // 원본 chargeSlow
 
     public Sprite boltSprite;              // 런타임 AssetDatabase 호출을 피하려고 씬 빌더가 미리 꽂아준다
     public Color boltColor = new Color(0.55f, 0.8f, 1f);
@@ -44,6 +49,11 @@ public class MageAttack : MonoBehaviour
 
     void Update()
     {
+        // 이번 프레임 시작 시점(직전 프레임까지의) 차지 상태를 기준으로 감속을 먼저 적용한다 —
+        // 발사(release)되는 바로 그 프레임도 "떼기 직전까지는 차지 중"이었으므로 감속이 맞다.
+        // 아래에서 곧바로 charging이 꺼질 수 있어(발사 처리) 순서를 이렇게 잡아야 한다.
+        if (mover != null) mover.SpeedMultiplier = charging ? chargeMoveSlow : 1f;
+
         cdTimer -= Time.deltaTime;
 
         bool held = Input.GetKey(KeyCode.Z);

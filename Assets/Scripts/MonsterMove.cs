@@ -19,6 +19,10 @@ using UnityEngine;
 /// - **접촉 데미지**: 원본은 매 프레임 `rectsOverlap` 판정 후 `damagePlayer()` 호출 — 별도
 ///   쿨다운 없이 겹치는 동안 계속 불린다(실제 반복 피해 방지는 플레이어 쪽 무적시간이 담당).
 ///   플레이어 Health가 아직 없어(HANDOFF.md 범위 밖) `TryAttack()`은 자리만 만들어둔 상태 유지.
+/// - **낙하 종단속도 15유닛/s**(원본 `e.vy`엔 명시적 상한이 없지만 플레이어와 같은 `updateEnemies`
+///   중력 루프를 쓰고 원본 전체가 이 상한을 공유함 — `CharacterMover2D` 참고).
+/// - **필드 X 경계 여백 0.3유닛**(원본 `e.x = clamp(e.x, 30, mapW-30)`, 매 프레임). 이전엔 배회
+///   중 경계 clamp가 아예 없어서 몹이 필드 밖으로 나갈 수 있었다.
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(Rigidbody2D))]
@@ -45,6 +49,10 @@ public class MonsterMove : MonoBehaviour
 
     [Tooltip("스폰 직후 무적 시간(초) — 원본 CONFIG.run.spawnProtect 그대로.")]
     public float spawnProtectDuration = 2f;
+
+    [Header("원본 상수 그대로 이식")]
+    public float terminalFallSpeed = 15f; // 원본 1500px/s ÷100(CharacterMover2D와 동일 상한)
+    public float edgeMargin = 0.3f;       // 원본 clamp(e.x, 30, mapW-30)의 30px ÷100
 
     /// <summary>스폰 직후 무적 상태인지. 공격 스크립트는 이 몹을 파괴하기 전에 반드시 확인한다.</summary>
     public bool IsSpawnProtected => spawnProtectTimer > 0f;
@@ -81,7 +89,17 @@ public class MonsterMove : MonoBehaviour
 
     void FixedUpdate()
     {
-        rb.linearVelocity = new Vector2(dir * moveSpeed, rb.linearVelocity.y); // Y(중력·착지)는 Physics2D에 맡김
+        float vx = dir * moveSpeed;
+        float minX = FieldBounds.MinX + edgeMargin;
+        float maxX = FieldBounds.MaxX - edgeMargin;
+        if (rb.position.x <= minX && vx < 0f) vx = 0f;
+        if (rb.position.x >= maxX && vx > 0f) vx = 0f;
+
+        float vy = Mathf.Max(rb.linearVelocity.y, -terminalFallSpeed); // 원본 종단속도 상한
+        rb.linearVelocity = new Vector2(vx, vy); // Y(중력·착지)는 Physics2D에 맡김
+
+        if (rb.position.x < minX || rb.position.x > maxX)
+            rb.position = new Vector2(Mathf.Clamp(rb.position.x, minX, maxX), rb.position.y);
     }
 
     /// <summary>원본: `if (Math.abs(dx) < 300) dir = sign(dx) || dir; else { wander }`.</summary>

@@ -146,6 +146,8 @@ MonoBehaviour:
   platformProximityMargin: 0.12
   onPlatformYTolerance: 0.03
   spawnProtectDuration: 2
+  terminalFallSpeed: 15
+  edgeMargin: 0.3
 --- !u!50 &9164250667598604089
 Rigidbody2D:
   serializedVersion: 5
