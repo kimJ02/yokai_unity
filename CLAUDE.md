@@ -141,7 +141,11 @@ Unity 씬(`.unity`)·프리팹(`.prefab`) 파일은 내부적으로 GUID/fileID�
 **물리 레이어** (`ProjectSettings/TagManager.asset`)
 | 번호 | 이름 | 용도 |
 |---|---|---|
+| 6 | Player | 플레이어. **Enemy와의 Physics2D 충돌만 끔**(Layer Collision Matrix), Ground와는 충돌 유지 |
+| 7 | Enemy | 적 전체. **Player와의 Physics2D 충돌만 끔**(Layer Collision Matrix), Ground와는 충돌 유지 |
 | 8 | Ground | 바닥·발판(접지 판정) |
+
+> **2026-08-29, 사용자가 직접 플레이해보고 지적 — 플레이어·몬스터가 서로 겹치지 못하고 밀어냄.** 원본(`project_test.html:4148`)은 물리엔진 자체가 없어 `rectsOverlap()`로 접촉만 검사해 `damagePlayer()`를 부르고 끝이라, 겹쳐도 밀어내는 로직이 없다. Unity 쪽은 발판 착지를 위해 Player·Enemy 둘 다 `Rigidbody2D`(Dynamic)+막힌(non-trigger) `CircleCollider2D`를 쓰는데, 둘이 같은 물리 레이어(`Default`, 0번)에 있어서 겹치는 순간 Physics2D가 자동으로 밀어내기를 해버린 게 원인 — 원본에 없는, 물리엔진 도입 부작용이었다. 콜라이더를 트리거로 바꾸면 발판 충돌까지 깨지므로, 대신 위 `Player`(6)/`Enemy`(7) 레이어를 신설해 **Layer Collision Matrix에서 Player×Enemy만 비활성화**(Player×Ground, Enemy×Ground는 유지)하는 방식으로 해결. 접촉 데미지 판정 자체는 원래도 물리 충돌과 무관하게 `EnemyMove.OverlapsTarget()`의 수동 거리 계산으로 처리되고 있어서 별도 수정 불필요했음.
 
 **태그**
 | 이름 | 용도 |
