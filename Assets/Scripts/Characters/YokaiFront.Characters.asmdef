@@ -3,7 +3,8 @@
     "rootNamespace": "",
     "references": [
         "YokaiFront.Core",
-        "YokaiFront.World"
+        "YokaiFront.World",
+        "YokaiFront.Combat"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

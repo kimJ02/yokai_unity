@@ -99,7 +99,8 @@ public class MageAttack : MonoBehaviour
         float sizeMul = 1f + chargeK * 0.9f; // 원본 `size: 1 + chargeK*0.9` — 판정/시각 크기 배율
 
         Vector3 spawnPos = transform.position + new Vector3(aim.x >= 0 ? 0.26f : -0.26f, 0.36f, 0f);
-        MageProjectile.Spawn(spawnPos, aim * spd, dmg, pierce, life, sizeMul, boltSprite, boltColor);
+        // 마지막 인자(시전자)는 넉백 방향 기준 — 원본이 `sign(e.x - player.x)`로 플레이어 위치를 쓰기 때문.
+        MageProjectile.Spawn(spawnPos, aim * spd, dmg, pierce, life, sizeMul, boltSprite, boltColor, gameObject);
     }
 }
 }

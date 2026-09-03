@@ -210,6 +210,7 @@ public static class BuildPartAScene
         rb.freezeRotation = true;
 
         go.AddComponent<CharacterMover2D>();
+        go.AddComponent<PlayerHealth>(); // 스프린트 2 — 체력 100, 무적 0.9초(원본 CONFIG.player)
         var mage = go.AddComponent<MageAttack>();
         mage.boltSprite = circleSprite; // 런타임 AssetDatabase 호출(빌드에서 못 씀) 없이 미리 꽂아줌
 
@@ -258,9 +259,16 @@ public static class BuildPartAScene
         if (rb == null) rb = contents.AddComponent<Rigidbody2D>();
         rb.freezeRotation = true;
         rb.gravityScale = 1f;
+
+        // 스프린트 2 — 체력. 원본 오니 hp 38(project_test.html:709).
+        // 위 Rigidbody2D와 같은 이유로 "있는지 검사 후 건너뛰기"를 하지 않는다(RequireComponent 자동 보충 함정).
+        var health = contents.GetComponent<YokaiFront.Enemies.EnemyHealth>();
+        if (health == null) health = contents.AddComponent<YokaiFront.Enemies.EnemyHealth>();
+        health.maxHp = 38f;
+
         PrefabUtility.SaveAsPrefabAsset(contents, MonsterPrefabPath);
         PrefabUtility.UnloadPrefabContents(contents);
-        Debug.Log("[BuildPartAScene] Enemy_Oni.prefab Rigidbody2D 확인/설정 완료");
+        Debug.Log("[BuildPartAScene] Enemy_Oni.prefab Rigidbody2D/EnemyHealth 확인/설정 완료");
     }
 
     /// <summary>
