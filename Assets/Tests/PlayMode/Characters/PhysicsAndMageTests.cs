@@ -152,8 +152,11 @@ public class PhysicsAndMageTests
     }
 
     /// <summary>
-    /// 무차지 기준 pierce=2(원본 B.pierce)면 적 3마리(2+1)까지 관통하며 파괴하고,
-    /// 그다음(4번째)은 못 맞히고 그 전에 투사체 자신도 사라지는지 확인한다.
+    /// 무차지 기준 pierce=2(원본 B.pierce)면 적 정확히 2마리까지만 맞히고 사라진다 — 원본
+    /// `w.pierceLeft--; if (w.pierceLeft <= 0) remove = true;`(project_test.html:3683-3684)를
+    /// 그대로 계산하면 pierce=2는 "2번 맞은 뒤 소멸"이지 "3번째까지 맞고 소멸"이 아니다
+    /// (스프린트 2 마법사 스킬트리 작업 중 이 오프바이원을 발견해 수정 — 이전엔 `pierceLeft &lt; 0`으로
+    /// 비교해서 한 대 더 맞혔다).
     /// </summary>
     [UnityTest]
     public IEnumerator Projectile_PiercesExactlyBasePierceCountThenDespawns()
@@ -164,8 +167,8 @@ public class PhysicsAndMageTests
 
         // 스프린트 2부터 관통은 "죽인 수"가 아니라 "때린 수"로 소모된다(원본도 동일 — 체력이 남아도 pierce는 깎임).
         // 그래서 체력을 붙이고 "피해를 입었나"로 확인한다.
-        var enemies = new GameObject[4];
-        var healths = new YokaiFront.Enemies.EnemyHealth[4];
+        var enemies = new GameObject[3];
+        var healths = new YokaiFront.Enemies.EnemyHealth[3];
         for (int i = 0; i < enemies.Length; i++)
         {
             var e = new GameObject($"Enemy_{i}");
@@ -177,7 +180,7 @@ public class PhysicsAndMageTests
             enemies[i] = e;
         }
 
-        fireMethod.Invoke(mage, new object[] { 0f, ProfileService.Current.mageBranch, ProfileService.Current.mageTier }); // chargeK=0 → pierce = B.pierce(2) + 0 = 2 → 총 3타 관통
+        fireMethod.Invoke(mage, new object[] { 0f, ProfileService.Current.mageBranch, ProfileService.Current.mageTier }); // chargeK=0 → pierce = B.pierce(2) + 0 = 2 → 정확히 2타 관통
 
         float t = 0f;
         while (t < 1.5f)
@@ -187,9 +190,8 @@ public class PhysicsAndMageTests
         }
 
         Assert.Less(healths[0].CurrentHp, healths[0].MaxHp, "1번째 적이 안 맞음");
-        Assert.Less(healths[1].CurrentHp, healths[1].MaxHp, "2번째 적이 안 맞음");
-        Assert.Less(healths[2].CurrentHp, healths[2].MaxHp, "3번째 적이 안 맞음(pierce=2는 총 3타여야 함)");
-        Assert.AreEqual(healths[3].MaxHp, healths[3].CurrentHp, 0.001f, "4번째 적까지 맞았다 — pierce 제한이 안 걸림");
+        Assert.Less(healths[1].CurrentHp, healths[1].MaxHp, "2번째 적이 안 맞음(pierce=2는 정확히 2타여야 함)");
+        Assert.AreEqual(healths[2].MaxHp, healths[2].CurrentHp, 0.001f, "3번째 적까지 맞았다 — pierce 제한이 안 걸림");
 
         foreach (var e in enemies) if (e != null) Object.Destroy(e);
         Object.Destroy(go);
