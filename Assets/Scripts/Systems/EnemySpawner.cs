@@ -31,7 +31,10 @@ namespace YokaiFront.Systems
 /// 레벨"(<see cref="RunProgress"/>)에 따라 몹 체력/공격력을 스케일링하고, 그 몹이 죽으면
 /// 처치 보상(골드+EXP)을 지급한다. 둘 다 이 스포너가 몹 프리팹을 다루는 유일한 지점이라
 /// 자연스럽게 여기서 담당한다(트랙 A/B 경계 — `Core/PlayerProfile.cs`·`Characters/` 전체는
-/// 트랙 B 소유라 손대지 않는다).
+/// 트랙 B 소유라 손대지 않는다). **스케일링/보상 수치는 전부 `Core/DifficultyScalingConfig`에
+/// 모아뒀다** — 이 파일엔 매직넘버를 두지 않는다(2026-09-08 "0. 착수 전 필독" 추가 — 원본
+/// 밸런스가 완전히 정리된 게 아니라 나중에 직접 조정할 가능성이 높아서, 그때 로직 코드를
+/// 뒤지지 않고 숫자만 한 파일에서 바꾸게 하려는 목적).
 /// </summary>
 public class EnemySpawner : MonoBehaviour
 {
@@ -47,27 +50,6 @@ public class EnemySpawner : MonoBehaviour
     [Tooltip("같은 웨이브 안에서 몹 사이 최소 간격(월드 유닛). 원본 spawnWave()의 52px(X축 전용) ÷100.")]
     public float minSpacing = 0.52f;
     public int maxPlacementRetries = 10;
-
-    [Header("난이도 스케일링 - 가상 지역 레벨 (원본 CONFIG.scale, project_test.html:727)")]
-    [Tooltip("오니 기준 체력(RegionLv=1). 원본 CONFIG.enemyBase.oni.hp=38(:709).")]
-    public float baseEnemyHp = 38f;
-    [Tooltip("오니 기준 공격력(RegionLv=1). 원본 CONFIG.enemyBase.oni.dmg=13(:709).")]
-    public float baseEnemyDamage = 13f;
-    [Tooltip("지역 레벨 1당 체력 배율. 원본 CONFIG.scale.hpPerRegion(:727).")]
-    public float hpPerRegion = 2.15f;
-    [Tooltip("지역 레벨 1당 공격력 배율. 원본 CONFIG.scale.dmgPerRegion(:727).")]
-    public float dmgPerRegion = 1.4f;
-
-    [Header("처치 보상 (원본 killEnemy() 중 이번 스코프, project_test.html:1793)")]
-    [Tooltip("지역 레벨 1당 보상 배율. EXP/골드 둘 다 이 배율을 쓴다. 원본 CONFIG.scale.rewardGrow(:727).")]
-    public float rewardGrow = 1.42f;
-    [Tooltip("오니 기준 EXP(RegionLv=1, 항상 지급). 원본 CONFIG.enemyBase.oni.exp=8(:709).")]
-    public int baseExp = 8;
-    [Tooltip("골드가 드랍할 확률. 원본 CONFIG.goldDropChance=0.75(:712).")]
-    public float goldDropChance = 0.75f;
-    [Tooltip("골드 드랍량(RegionLv=1) 최소/최대, 양끝 포함. 원본 CONFIG.enemyBase.oni.gold=[5,10](:709).")]
-    public int goldMin = 5;
-    public int goldMax = 10;
 
     readonly List<Transform> aliveMonsters = new List<Transform>();
     float waveTimer;
@@ -189,42 +171,41 @@ public class EnemySpawner : MonoBehaviour
 
     /// <summary>
     /// 난이도 스케일링(가상 지역 레벨) 적용 + 처치 보상 연결. 스폰 직후 한 번만 호출한다
-    /// (`docs/sprint2-handoff-split.md` 트랙 A 2번). hp/dmg 배율 공식은 원본 CONFIG.scale
-    /// (project_test.html:727) 그대로, RegionLv는 <see cref="RunProgress"/>(누적 처치 100마리당 1)가 담당한다.
+    /// (`docs/sprint2-handoff-split.md` 트랙 A 2번). 실제 공식/수치는 전부
+    /// <see cref="DifficultyScalingConfig"/>에 있다 — 여기선 호출만 한다.
     /// </summary>
     void ApplyRegionScaling(GameObject monster)
     {
-        int regionLv = RunProgress.RegionLv;
-
         var health = monster.GetComponent<EnemyHealth>();
         if (health != null)
         {
             // 필드만 바꾸면 이미 실행된 Awake가 세팅한 CurrentHp엔 반영 안 되는 이 프로젝트 단골
             // 함정이 있어(EnemyHealth 참고) 반드시 SetMaxHp()를 통해서 바꾼다.
-            health.SetMaxHp(baseEnemyHp * Mathf.Pow(hpPerRegion, regionLv - 1));
+            health.SetMaxHp(DifficultyScalingConfig.ScaledHp(RunProgress.RegionLv));
             health.Died += HandleEnemyDied;
         }
 
         var move = monster.GetComponent<EnemyMove>();
         if (move != null)
-            move.attackPower = baseEnemyDamage * Mathf.Pow(dmgPerRegion, regionLv - 1);
+            move.attackPower = DifficultyScalingConfig.ScaledDmg(RunProgress.RegionLv);
     }
 
     /// <summary>
     /// 처치 보상(원본 killEnemy(), project_test.html:1793) — EXP는 항상 지급, 골드는 확률 드랍.
     /// 엘리트 배수·연쇄처치·살기(fury) 보너스는 범위 밖 — "몹 1마리 = 고정 공식" 루프만 구현한다
-    /// (`docs/sprint2-handoff-split.md` 트랙 A "확정된 세부 결정" 참고).
+    /// (`docs/sprint2-handoff-split.md` 트랙 A "확정된 세부 결정" 참고). 실제 공식/수치는 전부
+    /// <see cref="DifficultyScalingConfig"/>에 있다 — 여기선 호출만 한다.
     /// </summary>
     void HandleEnemyDied(EnemyHealth enemy)
     {
         RunProgress.RegisterKill();
 
-        float sc = Mathf.Pow(rewardGrow, RunProgress.RegionLv - 1);
-        ProfileService.Current.AddExp(Mathf.RoundToInt(baseExp * sc));
+        float sc = DifficultyScalingConfig.RewardMultiplier(RunProgress.RegionLv);
+        ProfileService.Current.AddExp(Mathf.RoundToInt(DifficultyScalingConfig.OniBaseExp * sc));
 
-        if (Random.value < goldDropChance)
+        if (Random.value < DifficultyScalingConfig.GoldDropChance)
         {
-            int rolled = Random.Range(goldMin, goldMax + 1); // Random.Range(int,int) 상한이 배타적이라 +1
+            int rolled = Random.Range(DifficultyScalingConfig.OniGoldMin, DifficultyScalingConfig.OniGoldMax + 1); // 상한이 배타적이라 +1
             ProfileService.Current.AddGold(Mathf.RoundToInt(rolled * sc));
         }
     }

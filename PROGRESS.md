@@ -47,9 +47,7 @@ Part B 병합 직후 컴파일 에러 포함 5건 + 사용자가 직접 플레�
    - **팀원(트랙 A)에게 전달 완료 — 트랙 A 구현까지 끝냄(아래 로그, `feature/kill-rewards` 브랜치, 아직 `main` 미병합).**
    - **팀원(트랙 A)이 참고할 것(트랙 B가 남김)**: `Core.ProfileService.Current.AddGold()`/`AddExp()`가 이제 실제로 동작한다(레벨업 판정 포함) — 트랙 A는 그대로 호출만 하면 됨, 추가로 할 일 없음. `Enemies/EnemyHealth.SetMaxHp()`/`Died`는 0단계에서 이미 준비돼 있음.
 3. **✅ 트랙 B 완료(2026-09-08): 레벨업 + 골드 강화 5종 + 파생 스탯 적용 — `main`에 이미 병합 완료.** `feature/level-gold-upgrades` 브랜치, PlayMode 40/40(신규 10건). 상세는 아래 로그.
-4. **트랙 A(처치 보상 + 난이도 스케일링) 구현 완료(2026-09-08) — `feature/kill-rewards` 브랜치, `main`(트랙 B 포함) 병합 진행 중.** `Systems/RunProgress.cs` 신설(가상 지역 레벨) + `Systems/EnemySpawner.cs`에 스폰 시 스탯 스케일링·처치 보상 훅 추가, PlayMode 테스트 4건 신규(아래 로그 참고). **배치 컴파일·PlayMode 실행은 이 세션이 이 컴퓨터에서 직접 할 수 없어(git/셸 실행 불가, 파일 입출력만 가능) 사용자 확인 필요.**
-   - **추가 지시(2026-09-08, 팀원이 `docs/sprint2-handoff-split.md`에 "0. 착수 전 필독" 추가)**: 스케일링/보상 상수(2.15/1.4/1.42 배율, 오니 기본 hp/dmg/exp/골드, 드랍확률)를 `EnemySpawner`/보상 로직에 하드코딩하지 말고 `Core/DifficultyScalingConfig.cs` 하나로 모을 것 — 나중에 밸런스 직접 조정할 때 로직 코드를 안 뒤지게 하려는 목적, 값 자체는 원본 그대로 유지. 이 병합 끝나면 이어서 반영 예정.
-   - 확인·리팩터 끝나면 `main`에 병합.
+4. **트랙 A(처치 보상 + 난이도 스케일링) 구현 완료(2026-09-08) — `feature/kill-rewards` 브랜치, `main`(트랙 B 포함)은 병합 받아둔 상태, 이 브랜치 자체는 아직 `main` 미병합.** `Core/DifficultyScalingConfig.cs`(스케일링/보상 상수+계산 함수) + `Systems/RunProgress.cs`(가상 지역 레벨) 신설, `Systems/EnemySpawner.cs`에 스폰 시 스탯 스케일링·처치 보상 훅 추가, PlayMode 테스트 4건 신규(아래 로그 참고). **배치 컴파일·PlayMode 실행은 이 세션이 이 컴퓨터에서 직접 할 수 없어(git/셸 실행 불가, 파일 입출력만 가능) 사용자 확인 필요 — 확인되면 `main`에 병합.**
 5. **스프린트 2 이후 순서(변경 없음)**: SO 전환 → 적 종류 확대 → 지역·보스·윤회·가챠·캐릭터(`docs/ROADMAP.md` 참고). 이번 스프린트(성장곡선 검증)가 런 사이클/HUD보다 먼저 끼어든 것 — 원래 계획의 "②런 사이클·보상 ③세이브·로비·골드강화"를 좀 더 작은 단위(가상 지역레벨로 대체)로 앞당겨 검증하는 셈이라 큰 순서는 안 바뀜.
 
 ## 체크리스트 (HANDOFF.md 개발 순서)
@@ -99,6 +97,13 @@ Part B 병합 직후 컴파일 에러 포함 5건 + 사용자가 직접 플레�
 - **작업 방침(2026-08-26, 사용자 명시)**: 이 프로젝트는 프로토타입이 아니라 실제 구현이다. "일단 단순하게 만들고 나중에 다듬는다"는 식으로 임의로 단순화하지 않는다 — 원본 메커니즘은 세부 동작까지 원본과 동일하게 구현하는 게 기본값이고, 의도적으로 다르게 갈 부분은 사용자가 명시적으로 지시한다. `CLAUDE.md`에도 반영할 것.
 
 ## 로그 (최신이 위)
+
+- **2026-09-08** — **`Core/DifficultyScalingConfig.cs`로 스케일링/보상 상수 분리 — `feature/kill-rewards` 브랜치.** 팀원이 `docs/sprint2-handoff-split.md`에 "0. 착수 전 필독"을 추가해 지시: 원본(`project_test.html`) 밸런스 자체가 완전히 정리된 게 아니라서(예: 아무 데서도 안 읽는 죽은 설정값 `CONFIG.souls`/`CONFIG.scale.soulGrow`를 실제로 발견, `:701`,`:727`) 나중에 직접 세밀하게 조정할 가능성이 높다는 판단 — 그때 로직 코드를 안 뒤지고 숫자만 한 파일에서 바꾸게 하려는 목적. 값 자체는 변경 없음, 위치만 이동.
+  - `Core/DifficultyScalingConfig.cs` 신설 — `KillsPerRegionLevel`(100)/`HpPerRegion`(2.15)/`DmgPerRegion`(1.4)/`RewardGrow`(1.42)/`OniBaseHp`(38)/`OniBaseDmg`(13)/`OniBaseExp`(8)/`OniGoldMin,Max`(5,10)/`GoldDropChance`(0.75) 상수 + `ScaledHp()`/`ScaledDmg()`/`RewardMultiplier()` 계산 함수. 문서에 있는 코드 그대로 사용.
+  - `Systems/RunProgress.cs`에서 자체 `KillsPerRegionLevel` 상수 제거하고 `DifficultyScalingConfig.KillsPerRegionLevel` 참조로 교체.
+  - `Systems/EnemySpawner.cs`에 하드코딩했던 필드 9개(`baseEnemyHp`/`baseEnemyDamage`/`hpPerRegion`/`dmgPerRegion`/`rewardGrow`/`baseExp`/`goldDropChance`/`goldMin`/`goldMax`)를 전부 제거하고 `ApplyRegionScaling()`/`HandleEnemyDied()`가 `DifficultyScalingConfig`를 직접 호출하도록 정리 — 로직 자체(SetMaxHp 경유, Died 구독, RegisterKill/AddExp/AddGold 순서)는 그대로.
+  - **테스트도 매직넘버 제거**: `RunProgressAndRewardsTests.cs`의 기대값 계산(hp/dmg 스케일링, EXP)을 리터럴 대신 `DifficultyScalingConfig`의 상수·함수를 직접 참조하도록 갱신 — 나중에 Config 값이 바뀌어도 테스트가 안 깨지고 같이 따라간다.
+  - **배치 컴파일·PlayMode 재검증은 이 세션이 직접 못 함 — 사용자 확인 필요.** 확인되면 `main`에 병합.
 
 - **2026-09-08** — **트랙 A(처치 보상 + 난이도 스케일링) 구현 — `feature/kill-rewards` 브랜치.** `docs/sprint2-handoff-split.md` 트랙 A 스펙 그대로 반영, 0단계에서 준비된 `EnemyHealth.SetMaxHp()`/`Died`·`ProfileService.Current`를 그대로 사용.
   - `Systems/RunProgress.cs` 신설 — 가상 지역 레벨 정적 카운터(`FieldBounds`와 같은 패턴). `TotalKills`/`RegionLv`(=1+TotalKills/100, 원본 regionKillTarget project_test.html:699)/`RegisterKill()`/`Reset()`.

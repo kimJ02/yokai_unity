@@ -88,20 +88,23 @@ public class RunProgressAndRewardsTests
         enemy.GetComponent<Rigidbody2D>().gravityScale = 0f; // 테스트끼리 물리 간섭 방지(이 프로젝트 단골 함정)
     }
 
-    /// <summary>원본 regionKillTarget=100(project_test.html:699) — 100마리마다 지역 레벨이 1 오른다.</summary>
+    /// <summary>원본 regionKillTarget(project_test.html:699, `DifficultyScalingConfig.KillsPerRegionLevel`)
+    /// 마리마다 지역 레벨이 1 오른다. 상수를 직접 참조해서 나중에 Config 값이 바뀌어도 테스트가 안 깨지게 한다.</summary>
     [Test]
-    public void RegionLv_IncrementsEveryHundredKills()
+    public void RegionLv_IncrementsEveryKillsPerRegionLevel()
     {
+        int perLevel = DifficultyScalingConfig.KillsPerRegionLevel;
         Assert.AreEqual(1, RunProgress.RegionLv, "초기 지역 레벨은 1이어야 한다");
 
-        for (int i = 0; i < 99; i++) RunProgress.RegisterKill();
-        Assert.AreEqual(1, RunProgress.RegionLv, "99마리째엔 아직 1지역이어야 한다");
+        for (int i = 0; i < perLevel - 1; i++) RunProgress.RegisterKill();
+        Assert.AreEqual(1, RunProgress.RegionLv, $"{perLevel - 1}마리째엔 아직 1지역이어야 한다");
 
-        RunProgress.RegisterKill(); // 100마리째
-        Assert.AreEqual(2, RunProgress.RegionLv, "100마리째에 2지역으로 올라가야 한다");
+        RunProgress.RegisterKill(); // perLevel 마리째
+        Assert.AreEqual(2, RunProgress.RegionLv, $"{perLevel}마리째에 2지역으로 올라가야 한다");
 
-        for (int i = 0; i < 150; i++) RunProgress.RegisterKill(); // 총 250마리
-        Assert.AreEqual(3, RunProgress.RegionLv, "250마리째엔 3지역(1 + 250/100)이어야 한다");
+        int more = perLevel * 3 / 2; // 총 perLevel × 2.5마리가 되도록
+        for (int i = 0; i < more; i++) RunProgress.RegisterKill();
+        Assert.AreEqual(3, RunProgress.RegionLv, "perLevel×2.5마리째엔 3지역이어야 한다");
     }
 
     /// <summary>
@@ -111,7 +114,7 @@ public class RunProgressAndRewardsTests
     [UnityTest]
     public IEnumerator SpawnWave_ScalesEnemyStatsByRegionLevel()
     {
-        for (int i = 0; i < 200; i++) RunProgress.RegisterKill(); // RegionLv = 3
+        for (int i = 0; i < DifficultyScalingConfig.KillsPerRegionLevel * 2; i++) RunProgress.RegisterKill(); // RegionLv = 3
         Assert.AreEqual(3, RunProgress.RegionLv);
 
         var prefab = NewMonsterPrefab();
@@ -127,10 +130,10 @@ public class RunProgressAndRewardsTests
 
         var health = alive[0].GetComponent<EnemyHealth>();
         var move = alive[0].GetComponent<EnemyMove>();
-        float expectedHp = 38f * Mathf.Pow(2.15f, 3 - 1);
-        float expectedDmg = 13f * Mathf.Pow(1.4f, 3 - 1);
-        Assert.AreEqual(expectedHp, health.MaxHp, 0.01f, "3지역 체력 스케일링(38×2.15²)이 안 맞는다");
-        Assert.AreEqual(expectedDmg, move.attackPower, 0.01f, "3지역 공격력 스케일링(13×1.4²)이 안 맞는다");
+        float expectedHp = DifficultyScalingConfig.ScaledHp(3);
+        float expectedDmg = DifficultyScalingConfig.ScaledDmg(3);
+        Assert.AreEqual(expectedHp, health.MaxHp, 0.01f, "3지역 체력 스케일링(DifficultyScalingConfig.ScaledHp(3))이 안 맞는다");
+        Assert.AreEqual(expectedDmg, move.attackPower, 0.01f, "3지역 공격력 스케일링(DifficultyScalingConfig.ScaledDmg(3))이 안 맞는다");
         // SetMaxHp()를 거쳤다면 CurrentHp도 같이 갱신돼야 한다(안 그러면 이 프로젝트 단골 함정 재발).
         Assert.AreEqual(expectedHp, health.CurrentHp, 0.01f, "SetMaxHp() 대신 필드 직접 대입을 써서 CurrentHp가 안 갱신됐다");
     }
@@ -156,7 +159,8 @@ public class RunProgressAndRewardsTests
         yield return null;
 
         Assert.AreEqual(1, RunProgress.TotalKills, "죽였는데 누적 처치 수가 안 올랐다");
-        Assert.AreEqual(8, ProfileService.Current.exp, "1지역(sc=1) 오니 처치 EXP는 base.exp(8) 그대로여야 한다");
+        int expectedExp = Mathf.RoundToInt(DifficultyScalingConfig.OniBaseExp * DifficultyScalingConfig.RewardMultiplier(1));
+        Assert.AreEqual(expectedExp, ProfileService.Current.exp, "1지역(sc=1) 오니 처치 EXP는 DifficultyScalingConfig.OniBaseExp 그대로여야 한다");
     }
 
     /// <summary>
@@ -187,8 +191,9 @@ public class RunProgressAndRewardsTests
         }
 
         Assert.AreEqual(kills, RunProgress.TotalKills);
-        Assert.AreEqual(8 * kills, ProfileService.Current.exp, "40마리 전부 1지역(sc=1)이라 EXP는 8×40으로 결정적이어야 한다");
-        Assert.Greater(ProfileService.Current.gold, 0, $"{kills}마리 죽였는데 골드가 한 번도 안 드랍됐다(75% 확률상 사실상 불가능) — 확률 로직 확인 필요");
+        int expectedExp = Mathf.RoundToInt(DifficultyScalingConfig.OniBaseExp * DifficultyScalingConfig.RewardMultiplier(1)) * kills;
+        Assert.AreEqual(expectedExp, ProfileService.Current.exp, $"40마리 전부 1지역(sc=1)이라 EXP는 결정적이어야 한다(OniBaseExp×{kills})");
+        Assert.Greater(ProfileService.Current.gold, 0, $"{kills}마리 죽였는데 골드가 한 번도 안 드랍됐다(DifficultyScalingConfig.GoldDropChance 확률상 사실상 불가능) — 확률 로직 확인 필요");
     }
 }
 }
