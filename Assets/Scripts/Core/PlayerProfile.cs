@@ -1,3 +1,5 @@
+using UnityEngine;
+
 namespace YokaiFront.Core
 {
     /// <summary>
@@ -7,8 +9,7 @@ namespace YokaiFront.Core
     ///
     /// 스프린트 2("성장곡선 검증", `docs/sprint2-handoff-split.md`)의 트랙 A/B 공유 계약 — 필드
     /// 이름·타입을 임의로 바꾸면 두 트랙이 동시에 깨진다. 트랙 A(처치 보상)는 <see cref="AddGold"/>/
-    /// <see cref="AddExp"/>만 호출하고 `gold`/`exp` 필드를 직접 증가시키지 않는다 — 레벨업 판정(트랙 B
-    /// 소유)이 `AddExp` 안에서 같이 일어나야 하기 때문이다.
+    /// <see cref="AddExp"/>만 호출하고 `gold`/`exp` 필드를 직접 증가시키지 않는다.
     /// </summary>
     public class PlayerProfile
     {
@@ -18,14 +19,69 @@ namespace YokaiFront.Core
         public int spUsed = 0;
         public UpgradeLevels upgrades = new UpgradeLevels();
 
-        /// <summary>트랙 A(처치 보상)가 호출. 레벨업 로직은 없음 — 골드는 즉시 누적만 하면 된다.</summary>
+        /// <summary>레벨이 실제로 오를 때(한 번 이상) 1회 발생. `Characters/PlayerHealth`가 구독해서
+        /// 최대체력 재계산 + 풀피 회복을 한다(원본 `project_test.html:1850`, 레벨업 때만 일어나고
+        /// 골드 강화 구매 자체로는 즉시 반영되지 않는다 — 원본과 동일한 비직관적 동작).</summary>
+        public event System.Action LeveledUp;
+
+        /// <summary>트랙 A(처치 보상)가 호출. 즉시 누적만 하면 됨(레벨 개념 없음).</summary>
         public void AddGold(int amount) => gold += amount;
 
         /// <summary>
-        /// 트랙 A(처치 보상)가 호출. 레벨업 판정(원본 `expCurve`/`gainExpMeta`, project_test.html:706,:1440)은
-        /// 트랙 B가 여기 채운다 — 지금은 필드만 누적(트랙 B 착수 전 임시).
+        /// 트랙 A(처치 보상)가 호출. 원본 `gainExpMeta()`(project_test.html:1440) 그대로 —
+        /// 초과분을 이월하며 한 번의 호출로 여러 레벨이 오를 수 있다.
         /// </summary>
-        public void AddExp(int amount) => exp += amount;
+        public void AddExp(int amount)
+        {
+            exp += amount;
+            bool leveled = false;
+            while (exp >= RequiredExp(level))
+            {
+                exp -= RequiredExp(level);
+                level++;
+                leveled = true;
+            }
+            if (leveled) LeveledUp?.Invoke();
+        }
+
+        /// <summary>원본 `CONFIG.expCurve(l) = floor(700 × 1.8^(l-1))`(project_test.html:706).</summary>
+        public static int RequiredExp(int level) => Mathf.FloorToInt(700f * Mathf.Pow(1.8f, level - 1));
+
+        public int GetUpgradeLevel(UpgradeStat stat) => stat switch
+        {
+            UpgradeStat.Atk => upgrades.atk,
+            UpgradeStat.Hp => upgrades.hp,
+            UpgradeStat.Ms => upgrades.ms,
+            UpgradeStat.AtkSpeed => upgrades.atkSpeed,
+            UpgradeStat.Crit => upgrades.crit,
+            _ => 0,
+        };
+
+        /// <summary>
+        /// 골드가 충분하면 강화 1단계 구매(원본 `buyGoldUpgrade`, project_test.html:7042의 1회분).
+        /// 비용은 <see cref="GoldUpgradeConfig.Cost"/>(현재 단계 기준, 원본 `upCost` :1268). 성공 시 true.
+        /// </summary>
+        public bool TryBuyUpgrade(UpgradeStat stat)
+        {
+            int level0 = GetUpgradeLevel(stat);
+            int cost = GoldUpgradeConfig.Cost(stat, level0);
+            if (gold < cost) return false;
+            gold -= cost;
+            SetUpgradeLevel(stat, level0 + 1);
+            return true;
+        }
+
+        void SetUpgradeLevel(UpgradeStat stat, int newLevel)
+        {
+            switch (stat)
+            {
+                case UpgradeStat.Atk: upgrades.atk = newLevel; break;
+                case UpgradeStat.Hp: upgrades.hp = newLevel; break;
+                case UpgradeStat.Ms: upgrades.ms = newLevel; break;
+                case UpgradeStat.AtkSpeed: upgrades.atkSpeed = newLevel; break;
+                case UpgradeStat.Crit: upgrades.crit = newLevel; break;
+            }
+        }
     }
 
     /// <summary>

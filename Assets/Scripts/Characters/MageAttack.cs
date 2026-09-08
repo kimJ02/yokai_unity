@@ -1,4 +1,5 @@
 using UnityEngine;
+using YokaiFront.Core;
 
 namespace YokaiFront.Characters
 {
@@ -17,8 +18,11 @@ namespace YokaiFront.Characters
 public class MageAttack : MonoBehaviour
 {
     [Header("원본 CONFIG.bow 그대로 (거리·속도는 100px=1유닛 축척)")]
-    public float cooldown = 0.5f;          // B.cd
-    public float baseDamage = 9f;          // baseAtk(10) * B.dmg(0.9) — 스탯 시스템 없이 고정값으로 근사
+    // 스프린트 2부터 cooldown/baseDamage는 매 프레임 Core.PlayerStatCalculator에서 다시 계산되는
+    // "표시용 현재값"이다 — 인스펙터에서 수정해도 다음 프레임에 덮어써진다(BaseCooldownConst만 진짜 기준값).
+    public float cooldown = 0.5f;          // B.cd ÷ 공격속도 배수(statAs, project_test.html:1942)
+    public float baseDamage = 9f;          // statAtk() × B.dmg(0.9) — 골드 강화(atk)가 반영됨
+    const float BaseCooldownConst = 0.5f;  // 원본 B.cd(project_test.html:609) — 이 값만 고정 기준
     public float chargeMax = 1.0f;         // B.chargeMax
     public float chargeDmgMult = 1.6f;     // B.chargeDmg
     public int basePierce = 2;             // B.pierce
@@ -51,6 +55,13 @@ public class MageAttack : MonoBehaviour
 
     void Update()
     {
+        // 골드 강화가 반영된 파생 스탯을 매 프레임 새로 계산(원본 statAtk()/statAs()가 호출마다
+        // 다시 계산되는 함수인 것과 동일한 방식) — 필드 자기 자신이 아니라 항상 프로필+상수에서
+        // 새로 굴리므로 매 프레임 곱해지는 식으로 값이 누적(compounding)되는 버그가 없다.
+        var profile = ProfileService.Current;
+        baseDamage = PlayerStatCalculator.ComputeAtk(profile) * PlayerStatCalculator.BowDamageMult;
+        cooldown = BaseCooldownConst / PlayerStatCalculator.ComputeAttackSpeedMultiplier(profile); // 원본 :1942
+
         // 이번 프레임 시작 시점(직전 프레임까지의) 차지 상태를 기준으로 감속을 먼저 적용한다 —
         // 발사(release)되는 바로 그 프레임도 "떼기 직전까지는 차지 중"이었으므로 감속이 맞다.
         // 아래에서 곧바로 charging이 꺼질 수 있어(발사 처리) 순서를 이렇게 잡아야 한다.

@@ -84,7 +84,9 @@ public class CharacterMover2D : MonoBehaviour
         if (Input.GetKey(KeyCode.RightArrow)) h += 1f;
         if (h != 0f) Facing = h > 0 ? 1 : -1;
 
-        float vx = h * moveSpeed * SpeedMultiplier;
+        // 원본 statMs()(project_test.html:1286) — 골드 강화(ms)가 반영된 배수. moveSpeed 필드 자체는
+        // 안 바꾸고 매 프레임 곱해서 적용(다른 배수들과 같은 자리에서, 누적 곱 버그 없이).
+        float vx = h * moveSpeed * SpeedMultiplier * PlayerStatCalculator.ComputeMoveSpeedMultiplier(ProfileService.Current);
         float minX = FieldBounds.MinX + edgeMargin;
         float maxX = FieldBounds.MaxX - edgeMargin;
         if (rb.position.x <= minX && vx < 0f) vx = 0f;
