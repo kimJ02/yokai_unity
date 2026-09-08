@@ -44,8 +44,9 @@ Part B 병합 직후 컴파일 에러 포함 5건 + 사용자가 직접 플레�
    - `Core/PlayerProfile`(`level/exp/gold/spUsed/upgrades{atk,hp,ms,atkSpeed,crit}`) + `Core/ProfileService.Current` 신설. `Enemies/EnemyHealth`에 `SetMaxHp()`(트랙 A 난이도 스케일링용) + `Died` 이벤트(트랙 A 처치 보상용) 추가. 배치 컴파일 + PlayMode 30/30 재검증 완료.
    - `HANDOFF.md`(구 "체력&데미지" 단독 스펙)를 `docs/sprints/02-health-damage.md`로, `HANDOFF_sprint2_draft.md`를 새 `HANDOFF.md`로 승격 — CLAUDE.md "문서 구조" 규칙대로.
    - **트랙 분업**: 트랙 A(팀원) = 처치 보상(골드+EXP) + 난이도 스케일링("가상 지역 레벨"), 트랙 B(나) = 레벨업(`expCurve`) + 골드 강화 5종 + 파생 스탯 적용. 상세는 `docs/sprint2-handoff-split.md`.
-   - **팀원한테 이제 시작해도 된다고 알릴 차례** — `docs/sprint2-handoff-split.md`의 트랙 A 파트 그대로 전달.
-3. **스프린트 2 이후 순서(변경 없음)**: SO 전환 → 적 종류 확대 → 지역·보스·윤회·가챠·캐릭터(`docs/ROADMAP.md` 참고). 이번 스프린트(성장곡선 검증)가 런 사이클/HUD보다 먼저 끼어든 것 — 원래 계획의 "②런 사이클·보상 ③세이브·로비·골드강화"를 좀 더 작은 단위(가상 지역레벨로 대체)로 앞당겨 검증하는 셈이라 큰 순서는 안 바뀜.
+   - **팀원(트랙 A)에게 전달 완료 — 트랙 A 구현까지 끝냄(아래 로그, `feature/kill-rewards` 브랜치).** 남은 건 사용자가 에디터에서 배치 컴파일 + PlayMode 확인 후 커밋·병합.
+3. **✅ 트랙 A(처치 보상 + 난이도 스케일링) 구현 완료(2026-09-08) — `feature/kill-rewards` 브랜치, 아직 `main` 미병합.** `Systems/RunProgress.cs` 신설(가상 지역 레벨) + `Systems/EnemySpawner.cs`에 스폰 시 스탯 스케일링·처치 보상 훅 추가, PlayMode 테스트 4건 신규(아래 로그 참고). **배치 컴파일·PlayMode 실행은 이 세션이 이 컴퓨터에서 직접 할 수 없어(git/셸 실행 불가, 파일 입출력만 가능) 사용자 확인 필요.** 확인되면 `main`에 병합 — 트랙 B가 먼저 끝났으면 트랙 B 받아서 병합, 트랙 B가 나중이면 트랙 B가 이 브랜치 받아서 병합(문서 "병합 순서" 참고, 씬 조립은 나중 병합 쪽이 정리).
+4. **스프린트 2 이후 순서(변경 없음)**: SO 전환 → 적 종류 확대 → 지역·보스·윤회·가챠·캐릭터(`docs/ROADMAP.md` 참고). 이번 스프린트(성장곡선 검증)가 런 사이클/HUD보다 먼저 끼어든 것 — 원래 계획의 "②런 사이클·보상 ③세이브·로비·골드강화"를 좀 더 작은 단위(가상 지역레벨로 대체)로 앞당겨 검증하는 셈이라 큰 순서는 안 바뀜.
 
 ## 체크리스트 (HANDOFF.md 개발 순서)
 
@@ -78,6 +79,13 @@ Part B 병합 직후 컴파일 에러 포함 5건 + 사용자가 직접 플레�
 - **작업 방침(2026-08-26, 사용자 명시)**: 이 프로젝트는 프로토타입이 아니라 실제 구현이다. "일단 단순하게 만들고 나중에 다듬는다"는 식으로 임의로 단순화하지 않는다 — 원본 메커니즘은 세부 동작까지 원본과 동일하게 구현하는 게 기본값이고, 의도적으로 다르게 갈 부분은 사용자가 명시적으로 지시한다. `CLAUDE.md`에도 반영할 것.
 
 ## 로그 (최신이 위)
+
+- **2026-09-08** — **트랙 A(처치 보상 + 난이도 스케일링) 구현 — `feature/kill-rewards` 브랜치.** `docs/sprint2-handoff-split.md` 트랙 A 스펙 그대로 반영, 0단계에서 준비된 `EnemyHealth.SetMaxHp()`/`Died`·`ProfileService.Current`를 그대로 사용.
+  - `Systems/RunProgress.cs` 신설 — 가상 지역 레벨 정적 카운터(`FieldBounds`와 같은 패턴). `TotalKills`/`RegionLv`(=1+TotalKills/100, 원본 regionKillTarget project_test.html:699)/`RegisterKill()`/`Reset()`.
+  - `Systems/EnemySpawner.cs`에 스폰 직후 훅 2개 추가: `ApplyRegionScaling()`이 `EnemyHealth.SetMaxHp(38×2.15^(RegionLv-1))`(필드 직접 대입 대신 반드시 SetMaxHp 경유 — CurrentHp 미갱신 함정 회피) + `EnemyMove.attackPower = 13×1.4^(RegionLv-1)`을 계산해 적용하고 `EnemyHealth.Died += HandleEnemyDied` 구독. `HandleEnemyDied`가 `RunProgress.RegisterKill()` + `ProfileService.Current.AddExp(round(8×1.42^(RegionLv-1)))`(항상 지급) + 75% 확률로 `AddGold(round(randInt(5,10)×같은 배율))` 호출(원본 killEnemy(), project_test.html:1793).
+  - **건드리지 않은 것(계약대로)**: `Core/PlayerProfile.cs`(메서드 호출만, 필드·이름 변경 없음), `Characters/` 전체, `Enemies/EnemyHealth.cs`·`Enemies/EnemyMove.cs`(0단계에서 이미 준비된 훅/필드를 호출만 함 — 소스 수정 없음).
+  - **테스트 신규 4건**(`Assets/Tests/PlayMode/Systems/RunProgressAndRewardsTests.cs`): `RegionLv` 100마리 단위 증가 검증, 스폰 시 hp/dmg 스케일링 공식 검증, 처치 시 EXP 결정적 지급 검증, 40마리 연속 처치로 골드 확률 드랍 통계적 검증(0드랍 확률 0.25^40≈0).
+  - **아직 못 한 것 — 사용자 확인 필요**: 이 세션은 이 컴퓨터에서 git/Unity 배치모드를 직접 실행할 수 없어(파일 읽기/쓰기만 가능) 배치 컴파일·PlayMode 테스트 실행·커밋은 전부 사용자가 GitHub Desktop/에디터로 직접 해야 한다. 확인되면 `main` 병합(트랙 B와 순서 조율, "병합 순서" 절 참고).
 
 - **2026-09-08** — **스프린트 2 초안 접수 → 검토 → 팀 분업 확정.** 팀원이 `HANDOFF_sprint2_draft.md`("성장곡선 검증" — 체력/피격무적·처치보상·레벨EXP·골드강화5종·가상지역레벨·검증방법)를 `origin/main`에 push.
   - **겹치는 작업 발견**: 초안 "1. 체력 시스템" 항목이 바로 아래 로그(같은 날짜, 원본 전수 분석 로드맵)에서 이미 `feature/health-damage`에 구현·검증까지 끝낸 것과 사실상 동일 범위. 이 사실을 확인하고 사용자에게 알림.
