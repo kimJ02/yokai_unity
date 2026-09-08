@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using YokaiFront.Core;
+using YokaiFront.Enemies;
 using YokaiFront.World;
 
 namespace YokaiFront.Systems
@@ -25,6 +26,15 @@ namespace YokaiFront.Systems
 /// 버전은 "발판 위에도 나온다"는 말과 실제 동작이 달랐음 — 사용자가 직접 확인하고 지적).
 /// 몹은 이제 Rigidbody2D로 실제 중력을 받으므로(EnemyMove 참고) 발판 위에 스폰하면 물리로
 /// 그 위에 서 있는다. FieldLayout이 발판/바닥그리드 좌표의 단일 출처다.
+///
+/// 스프린트 2(성장곡선 검증, `docs/sprint2-handoff-split.md` 트랙 A) — 스폰 직후 "가상 지역
+/// 레벨"(<see cref="RunProgress"/>)에 따라 몹 체력/공격력을 스케일링하고, 그 몹이 죽으면
+/// 처치 보상(골드+EXP)을 지급한다. 둘 다 이 스포너가 몹 프리팹을 다루는 유일한 지점이라
+/// 자연스럽게 여기서 담당한다(트랙 A/B 경계 — `Core/PlayerProfile.cs`·`Characters/` 전체는
+/// 트랙 B 소유라 손대지 않는다). **스케일링/보상 수치는 전부 `Core/DifficultyScalingConfig`에
+/// 모아뒀다** — 이 파일엔 매직넘버를 두지 않는다(2026-09-08 "0. 착수 전 필독" 추가 — 원본
+/// 밸런스가 완전히 정리된 게 아니라 나중에 직접 조정할 가능성이 높아서, 그때 로직 코드를
+/// 뒤지지 않고 숫자만 한 파일에서 바꾸게 하려는 목적).
 /// </summary>
 public class EnemySpawner : MonoBehaviour
 {
@@ -77,6 +87,7 @@ public class EnemySpawner : MonoBehaviour
             if (TryGetSpawnPosition(placedThisWave, out Vector2 spawnPos))
             {
                 GameObject monster = Instantiate(monsterPrefab, spawnPos, Quaternion.identity);
+                ApplyRegionScaling(monster);
                 aliveMonsters.Add(monster.transform);
                 placedThisWave.Add(spawnPos);
             }
@@ -156,6 +167,47 @@ public class EnemySpawner : MonoBehaviour
                 return false;
         }
         return true;
+    }
+
+    /// <summary>
+    /// 난이도 스케일링(가상 지역 레벨) 적용 + 처치 보상 연결. 스폰 직후 한 번만 호출한다
+    /// (`docs/sprint2-handoff-split.md` 트랙 A 2번). 실제 공식/수치는 전부
+    /// <see cref="DifficultyScalingConfig"/>에 있다 — 여기선 호출만 한다.
+    /// </summary>
+    void ApplyRegionScaling(GameObject monster)
+    {
+        var health = monster.GetComponent<EnemyHealth>();
+        if (health != null)
+        {
+            // 필드만 바꾸면 이미 실행된 Awake가 세팅한 CurrentHp엔 반영 안 되는 이 프로젝트 단골
+            // 함정이 있어(EnemyHealth 참고) 반드시 SetMaxHp()를 통해서 바꾼다.
+            health.SetMaxHp(DifficultyScalingConfig.ScaledHp(RunProgress.RegionLv));
+            health.Died += HandleEnemyDied;
+        }
+
+        var move = monster.GetComponent<EnemyMove>();
+        if (move != null)
+            move.attackPower = DifficultyScalingConfig.ScaledDmg(RunProgress.RegionLv);
+    }
+
+    /// <summary>
+    /// 처치 보상(원본 killEnemy(), project_test.html:1793) — EXP는 항상 지급, 골드는 확률 드랍.
+    /// 엘리트 배수·연쇄처치·살기(fury) 보너스는 범위 밖 — "몹 1마리 = 고정 공식" 루프만 구현한다
+    /// (`docs/sprint2-handoff-split.md` 트랙 A "확정된 세부 결정" 참고). 실제 공식/수치는 전부
+    /// <see cref="DifficultyScalingConfig"/>에 있다 — 여기선 호출만 한다.
+    /// </summary>
+    void HandleEnemyDied(EnemyHealth enemy)
+    {
+        RunProgress.RegisterKill();
+
+        float sc = DifficultyScalingConfig.RewardMultiplier(RunProgress.RegionLv);
+        ProfileService.Current.AddExp(Mathf.RoundToInt(DifficultyScalingConfig.OniBaseExp * sc));
+
+        if (Random.value < DifficultyScalingConfig.GoldDropChance)
+        {
+            int rolled = Random.Range(DifficultyScalingConfig.OniGoldMin, DifficultyScalingConfig.OniGoldMax + 1); // 상한이 배타적이라 +1
+            ProfileService.Current.AddGold(Mathf.RoundToInt(rolled * sc));
+        }
     }
 }
 }
