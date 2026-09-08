@@ -9,9 +9,10 @@ namespace YokaiFront.Enemies
     /// 피해량 계산(치명타·난수 변동) 자체는 공격 쪽(`Combat.DamageCalculator`)이 담당한다 — 원본도
     /// `dealDamage` 안에서 공격자 스탯으로 먼저 계산한 뒤 대상 체력을 깎는 순서다.
     ///
-    /// v0에서 빠진 것(HANDOFF.md "범위 밖"): 골드·경험치 드랍, 콤보 적립, 원소(화상/출혈), 처형,
-    /// 분열귀 분열, 데미지 숫자 팝업·파티클·hitstop. 사망은 지금은 그냥 파괴한다(원본 `killEnemy`는
-    /// 보상 정산까지 하지만 그건 스프린트 3 범위).
+    /// v0에서 빠진 것(HANDOFF.md "범위 밖"): 콤보 적립, 원소(화상/출혈), 처형, 분열귀 분열,
+    /// 데미지 숫자 팝업·파티클·hitstop. 사망 시 골드·경험치 지급은 <see cref="Died"/> 이벤트로
+    /// 트랙 A(`Systems`)가 구독해서 처리한다(`docs/sprint2-handoff-split.md` 참고) — 이 클래스 자체는
+    /// 보상을 계산하지 않는다(Enemies 도메인이 Core.ProfileService 이상을 몰라야 하므로).
     /// </summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(SpriteRenderer))]
@@ -33,6 +34,9 @@ namespace YokaiFront.Enemies
         public float CurrentHp { get; private set; }
         public float MaxHp => maxHp;
         public bool IsDead => CurrentHp <= 0f;
+
+        /// <summary>사망 직전(Destroy 전) 1회 발생 — 트랙 A(처치 보상)가 여기 구독해서 골드/EXP를 지급한다.</summary>
+        public event System.Action<EnemyHealth> Died;
 
         SpriteRenderer sr;
         Color baseColor;
@@ -85,9 +89,22 @@ namespace YokaiFront.Enemies
         void Die()
         {
             CurrentHp = 0f;
-            // v0: 보상 정산 없이 파괴만 한다. 원본 killEnemy(project_test.html:1793)의 골드·경험치·
-            // 연쇄처치 보너스·분열귀 분열은 각각 나중 스프린트에서 붙인다.
+            // 원본 killEnemy(project_test.html:1793)의 골드·경험치는 Died 구독자(트랙 A)가 처리.
+            // 연쇄처치 보너스·분열귀 분열은 아직 범위 밖 — 나중 스프린트에서 붙인다.
+            Died?.Invoke(this);
             Destroy(gameObject);
+        }
+
+        /// <summary>
+        /// 난이도 스케일링(트랙 A, "가상 지역 레벨")이 스폰 직후 호출한다. <c>maxHp</c> 필드만 바꾸면
+        /// 이미 실행된 <see cref="Awake"/>가 세팅한 <c>CurrentHp</c>엔 반영되지 않는다 — 이 프로젝트에서
+        /// 반복적으로 겪은 함정(RequireComponent 자동보충, AddComponent의 동기 Awake 실행)과 같은 종류라
+        /// 전용 메서드로 묶어 실수를 막는다.
+        /// </summary>
+        public void SetMaxHp(float newMaxHp)
+        {
+            maxHp = newMaxHp;
+            CurrentHp = newMaxHp;
         }
     }
 }

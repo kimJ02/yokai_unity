@@ -40,10 +40,11 @@ Part B 병합 직후 컴파일 에러 포함 5건 + 사용자가 직접 플레�
 ## 다음 할 일
 
 1. **사용자가 에디터에서 직접 플레이해서 확인** — 이동/점프 디테일 + 리팩터링(물리 밀어내기는 팀원이 수정 완료, 2026-08-29 로그) + **스프린트 2(체력·데미지)**: 적이 한 방에 안 죽고 여러 번 때려야 죽는지, 맞을 때 흰색으로 번쩍이며 뒤로 밀리는지, 적과 부딪히면 플레이어가 밀려나며 체력이 깎이는지(체력바는 아직 없어 눈으로 안 보임 — 트랙 B 디버그 표시로 보완 예정), 0.9초 무적 덕에 겹쳐 있어도 즉사하지 않는지. 배치 컴파일 + PlayMode 30/30은 통과, 에디터 직접 플레이는 아직.
-2. **✅ 0단계 완료(2026-09-08): `feature/health-damage` → `main` 병합.** 팀원 초안(`HANDOFF_sprint2_draft.md`, "성장곡선 검증") 채택에 따른 선행 작업 — 초안의 "1. 체력 시스템" 항목이 이 브랜치에 이미 구현·검증(PlayMode 30/30)돼 있어 그대로 병합. `Core/PlayerProfile` 스캐폴딩만 남음(다음 커밋).
+2. **✅ 0단계 완료(2026-09-08): `feature/health-damage` → `main` 병합 + `Core/PlayerProfile` 스캐폴딩 + 문서 구조 정리.** 팀원 초안(`HANDOFF_sprint2_draft.md`, "성장곡선 검증") 채택에 따른 선행 작업 — 이제 트랙 A/B 둘 다 착수 가능한 상태.
+   - `Core/PlayerProfile`(`level/exp/gold/spUsed/upgrades{atk,hp,ms,atkSpeed,crit}`) + `Core/ProfileService.Current` 신설. `Enemies/EnemyHealth`에 `SetMaxHp()`(트랙 A 난이도 스케일링용) + `Died` 이벤트(트랙 A 처치 보상용) 추가. 배치 컴파일 + PlayMode 30/30 재검증 완료.
+   - `HANDOFF.md`(구 "체력&데미지" 단독 스펙)를 `docs/sprints/02-health-damage.md`로, `HANDOFF_sprint2_draft.md`를 새 `HANDOFF.md`로 승격 — CLAUDE.md "문서 구조" 규칙대로.
    - **트랙 분업**: 트랙 A(팀원) = 처치 보상(골드+EXP) + 난이도 스케일링("가상 지역 레벨"), 트랙 B(나) = 레벨업(`expCurve`) + 골드 강화 5종 + 파생 스탯 적용. 상세는 `docs/sprint2-handoff-split.md`.
-   - **확정된 세부 결정 3건**(초안이 "확인 필요"로 남겼던 것): 플레이어 HP 0 → 정지 + R키로 그 자리에서 재시작(테스트 편의). 강화 디버그 입력 → 숫자키 1~5 + `OnGUI` 최소 디버그 표시(골드/레벨/강화단계 — 없으면 "체감 벽" 검증 자체가 안 됨). `regionLv` 트리거 → 누적 처치 100마리당 1(원본 `regionKillTarget` 그대로).
-   - 기존 `HANDOFF.md`(내가 만들었던 "체력&데미지" 단독 스펙)는 위 방향 확정으로 대체됨 — `PlayerProfile` 스캐폴딩까지 끝나면 `HANDOFF_sprint2_draft.md` 내용으로 교체하고 문서 구조 정리(CLAUDE.md 규칙대로) 진행 예정.
+   - **팀원한테 이제 시작해도 된다고 알릴 차례** — `docs/sprint2-handoff-split.md`의 트랙 A 파트 그대로 전달.
 3. **스프린트 2 이후 순서(변경 없음)**: SO 전환 → 적 종류 확대 → 지역·보스·윤회·가챠·캐릭터(`docs/ROADMAP.md` 참고). 이번 스프린트(성장곡선 검증)가 런 사이클/HUD보다 먼저 끼어든 것 — 원래 계획의 "②런 사이클·보상 ③세이브·로비·골드강화"를 좀 더 작은 단위(가상 지역레벨로 대체)로 앞당겨 검증하는 셈이라 큰 순서는 안 바뀜.
 
 ## 체크리스트 (HANDOFF.md 개발 순서)
