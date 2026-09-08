@@ -33,14 +33,19 @@ namespace YokaiFront.Combat
         /// <summary>
         /// 최종 피해량을 굴린다. `baseDamage`는 무기 배수·차지 배수까지 이미 반영된 값을 넘긴다
         /// (예: `MageAttack`이 `baseDamage × (1 + chargeDmgMult × chargeK)`를 계산해서 전달).
+        /// `critChance`를 생략하면 <see cref="BaseCritChance"/>(골드 강화 미적용 기본값)를 쓴다 —
+        /// 스탯이 있는 호출자(`MageProjectile` 등)는 `Core.PlayerStatCalculator.ComputeCritChance()`를
+        /// 넘겨서 강화가 반영되게 한다.
         /// </summary>
-        public static int Roll(float baseDamage, out bool isCrit)
+        public static int Roll(float baseDamage, float critChance, out bool isCrit)
         {
-            isCrit = Random.value < BaseCritChance;
+            isCrit = Random.value < critChance;
             float variance = Random.Range(VarianceMin, VarianceMax);
             float raw = baseDamage * variance * (isCrit ? CritMultiplier : 1f);
             return Mathf.Max(1, Mathf.RoundToInt(raw)); // 원본 max(1, round(...))
         }
+
+        public static int Roll(float baseDamage, out bool isCrit) => Roll(baseDamage, BaseCritChance, out isCrit);
 
         /// <summary>치명타 여부가 필요 없을 때 쓰는 간편 버전.</summary>
         public static int Roll(float baseDamage) => Roll(baseDamage, out _);

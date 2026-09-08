@@ -79,9 +79,13 @@ public class MageProjectile : MonoBehaviour
 
         // 원본 `dealDamage(e, mult)`(project_test.html:1657) — 치명타와 ±10% 난수는 **적중할 때마다**
         // 새로 굴린다(관통으로 여러 마리를 맞히면 각각 따로 판정). damage에는 이미 무기·차지 배수가 반영돼 있다.
+        // 치명타 확률은 골드 강화(crit)가 반영된 값을 매번 새로 읽는다 — 발사 시점이 아니라 명중 시점 스탯.
         var target = other.GetComponent<IDamageable>();
         if (target != null && !target.IsDead)
-            target.TakeDamage(DamageCalculator.Roll(damage), caster != null ? caster : gameObject);
+        {
+            float critChance = PlayerStatCalculator.ComputeCritChance(ProfileService.Current);
+            target.TakeDamage(DamageCalculator.Roll(damage, critChance, out _), caster != null ? caster : gameObject);
+        }
 
         pierceLeft--;
         if (pierceLeft < 0) Destroy(gameObject);

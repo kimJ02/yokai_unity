@@ -44,9 +44,13 @@ Part B 병합 직후 컴파일 에러 포함 5건 + 사용자가 직접 플레�
    - `Core/PlayerProfile`(`level/exp/gold/spUsed/upgrades{atk,hp,ms,atkSpeed,crit}`) + `Core/ProfileService.Current` 신설. `Enemies/EnemyHealth`에 `SetMaxHp()`(트랙 A 난이도 스케일링용) + `Died` 이벤트(트랙 A 처치 보상용) 추가. 배치 컴파일 + PlayMode 30/30 재검증 완료.
    - `HANDOFF.md`(구 "체력&데미지" 단독 스펙)를 `docs/sprints/02-health-damage.md`로, `HANDOFF_sprint2_draft.md`를 새 `HANDOFF.md`로 승격 — CLAUDE.md "문서 구조" 규칙대로.
    - **트랙 분업**: 트랙 A(팀원) = 처치 보상(골드+EXP) + 난이도 스케일링("가상 지역 레벨"), 트랙 B(나) = 레벨업(`expCurve`) + 골드 강화 5종 + 파생 스탯 적용. 상세는 `docs/sprint2-handoff-split.md`.
-   - **팀원(트랙 A)에게 전달 완료 — 트랙 A 구현까지 끝냄(아래 로그, `feature/kill-rewards` 브랜치).** 남은 건 사용자가 에디터에서 배치 컴파일 + PlayMode 확인 후 커밋·병합.
-3. **✅ 트랙 A(처치 보상 + 난이도 스케일링) 구현 완료(2026-09-08) — `feature/kill-rewards` 브랜치, 아직 `main` 미병합.** `Systems/RunProgress.cs` 신설(가상 지역 레벨) + `Systems/EnemySpawner.cs`에 스폰 시 스탯 스케일링·처치 보상 훅 추가, PlayMode 테스트 4건 신규(아래 로그 참고). **배치 컴파일·PlayMode 실행은 이 세션이 이 컴퓨터에서 직접 할 수 없어(git/셸 실행 불가, 파일 입출력만 가능) 사용자 확인 필요.** 확인되면 `main`에 병합 — 트랙 B가 먼저 끝났으면 트랙 B 받아서 병합, 트랙 B가 나중이면 트랙 B가 이 브랜치 받아서 병합(문서 "병합 순서" 참고, 씬 조립은 나중 병합 쪽이 정리).
-4. **스프린트 2 이후 순서(변경 없음)**: SO 전환 → 적 종류 확대 → 지역·보스·윤회·가챠·캐릭터(`docs/ROADMAP.md` 참고). 이번 스프린트(성장곡선 검증)가 런 사이클/HUD보다 먼저 끼어든 것 — 원래 계획의 "②런 사이클·보상 ③세이브·로비·골드강화"를 좀 더 작은 단위(가상 지역레벨로 대체)로 앞당겨 검증하는 셈이라 큰 순서는 안 바뀜.
+   - **팀원(트랙 A)에게 전달 완료 — 트랙 A 구현까지 끝냄(아래 로그, `feature/kill-rewards` 브랜치, 아직 `main` 미병합).**
+   - **팀원(트랙 A)이 참고할 것(트랙 B가 남김)**: `Core.ProfileService.Current.AddGold()`/`AddExp()`가 이제 실제로 동작한다(레벨업 판정 포함) — 트랙 A는 그대로 호출만 하면 됨, 추가로 할 일 없음. `Enemies/EnemyHealth.SetMaxHp()`/`Died`는 0단계에서 이미 준비돼 있음.
+3. **✅ 트랙 B 완료(2026-09-08): 레벨업 + 골드 강화 5종 + 파생 스탯 적용 — `main`에 이미 병합 완료.** `feature/level-gold-upgrades` 브랜치, PlayMode 40/40(신규 10건). 상세는 아래 로그.
+4. **트랙 A(처치 보상 + 난이도 스케일링) 구현 완료(2026-09-08) — `feature/kill-rewards` 브랜치, `main`(트랙 B 포함) 병합 진행 중.** `Systems/RunProgress.cs` 신설(가상 지역 레벨) + `Systems/EnemySpawner.cs`에 스폰 시 스탯 스케일링·처치 보상 훅 추가, PlayMode 테스트 4건 신규(아래 로그 참고). **배치 컴파일·PlayMode 실행은 이 세션이 이 컴퓨터에서 직접 할 수 없어(git/셸 실행 불가, 파일 입출력만 가능) 사용자 확인 필요.**
+   - **추가 지시(2026-09-08, 팀원이 `docs/sprint2-handoff-split.md`에 "0. 착수 전 필독" 추가)**: 스케일링/보상 상수(2.15/1.4/1.42 배율, 오니 기본 hp/dmg/exp/골드, 드랍확률)를 `EnemySpawner`/보상 로직에 하드코딩하지 말고 `Core/DifficultyScalingConfig.cs` 하나로 모을 것 — 나중에 밸런스 직접 조정할 때 로직 코드를 안 뒤지게 하려는 목적, 값 자체는 원본 그대로 유지. 이 병합 끝나면 이어서 반영 예정.
+   - 확인·리팩터 끝나면 `main`에 병합.
+5. **스프린트 2 이후 순서(변경 없음)**: SO 전환 → 적 종류 확대 → 지역·보스·윤회·가챠·캐릭터(`docs/ROADMAP.md` 참고). 이번 스프린트(성장곡선 검증)가 런 사이클/HUD보다 먼저 끼어든 것 — 원래 계획의 "②런 사이클·보상 ③세이브·로비·골드강화"를 좀 더 작은 단위(가상 지역레벨로 대체)로 앞당겨 검증하는 셈이라 큰 순서는 안 바뀜.
 
 ## 체크리스트 (HANDOFF.md 개발 순서)
 
@@ -58,7 +62,7 @@ Part B 병합 직후 컴파일 에러 포함 5건 + 사용자가 직접 플레�
 - [x] 위 항목 다 붙어서 핵심 루프 한 번 플레이 가능 — 배치모드로 검증(PlayMode 20/20). 스폰/이동/공격판정 로직은 사용자가 직접 플레이해서 원본과 다른 점을 네 차례 지적 → 재수정함(위 로그 참고), **이 수정에 대한 재확인은 아직**(위 "다음 할 일" 참고)
 - [x] 대규모 리팩터링(폴더/네임스페이스/asmdef 분리 + Monster→Enemy 리네임) — CLAUDE.md "대규모 리팩터링 절차"대로 단일 커밋으로 완료, 배치 컴파일+PlayMode 20/20 재검증 완료
 
-## 체크리스트 (스프린트 2 — 체력 & 데미지)
+## 체크리스트 (스프린트 2-1 — 체력 & 데미지, `docs/sprints/02-health-damage.md`)
 
 - [x] `Core/IDamageable` 인터페이스
 - [x] `Enemies/EnemyHealth` — 체력 38, 피격 플래시, 넉백(별도 성분 + 지수 감쇠), 사망
@@ -68,6 +72,22 @@ Part B 병합 직후 컴파일 에러 포함 5건 + 사용자가 직접 플레�
 - [x] 접촉 데미지(`EnemyMove.TryAttack()`) + 스폰 보호 중 상호 무적 수정
 - [x] PlayMode 테스트 30/30 통과(신규 10 + 기존 20 갱신)
 - [ ] **사용자 에디터 직접 플레이 확인** — 아직
+
+## 체크리스트 (스프린트 2 — 성장곡선 검증, 트랙 B 부분)
+
+- [x] `Core/PlayerProfile.AddExp` — 원본 `gainExpMeta`(`:1440`) 그대로, 이월 + 다중 레벨업 + `LeveledUp` 이벤트
+- [x] `Core/GoldUpgrade.cs` — 강화 5종 비용표(원본 `:731`, `:1268`) + `PlayerProfile.TryBuyUpgrade`
+- [x] `Core/PlayerStatCalculator.cs` — 파생 스탯 5종(원본 `:1284~1288`)
+- [x] `Combat/DamageCalculator` — 치명타 확률을 외부에서 받는 오버로드 추가(하위호환 유지)
+- [x] `Characters/MageAttack` — `baseDamage`/`cooldown`을 매 프레임 프로필에서 재계산(공격력·공격속도 강화 반영)
+- [x] `Characters/MageProjectile` — 치명타 확률을 `PlayerStatCalculator`에서 읽도록 연결
+- [x] `Characters/CharacterMover2D` — 이동속도 강화 배율 연결
+- [x] `Characters/PlayerHealth` — 레벨업 시에만 최대체력 재계산+풀피(원본 `:1850`, 강화 구매 즉시반영 아님을 그대로 재현)
+- [x] `Characters/PlayerDeathHandler` — HP0 시 정지, `Revive()`로 재시작(확정 사항)
+- [x] `Characters/PlayerDebugController` — 숫자키 1~5 강화구매 + `OnGUI` 디버그 표시(확정 사항)
+- [x] PlayMode 테스트 40/40 통과(신규 10 + 기존 30 무손상)
+- [ ] 사용자 에디터 직접 플레이 확인 — 아직
+- [ ] 트랙 A(팀원) 완료 대기 — 구현 자체는 끝남(`feature/kill-rewards`), `Core/DifficultyScalingConfig.cs` 분리 반영 + 사용자 검증 + `main` 병합 남음. 끝나면 합쳐서 "5지역쯤 체감 벽" 최종 검증
 
 ## 확인 필요 / 막힌 것
 
@@ -85,8 +105,17 @@ Part B 병합 직후 컴파일 에러 포함 5건 + 사용자가 직접 플레�
   - `Systems/EnemySpawner.cs`에 스폰 직후 훅 2개 추가: `ApplyRegionScaling()`이 `EnemyHealth.SetMaxHp(38×2.15^(RegionLv-1))`(필드 직접 대입 대신 반드시 SetMaxHp 경유 — CurrentHp 미갱신 함정 회피) + `EnemyMove.attackPower = 13×1.4^(RegionLv-1)`을 계산해 적용하고 `EnemyHealth.Died += HandleEnemyDied` 구독. `HandleEnemyDied`가 `RunProgress.RegisterKill()` + `ProfileService.Current.AddExp(round(8×1.42^(RegionLv-1)))`(항상 지급) + 75% 확률로 `AddGold(round(randInt(5,10)×같은 배율))` 호출(원본 killEnemy(), project_test.html:1793).
   - **건드리지 않은 것(계약대로)**: `Core/PlayerProfile.cs`(메서드 호출만, 필드·이름 변경 없음), `Characters/` 전체, `Enemies/EnemyHealth.cs`·`Enemies/EnemyMove.cs`(0단계에서 이미 준비된 훅/필드를 호출만 함 — 소스 수정 없음).
   - **테스트 신규 4건**(`Assets/Tests/PlayMode/Systems/RunProgressAndRewardsTests.cs`): `RegionLv` 100마리 단위 증가 검증, 스폰 시 hp/dmg 스케일링 공식 검증, 처치 시 EXP 결정적 지급 검증, 40마리 연속 처치로 골드 확률 드랍 통계적 검증(0드랍 확률 0.25^40≈0).
-  - **아직 못 한 것 — 사용자 확인 필요**: 이 세션은 이 컴퓨터에서 git/Unity 배치모드를 직접 실행할 수 없어(파일 읽기/쓰기만 가능) 배치 컴파일·PlayMode 테스트 실행·커밋은 전부 사용자가 GitHub Desktop/에디터로 직접 해야 한다. 확인되면 `main` 병합(트랙 B와 순서 조율, "병합 순서" 절 참고).
-
+  - **컴파일 에러 1건 + 테스트 실패 1건 발견·수정**: 테스트 파일에 `using YokaiFront.Systems;` 누락으로 `EnemySpawner` 타입을 못 찾은 컴파일 에러(사용자가 Safe Mode 진입 후 에러 메시지 전달해 확인) → using 추가로 해결. `SpawnWave_ScalesEnemyStatsByRegionLevel` 테스트가 "1마리만 스폰" 기대했는데 2마리 나옴 → `EnemySpawner.waveTimer` 기본값이 0이라 수동 `SpawnWave()` 호출과 별개로 그 프레임의 자동 `Update()`가 웨이브를 한 번 더 터뜨린 것(프로덕션 버그 아님, 테스트가 스포너를 새로 만들 때 흔히 걸리는 함정) — 테스트 헬퍼에서 `waveTimer`를 리플렉션으로 크게 밀어 자동 웨이브만 차단(컴포넌트 자체를 끄면 `aliveMonsters.RemoveAll(null)` 같은 다른 Update 로직까지 죽어서 다른 테스트가 깨짐).
+  - **아직 못 한 것 — 사용자 확인 필요**: 이 세션은 이 컴퓨터에서 git/Unity 배치모드를 직접 실행할 수 없어(파일 읽기/쓰기만 가능) 배치 컴파일·PlayMode 테스트 실행·커밋은 전부 사용자가 GitHub Desktop/에디터로 직접 해야 한다. **팀원이 `docs/sprint2-handoff-split.md`에 "0. 착수 전 필독"을 추가해 스케일링/보상 상수를 `Core/DifficultyScalingConfig.cs`로 분리하라고 지시 — 이 `main` 병합 끝나는 대로 반영 예정(값 자체는 변경 없음, 위치만 이동).**
+- **2026-09-08** — **트랙 B 완료: 레벨업 + 골드 강화 5종 + 파생 스탯 적용 (PlayMode 40/40).** `feature/level-gold-upgrades` 브랜치에서 작업, 착수 전 팀원(트랙 A) 커밋이 아직 없음을 `git fetch`로 확인.
+  - **레벨업**: `PlayerProfile.AddExp()`가 원본 `gainExpMeta()`(`:1440`)를 그대로 옮김 — 초과분 이월, 한 번의 지급으로 여러 레벨 가능, 실제로 레벨이 오를 때만 `LeveledUp` 이벤트 발생.
+  - **골드 강화**: `Core/GoldUpgrade.cs`(비용표, 원본 `upCost` `:1268`) + `PlayerProfile.TryBuyUpgrade()`. `Core/PlayerStatCalculator.cs`(파생 스탯 5종, 원본 `:1284~1288`).
+  - **원본을 다시 읽어 확인한 비직관적 동작**(그대로 구현): 골드 강화(hp)를 사도 **즉시 반영되지 않는다** — 원본은 레벨업 때만(`:1850`) 최대체력을 재계산하고 풀피로 채운다. `PlayerHealth`가 `PlayerProfile.LeveledUp`을 구독해서 그 순간에만 재계산하도록 만듦(매 프레임 폴링이었으면 원본과 다른 동작이 될 뻔함 — 구현 전에 원본을 직접 실행 로직까지 추적해서 확인).
+  - **스탯 연결**: `MageAttack`(공격력→`baseDamage`, 공격속도→`cooldown`, 매 프레임 프로필에서 재계산해서 자기 참조 누적 없음), `MageProjectile`(치명타 확률을 `PlayerStatCalculator`에서), `CharacterMover2D`(이동속도 배율). `Combat.DamageCalculator`에 치명타 확률을 인자로 받는 오버로드 추가(기존 호출부 하위호환 유지).
+  - **확정 사항 구현**: `PlayerDeathHandler`(HP0 → 정지, `Revive()` 공개 메서드로 R키 처리와 테스트 양쪽에서 호출), `PlayerDebugController`(숫자키 1~5 구매 + `OnGUI` 디버그 표시 — 골드/레벨/강화단계/다음비용).
+  - **테스트**: 신규 10건(레벨업 공식·이월·이벤트, 강화 비용 공식·구매 성공실패, 파생 스탯 공식, 치명타 확률 0/1 경계, 레벨업시에만 체력반영 통합, MageAttack 스탯반영 통합, 사망→정지→부활 통합). `Core.ProfileService`에 정적 싱글턴 오염 방지용 `Reset()` 추가하고 모든 신규 테스트가 `[SetUp]`/`[TearDown]`에서 호출(EnemyHealth 테스트 오염을 이미 겪은 것과 같은 함정 사전 차단).
+  - **막혔던 것**: 1건 실패 — `CharacterMover2D`가 `Collider2D`를 요구하는데 테스트가 안 붙여서 `CheckGrounded()`에서 NRE. 테스트 버그였고 콜라이더 추가로 해결. 이동속도 통합 테스트 하나는 애초에 `Assert.Pass()`로 항상 통과하는 가짜 테스트라 삭제(Input 시뮬레이션이 안 돼서 실제 검증이 불가능했음 — 없는 것보다 정직하게 빼는 게 낫다고 판단).
+  - 에디터 직접 플레이 확인, 팀원 트랙 A 완료는 아직.
 - **2026-09-08** — **스프린트 2 초안 접수 → 검토 → 팀 분업 확정.** 팀원이 `HANDOFF_sprint2_draft.md`("성장곡선 검증" — 체력/피격무적·처치보상·레벨EXP·골드강화5종·가상지역레벨·검증방법)를 `origin/main`에 push.
   - **겹치는 작업 발견**: 초안 "1. 체력 시스템" 항목이 바로 아래 로그(같은 날짜, 원본 전수 분석 로드맵)에서 이미 `feature/health-damage`에 구현·검증까지 끝낸 것과 사실상 동일 범위. 이 사실을 확인하고 사용자에게 알림.
   - 초안이 "확인 필요"로 남긴 3건을 논의해 확정: HP 0 처리(정지+R키 재시작 — 원안의 "로그만"은 죽을 때마다 에디터 재시작해야 해서 검증 자체를 방해한다고 판단해 변경), 강화 입력(숫자키+`OnGUI` 디버그 표시 — 표시가 없으면 "체감 벽" 검증이 불가능해서 원안에 추가), `regionLv` 트리거(누적 처치 100마리당 1 — 원본 `regionKillTarget`과 가장 가까움, 시간/레벨 기준은 원본에 없는 설계라 기각).

@@ -62,56 +62,94 @@ public event System.Action<EnemyHealth> Died; // Die() 안에서 Destroy 직전�
 
 ## 트랙 A (팀원) — 처치 보상 + 난이도 스케일링
 
-**건드리는 파일**: `Systems/`에 신규 파일, `Enemies/EnemyHealth.cs`(위에서 이미 훅 추가돼 있어 호출만), `Enemies/EnemyMove.cs`(`attackPower` 배율), `Systems/EnemySpawner.cs`(스폰 시 배율 적용 한 줄)
-**건드리면 안 되는 파일**: `Core/PlayerProfile.cs`(필드 추가/이름변경 금지, 메서드 호출만), `Characters/` 전체
+**건드리는 파일**: `Core/DifficultyScalingConfig.cs`(신규, 숫자만 — 아래 0번), `Systems/RunProgress.cs`(신규), `Enemies/EnemyHealth.cs`(이미 있는 `SetMaxHp`/`Died` 호출만), `Enemies/EnemyMove.cs`(`attackPower` 배율), `Systems/EnemySpawner.cs`(스폰 시 배율 적용 한 줄)
+**건드리면 안 되는 파일**: `Core/PlayerProfile.cs`(필드 추가/이름변경 금지, 메서드 호출만), `Core/GoldUpgrade.cs`·`Core/PlayerStatCalculator.cs`(트랙 B 소유), `Characters/` 전체
+
+### 0. ⚠️ 착수 전 필독 — 숫자는 반드시 한 곳에 모아둘 것 (2026-09-08 추가)
+
+**원본 밸런스 자체가 완전히 정리된 건 아니다** — 확인해보니 `CONFIG.souls`/`CONFIG.scale.soulGrow`(구버전 "혼 강화" 잔재, 지금은 아무 데서도 안 읽는 죽은 설정값)처럼 리밸런스 후 정리 안 된 게 실제로 있다(`project_test.html:701,:727`, 참조 안 하는 것 직접 확인함). **지금은 원본 수치를 그대로 쓰지만, 나중에 우리가 직접 세밀하게 조정할 걸 전제로 구조를 짠다** — "값은 원본 그대로, 위치만 나중에 한 파일만 고치면 되게" 하는 게 이번 요구사항이다.
+
+그래서 아래 2·3번처럼 로직 코드 안에 `Mathf.Pow(2.15f, ...)`를 직접 박지 말고, **먼저 이 파일부터 만들 것**:
+
+```csharp
+// Core/DifficultyScalingConfig.cs — 트랙 B의 Core/GoldUpgrade.cs·PlayerStatCalculator.cs와 같은 패턴
+using UnityEngine;
+
+namespace YokaiFront.Core
+{
+    /// <summary>
+    /// 난이도 스케일링 + 처치 보상 수치를 전부 여기 모았다. 나중에 밸런스를 조정할 때 이 파일
+    /// 상수만 바꾸면 되고 EnemySpawner/EnemyMove 로직 코드는 안 건드려도 된다.
+    /// 지금 값은 전부 원본 그대로(project_test.html:699,:709,:712,:727) — 임의로 바꾸지 말 것,
+    /// 조정은 나중에 실제 플레이해보고 사용자가 결정한다.
+    /// </summary>
+    public static class DifficultyScalingConfig
+    {
+        public const int KillsPerRegionLevel = 100; // 원본 regionKillTarget(:699)
+
+        public const float HpPerRegion = 2.15f;     // CONFIG.scale.hpPerRegion(:727)
+        public const float DmgPerRegion = 1.4f;     // CONFIG.scale.dmgPerRegion(:727)
+        public const float RewardGrow = 1.42f;      // CONFIG.scale.rewardGrow(:727)
+
+        public const float OniBaseHp = 38f;         // CONFIG.enemyBase.oni.hp(:709)
+        public const float OniBaseDmg = 13f;        // CONFIG.enemyBase.oni.dmg(:709)
+        public const float OniBaseExp = 8f;         // CONFIG.enemyBase.oni.exp(:709)
+        public const int OniGoldMin = 5;            // CONFIG.enemyBase.oni.gold[0](:709)
+        public const int OniGoldMax = 10;           // CONFIG.enemyBase.oni.gold[1](:709) — 포함 상한
+        public const float GoldDropChance = 0.75f;  // CONFIG.goldDropChance(:712)
+
+        public static float ScaledHp(int regionLv) => OniBaseHp * Mathf.Pow(HpPerRegion, regionLv - 1);
+        public static float ScaledDmg(int regionLv) => OniBaseDmg * Mathf.Pow(DmgPerRegion, regionLv - 1);
+        public static float RewardMultiplier(int regionLv) => Mathf.Pow(RewardGrow, regionLv - 1);
+    }
+}
+```
+
+아래 2·3번의 예시 코드는 이 클래스를 쓰도록 갱신했다 — 그대로 따를 것.
 
 ### 1. `regionLv` 카운터 (`Systems/RunProgress.cs` 신규)
 ```csharp
+using YokaiFront.Core;
+
 namespace YokaiFront.Systems
 {
     public static class RunProgress
     {
-        public const int KillsPerRegionLevel = 100; // 원본 regionKillTarget(project_test.html:699)
         public static int TotalKills { get; private set; }
-        public static int RegionLv => 1 + TotalKills / KillsPerRegionLevel;
+        public static int RegionLv => 1 + TotalKills / DifficultyScalingConfig.KillsPerRegionLevel;
         public static void RegisterKill() => TotalKills++;
     }
 }
 ```
 
 ### 2. 몹 스탯 스케일링 (`EnemySpawner`가 스폰 직후 호출)
-```
-hp  = 38 × 2.15^(RegionLv-1)   // hpPerRegion, project_test.html:727
-dmg = 13 × 1.4^(RegionLv-1)    // dmgPerRegion, project_test.html:727
-```
 ```csharp
 var health = enemy.GetComponent<EnemyHealth>();
-health.SetMaxHp(38f * Mathf.Pow(2.15f, RunProgress.RegionLv - 1));
+health.SetMaxHp(DifficultyScalingConfig.ScaledHp(RunProgress.RegionLv));
 var move = enemy.GetComponent<EnemyMove>();
-move.attackPower = 13f * Mathf.Pow(1.4f, RunProgress.RegionLv - 1);
+move.attackPower = DifficultyScalingConfig.ScaledDmg(RunProgress.RegionLv);
 health.Died += HandleEnemyDied; // 아래 3번
 ```
 
 ### 3. 처치 보상 (`EnemyHealth.Died` 구독)
-```
-sc = 1.42^(RegionLv-1)                          // rewardGrow, :727
-exp = round(8 × sc)                             // 항상 지급, 오니 base.exp=8 (:709)
-gold = 75% 확률로 round(randInt(5,10) × sc)      // goldDropChance=0.75, base.gold=[5,10] (:709, :712)
-```
 ```csharp
 void HandleEnemyDied(EnemyHealth enemy)
 {
     RunProgress.RegisterKill();
-    float sc = Mathf.Pow(1.42f, RunProgress.RegionLv - 1);
-    Core.ProfileService.Current.AddExp(Mathf.RoundToInt(8f * sc));
-    if (Random.value < 0.75f)
-        Core.ProfileService.Current.AddGold(Mathf.RoundToInt(Random.Range(5, 11) * sc));
+    float sc = DifficultyScalingConfig.RewardMultiplier(RunProgress.RegionLv);
+    Core.ProfileService.Current.AddExp(Mathf.RoundToInt(DifficultyScalingConfig.OniBaseExp * sc));
+    if (Random.value < DifficultyScalingConfig.GoldDropChance)
+    {
+        int gold = Random.Range(DifficultyScalingConfig.OniGoldMin, DifficultyScalingConfig.OniGoldMax + 1);
+        Core.ProfileService.Current.AddGold(Mathf.RoundToInt(gold * sc));
+    }
 }
 ```
 
 ### 확정된 세부 결정
 - `regionLv` 트리거: **누적 처치 수**(위 코드 그대로) — 시간/레벨 기준 아님
 - 엘리트·연쇄처치·살기 보너스는 범위 밖 — "몹 1마리 = 고정 공식" 루프만
+- **숫자는 전부 `Core/DifficultyScalingConfig.cs` 하나에만** — `EnemySpawner`/`RunProgress`/보상 계산 로직 안에 매직넘버를 직접 쓰지 말 것(위 0번 참고)
 
 ---
 

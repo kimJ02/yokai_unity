@@ -214,6 +214,9 @@ public static class BuildPartAScene
         var mage = go.AddComponent<MageAttack>();
         mage.boltSprite = circleSprite; // 런타임 AssetDatabase 호출(빌드에서 못 씀) 없이 미리 꽂아줌
 
+        go.AddComponent<PlayerDeathHandler>();   // 스프린트 2 — HP0 시 정지 + R키 재시작
+        go.AddComponent<PlayerDebugController>(); // 스프린트 2 — 숫자키1~5 강화구매 + 디버그 표시
+
         return go;
     }
 
