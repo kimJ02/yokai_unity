@@ -194,6 +194,13 @@ public static class BuildPartAScene
     {
         var go = new GameObject("Player");
         go.tag = "Player";
+        // "Player" 물리 레이어(6번) — Physics2D Layer Collision Matrix에서 Enemy(7번)와 충돌이
+        // 꺼져 있다(PROGRESS.md 2026-08-29 로그: 원본엔 없는 물리 밀어내기 버그 수정).
+        // 예전엔 팀원이 에디터에서 직접 레이어를 옮겨서 고쳤는데, 그건 씬 파일에만 남고 이 스크립트가
+        // 씬을 다시 만들 때마다 Default(0)로 되돌아갔다 — 실제로 이번 세션에서 배치 재생성을 여러 번
+        // 하면서 이 버그가 재발했다. 코드로 고정해서 다시는 안 사라지게 한다.
+        int playerLayer = LayerMask.NameToLayer("Player");
+        if (playerLayer >= 0) go.layer = playerLayer;
         // 원본 스폰 좌표 p.x=220 그대로(100px=1유닛 → 2.2)
         go.transform.position = new Vector3(2.2f, FieldBounds.GroundY + 0.5f, 0f);
 
@@ -268,6 +275,12 @@ public static class BuildPartAScene
         var health = contents.GetComponent<YokaiFront.Enemies.EnemyHealth>();
         if (health == null) health = contents.AddComponent<YokaiFront.Enemies.EnemyHealth>();
         health.maxHp = 38f;
+
+        // "Enemy" 물리 레이어(7번) — Player(6번)와 충돌이 꺼져 있어야 겹쳐도 안 밀린다. 지금은 이
+        // 프리팹 파일에만 수동으로 박혀 있어서, Player 쪽처럼 코드가 씬을 다시 만들 때 이 프리팹
+        // 자체를 처음부터 새로 만드는 경로가 생기면 같은 식으로 사라질 수 있다 — 방어적으로 여기서도 강제.
+        int enemyLayer = LayerMask.NameToLayer("Enemy");
+        if (enemyLayer >= 0) contents.layer = enemyLayer;
 
         PrefabUtility.SaveAsPrefabAsset(contents, MonsterPrefabPath);
         PrefabUtility.UnloadPrefabContents(contents);

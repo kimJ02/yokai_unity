@@ -20,6 +20,23 @@ namespace YokaiFront.Characters
             (KeyCode.Alpha5, UpgradeStat.Crit, "치명타"),
         };
 
+        Texture2D bgTexture;
+
+        void Awake()
+        {
+            // 씬 배경색이 흰색(BuildPartAScene.cs `cam.backgroundColor = Color.white`)이라 흰 글씨가
+            // 그대로 묻혀서 안 보였다(사용자가 직접 플레이해보고 지적) — 배경색과 무관하게 항상 읽히도록
+            // 텍스트 뒤에 어두운 반투명 판을 깐다.
+            bgTexture = new Texture2D(1, 1);
+            bgTexture.SetPixel(0, 0, new Color(0f, 0f, 0f, 0.72f));
+            bgTexture.Apply();
+        }
+
+        void OnDestroy()
+        {
+            if (bgTexture != null) Destroy(bgTexture);
+        }
+
         void Update()
         {
             var profile = ProfileService.Current;
@@ -32,7 +49,10 @@ namespace YokaiFront.Characters
             var p = ProfileService.Current;
             var style = new GUIStyle(GUI.skin.label) { fontSize = 14, normal = { textColor = Color.white } };
 
-            GUI.Label(new Rect(10, 10, 500, 22),
+            var panel = new Rect(6, 6, 720, 78);
+            GUI.DrawTexture(panel, bgTexture);
+
+            GUI.Label(new Rect(12, 10, 700, 22),
                 $"골드 {p.gold}   레벨 {p.level} (EXP {p.exp}/{PlayerProfile.RequiredExp(p.level)})", style);
 
             var levels = new System.Text.StringBuilder();
@@ -43,8 +63,8 @@ namespace YokaiFront.Characters
                 levels.Append($"[{(int)key - (int)KeyCode.Alpha0}]{label} Lv{lv}  ");
                 costs.Append($"{label}{GoldUpgradeConfig.Cost(stat, lv)}  ");
             }
-            GUI.Label(new Rect(10, 32, 700, 22), levels.ToString(), style);
-            GUI.Label(new Rect(10, 54, 700, 22), $"다음 비용 — {costs}", style);
+            GUI.Label(new Rect(12, 32, 700, 22), levels.ToString(), style);
+            GUI.Label(new Rect(12, 54, 700, 22), $"다음 비용 — {costs}", style);
         }
     }
 }
