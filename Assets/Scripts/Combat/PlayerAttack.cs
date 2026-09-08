@@ -4,15 +4,19 @@ using YokaiFront.Core;
 namespace YokaiFront.Combat
 {
     /// <summary>
-    /// 공격 버튼 1개. HANDOFF.md 3번 스펙: 반경 R 안의 Enemy 태그 오브젝트에게 즉시 피해.
-    /// v0에서는 Health 컴포넌트 없이 맞으면 즉시 Destroy — Part B(몬스터)와 서로 안 기다리기 위한
-    /// 의도적 단순화다(PROGRESS.md 인터페이스 계약 참고). Health를 나중에 도입해도
-    /// 이 스크립트가 바뀌는 범위는 TakeDamage 호출 한 줄뿐이도록 만들어뒀다.
+    /// 반경 R 안의 Enemy 태그 대상에게 즉시 피해를 주는 범용 근접 공격.
+    /// **현재 씬에서는 쓰지 않는다** — 마법사는 `MageAttack`(차지샷)을 쓴다. 나중에 근접 캐릭터
+    /// (섬영 등)를 붙일 때 참고하려고 남겨둔 코드다(HANDOFF.md 스프린트 1 3번 참고).
+    ///
+    /// 스프린트 2에서 `Destroy()` 직접 호출을 `IDamageable.TakeDamage()`로 교체했다 —
+    /// 예고한 대로 실제로 바뀐 건 호출 한 줄뿐이다.
     /// </summary>
     public class PlayerAttack : MonoBehaviour
     {
     public float range = 1.5f;
     public float cooldown = 0.4f;
+    [Tooltip("기본 피해량. 원본에 이 무기에 대응하는 항목이 없어 마법사 기본값(baseAtk 10 × bow 0.9)과 맞춰뒀다.")]
+    public float damage = 9f;
     public LayerMask enemyMask = ~0; // 기본값: 전체 레이어. Enemy 전용 레이어를 쓰기 전까지는 태그로 한 번 더 거른다.
 
     // 공격이 눈에 보이게 하는 최소한의 표시. HANDOFF.md는 "연출 없음"이었지만,
@@ -72,13 +76,16 @@ namespace YokaiFront.Combat
         foreach (var col in hits)
         {
             if (!col.CompareTag("Enemy")) continue;
-            // 원본은 스폰 직후(spawnInvuln>0) 모든 피해 판정을 건너뛴다 — 여기선 HP가 없어
-            // "무효화 표시" 대신 그냥 파괴하지 않는 것으로 이식했다(EnemyMove 클래스 주석 참고).
+            // 원본은 스폰 직후(spawnInvuln>0) 모든 피해 판정을 건너뛴다(project_test.html:1659).
             // Combat 도메인은 Enemies를 직접 참조하면 안 되므로(asmdef 계층 규칙) 구체 타입
             // 대신 Core의 ISpawnProtectable 인터페이스로만 상태를 묻는다.
             var protectable = col.GetComponent<ISpawnProtectable>();
             if (protectable != null && protectable.IsSpawnProtected) continue;
-            Destroy(col.gameObject);
+
+            // 치명타·±10% 난수는 적중할 때마다 새로 굴린다(원본 dealDamage와 동일).
+            var target = col.GetComponent<IDamageable>();
+            if (target != null && !target.IsDead)
+                target.TakeDamage(DamageCalculator.Roll(damage), gameObject);
         }
     }
 

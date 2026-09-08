@@ -96,6 +96,9 @@ public class EnemySpawnAndMoveTests
         var move = monsterGO.AddComponent<EnemyMove>(); // RequireComponent로 Rigidbody2D도 같이 붙음
         move.moveSpeed = 5f; // 테스트를 빨리 끝내려고 크게
         monsterGO.GetComponent<Rigidbody2D>().gravityScale = 0f; // 이 테스트는 추적 판단만 봄, 낙하/착지는 별도 테스트
+        // 스폰 보호(2초) 중엔 원본처럼 아예 안 움직이므로, 추적 판단을 보려면 무적을 먼저 풀어야 한다.
+        typeof(EnemyMove).GetField("spawnProtectTimer", BindingFlags.NonPublic | BindingFlags.Instance)
+            .SetValue(move, 0f);
 
         float startY = monsterGO.transform.position.y;
         float startX = monsterGO.transform.position.x;
@@ -184,7 +187,10 @@ public class EnemySpawnAndMoveTests
         monsterGO.tag = "Enemy";
         monsterGO.transform.position = new Vector3(rightEdgeX - 0.2f, landingY, 0f); // 이미 발판 위, 오른쪽 끝 근처
         monsterGO.AddComponent<CircleCollider2D>().radius = radius;
-        monsterGO.AddComponent<EnemyMove>(); // 플레이어 없음 → 배회, 기본 dir=1(오른쪽)이라 곧 가장자리에 닿음
+        var edgeMove = monsterGO.AddComponent<EnemyMove>(); // 플레이어 없음 → 배회, 기본 dir=1(오른쪽)이라 곧 가장자리에 닿음
+        // 스폰 보호 중엔 움직이지 않으므로(원본 동일) 가장자리 반전을 보려면 무적을 풀어야 한다.
+        typeof(EnemyMove).GetField("spawnProtectTimer", BindingFlags.NonPublic | BindingFlags.Instance)
+            .SetValue(edgeMove, 0f);
 
         float minY = monsterGO.transform.position.y;
         float t = 0f;
@@ -276,6 +282,9 @@ public class EnemySpawnAndMoveTests
         enemyGO.tag = "Enemy";
         enemyGO.transform.position = playerGO.transform.position; // 사거리 안에 확실히 들어오게
         enemyGO.AddComponent<CircleCollider2D>().radius = 0.3f;
+        enemyGO.AddComponent<SpriteRenderer>();
+        // 스프린트 2 개정: 즉사가 아니라 체력을 깎으므로 EnemyHealth가 있어야 피격 여부를 볼 수 있다.
+        var enemyHp = enemyGO.AddComponent<YokaiFront.Enemies.EnemyHealth>();
         var move = enemyGO.AddComponent<EnemyMove>(); // AddComponent가 Awake를 동기 실행하므로
         // spawnProtectDuration 필드를 나중에 바꿔도 이미 실행된 Awake엔 반영 안 됨 — private
         // 타이머 자체를 리플렉션으로 직접 짧게 세팅한다(테스트를 빨리 끝내려고, 원본 값은 2초).
@@ -285,14 +294,15 @@ public class EnemySpawnAndMoveTests
 
         attackMethod.Invoke(attack, null);
         yield return null;
-        Assert.IsTrue(enemyGO != null, "스폰 직후 무적 중인데 공격에 파괴됐다");
+        Assert.AreEqual(enemyHp.MaxHp, enemyHp.CurrentHp, 0.001f, "스폰 직후 무적 중인데 피해가 들어갔다");
 
         yield return new WaitForSeconds(0.2f); // 무적(0.1초) 만료 대기
 
         attackMethod.Invoke(attack, null);
         yield return null;
-        Assert.IsTrue(enemyGO == null, "무적이 풀렸는데도 공격에 안 죽었다");
+        Assert.Less(enemyHp.CurrentHp, enemyHp.MaxHp, "무적이 풀렸는데도 피해가 안 들어갔다");
 
+        Object.Destroy(enemyGO);
         Object.Destroy(playerGO);
         yield return null;
     }

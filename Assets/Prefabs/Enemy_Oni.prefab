@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 2763226675512867838}
   - component: {fileID: 2173261902313166403}
   - component: {fileID: 9164250667598604089}
+  - component: {fileID: 6019099996560459255}
   m_Layer: 7
   m_Name: Enemy_Oni
   m_TagString: Enemy
@@ -148,6 +149,7 @@ MonoBehaviour:
   spawnProtectDuration: 2
   terminalFallSpeed: 15
   edgeMargin: 0.3
+  knockbackDecay: 9
 --- !u!50 &9164250667598604089
 Rigidbody2D:
   serializedVersion: 5
@@ -175,3 +177,19 @@ Rigidbody2D:
   m_SleepingMode: 1
   m_CollisionDetection: 0
   m_Constraints: 4
+--- !u!114 &6019099996560459255
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4812569128568459250}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 52a7711b344988b42866b7aae6f46ff9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  maxHp: 38
+  knockbackSpeed: 2.4
+  flashDecay: 6
+  flashStrength: 0.75

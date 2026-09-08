@@ -37,14 +37,21 @@ public class PlayerAttackTests
         Assert.IsNotNull(attackMethod, "PlayerAttack.Attack 메서드를 리플렉션으로 못 찾음");
         attackMethod.Invoke(attack, null);
 
-        yield return null; // Destroy()는 다음 프레임에 실제로 반영된다
+        yield return null;
 
-        Assert.IsTrue(near == null, "사거리 안의 Enemy가 파괴되지 않았다");
-        Assert.IsTrue(far != null, "사거리 밖의 Enemy가 파괴됐다(오탐)");
-        Assert.IsTrue(untagged != null, "Enemy 태그가 아닌 오브젝트가 파괴됐다(태그 필터 실패)");
+        // 스프린트 2 개정: 이제 즉사가 아니라 피해를 준다. 이 테스트가 원래 검증하던 것
+        // (사거리 필터 + 태그 필터)은 그대로, "파괴됐나" 대신 "피해를 입었나"로 확인한다.
+        var nearHp = near.GetComponent<YokaiFront.Enemies.EnemyHealth>();
+        var farHp = far.GetComponent<YokaiFront.Enemies.EnemyHealth>();
+        Assert.Less(nearHp.CurrentHp, nearHp.MaxHp, "사거리 안의 Enemy가 피해를 안 입었다");
+        Assert.AreEqual(farHp.MaxHp, farHp.CurrentHp, 0.001f, "사거리 밖의 Enemy가 피해를 입었다(오탐)");
+        var untaggedHp = untagged.GetComponent<YokaiFront.Enemies.EnemyHealth>();
+        Assert.AreEqual(untaggedHp.MaxHp, untaggedHp.CurrentHp, 0.001f,
+            "Enemy 태그가 아닌데 사거리 안이라고 피해를 입었다(태그 필터 실패)");
 
-        if (far != null) Object.Destroy(far);
-        if (untagged != null) Object.Destroy(untagged);
+        Object.Destroy(near);
+        Object.Destroy(far);
+        Object.Destroy(untagged);
         Object.Destroy(playerGO);
         yield return null;
     }
@@ -143,12 +150,21 @@ public class PlayerAttackTests
         yield return null;
     }
 
-    static GameObject NewTagged(string name, Vector3 pos, string tag)
+    /// <summary>
+    /// 스프린트 2부터 공격은 대상을 즉시 파괴하지 않고 `IDamageable.TakeDamage()`를 부른다.
+    /// 그래서 피격 여부를 확인하려면 대상에 `EnemyHealth`가 붙어 있어야 한다.
+    /// </summary>
+    static GameObject NewTagged(string name, Vector3 pos, string tag, bool withHealth = true)
     {
         var go = new GameObject(name);
         go.transform.position = pos;
         go.tag = tag;
         go.AddComponent<CircleCollider2D>().radius = 0.3f;
+        if (withHealth)
+        {
+            go.AddComponent<SpriteRenderer>();
+            go.AddComponent<YokaiFront.Enemies.EnemyHealth>();
+        }
         return go;
     }
 }

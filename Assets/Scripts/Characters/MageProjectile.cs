@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using YokaiFront.Combat;
 using YokaiFront.Core;
 
 namespace YokaiFront.Characters
@@ -23,9 +24,12 @@ public class MageProjectile : MonoBehaviour
     float damage;
     int pierceLeft;
     float life;
+    // 넉백 방향의 기준이 되는 시전자. 원본은 `sign(e.x - player.x)`로 **플레이어** 위치를 쓴다
+    // (project_test.html:1679) — 투사체 위치가 아니다. 그래서 쏜 주체를 그대로 들고 다닌다.
+    GameObject caster;
     readonly HashSet<Collider2D> alreadyHit = new HashSet<Collider2D>();
 
-    public static MageProjectile Spawn(Vector3 pos, Vector2 velocity, float damage, int pierce, float life, float sizeMul, Sprite sprite, Color color)
+    public static MageProjectile Spawn(Vector3 pos, Vector2 velocity, float damage, int pierce, float life, float sizeMul, Sprite sprite, Color color, GameObject caster = null)
     {
         // 루트는 스케일 1로 고정해서 콜라이더 크기를 월드 단위 그대로 넣는다(자식의 시각 스케일과
         // 곱해지는 이중 스케일 버그를 피하려고 판정과 비주얼을 서로 다른 오브젝트로 분리).
@@ -52,6 +56,7 @@ public class MageProjectile : MonoBehaviour
         proj.damage = damage;
         proj.pierceLeft = pierce;
         proj.life = life;
+        proj.caster = caster;
         return proj;
     }
 
@@ -72,7 +77,12 @@ public class MageProjectile : MonoBehaviour
         if (protectable != null && protectable.IsSpawnProtected) return;
         if (!alreadyHit.Add(other)) return;
 
-        Destroy(other.gameObject); // v0: 체력 시스템 없음(PlayerAttack과 동일한 단순화)
+        // 원본 `dealDamage(e, mult)`(project_test.html:1657) — 치명타와 ±10% 난수는 **적중할 때마다**
+        // 새로 굴린다(관통으로 여러 마리를 맞히면 각각 따로 판정). damage에는 이미 무기·차지 배수가 반영돼 있다.
+        var target = other.GetComponent<IDamageable>();
+        if (target != null && !target.IsDead)
+            target.TakeDamage(DamageCalculator.Roll(damage), caster != null ? caster : gameObject);
+
         pierceLeft--;
         if (pierceLeft < 0) Destroy(gameObject);
     }

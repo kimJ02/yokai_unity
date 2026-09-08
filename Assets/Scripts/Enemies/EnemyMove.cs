@@ -61,12 +61,20 @@ public class EnemyMove : MonoBehaviour, ISpawnProtectable
     /// <summary>스폰 직후 무적 상태인지. 공격 스크립트는 이 몹을 파괴하기 전에 반드시 확인한다.</summary>
     public bool IsSpawnProtected => spawnProtectTimer > 0f;
 
+    [Header("넉백 (원본 e.kbx)")]
+    [Tooltip("넉백 감쇠 계수. 원본 `e.kbx *= max(0, 1 - 9*dt)`(project_test.html:4021) 그대로.")]
+    public float knockbackDecay = 9f;
+
     Rigidbody2D rb;
     CircleCollider2D col;
     float spawnProtectTimer;
     Transform target;
     int dir = 1; // 원본 e.dir(1 또는 -1) — 추적/배회/가장자리반전이 전부 이 값을 공유
     float wanderTimer;
+    // 원본 `e.kbx` — AI 이동 속도를 대체하는 게 아니라 **거기에 더해지는 별도 성분**이다
+    // (`e.x += (e.vx + e.kbx) * dt`, project_test.html:4056). 매 프레임 지수 감쇠한다.
+    // 그냥 rb.linearVelocity에 넣으면 아래 FixedUpdate가 다음 프레임에 통째로 덮어써서 사라진다.
+    float knockbackX;
 
     void Awake()
     {
@@ -79,7 +87,14 @@ public class EnemyMove : MonoBehaviour, ISpawnProtectable
 
     void Update()
     {
-        if (spawnProtectTimer > 0f) spawnProtectTimer -= Time.deltaTime;
+        // 원본은 스폰 보호 중이면 적 갱신을 통째로 건너뛴다 — 주석 그대로 "상호 무적: 움직이지도,
+        // 때리지도, 맞지도 않는다"(project_test.html:4022~4023). 예전엔 타이머만 깎고 이동·접촉은
+        // 그대로 돌아서, 무적인 몹이 플레이어를 때릴 수 있었다(원본과 다름 — 스프린트 2에서 수정).
+        if (spawnProtectTimer > 0f)
+        {
+            spawnProtectTimer -= Time.deltaTime;
+            return;
+        }
 
         if (target == null || !target.gameObject.activeInHierarchy)
             target = FindNearestPlayer();
@@ -91,9 +106,21 @@ public class EnemyMove : MonoBehaviour, ISpawnProtectable
             TryAttack(target); // 원본: 쿨다운 없이 겹치는 동안 매 프레임 호출(실제 반복 피해 방지는 플레이어 무적시간 담당)
     }
 
+    /// <summary>
+    /// 피격 넉백을 준다(원본 `e.kbx = sign(e.x - player.x) * kbBase`, project_test.html:1679).
+    /// `EnemyHealth`가 피해를 입힐 때 호출한다 — 이동 속도를 덮어쓰지 않고 더해지는 성분이라
+    /// 걷던 방향과 무관하게 밀려난 뒤 자연스럽게 원래 이동으로 돌아온다.
+    /// </summary>
+    public void ApplyKnockback(float velocityX) => knockbackX = velocityX;
+
     void FixedUpdate()
     {
-        float vx = dir * moveSpeed;
+        // 원본은 AI 판단보다 먼저 넉백을 감쇠시킨다(project_test.html:4021).
+        knockbackX *= Mathf.Max(0f, 1f - knockbackDecay * Time.fixedDeltaTime);
+
+        // 스폰 보호 중엔 수평 이동을 하지 않는다(위 Update 주석 참고). 중력·착지는 Physics2D에 그대로 맡긴다
+        // — 원본은 스폰 지점이 이미 착지 높이라 낙하가 없지만, 우리 쪽은 안전하게 물리에 맡겨 둔다.
+        float vx = IsSpawnProtected ? 0f : dir * moveSpeed + knockbackX; // 원본 `e.vx + e.kbx`
         float minX = FieldBounds.MinX + edgeMargin;
         float maxX = FieldBounds.MaxX - edgeMargin;
         if (rb.position.x <= minX && vx < 0f) vx = 0f;
@@ -193,10 +220,20 @@ public class EnemyMove : MonoBehaviour, ISpawnProtectable
         return nearest;
     }
 
+    /// <summary>
+    /// 접촉 데미지. 원본은 겹치는 동안 **매 프레임 쿨다운 없이** `damagePlayer(e.dmg, e.x)`를 부른다
+    /// (project_test.html:4148) — 반복 피해를 막는 건 전적으로 플레이어 쪽 무적시간(0.9초)이다.
+    /// 그래서 여기에 쿨다운을 넣으면 안 된다(원본과 달라진다).
+    ///
+    /// `Enemies`는 `Characters`를 참조할 수 없으므로(asmdef 같은 층) `Core.IDamageable`로만 접근한다.
+    /// 무적 여부도 여기서 못 보지만, 받는 쪽이 무적이면 스스로 무시하므로 결과는 원본과 같다.
+    /// </summary>
     void TryAttack(Transform playerTransform)
     {
-        // TODO(확인 필요): 플레이어 Health 컴포넌트가 생기면 여기서 attackPower만큼 데미지를 준다.
-        // 이번 스프린트는 Health 개념 자체가 범위 밖이라 의도적으로 비워둠 (PROGRESS.md 참고).
+        var damageable = playerTransform.GetComponent<IDamageable>();
+        if (damageable == null || damageable.IsDead) return;
+        // 피해 난수(±10%)는 원본이 피격자 쪽(damagePlayer)에서 굴리므로 여기선 원본 스탯 그대로 넘긴다.
+        damageable.TakeDamage(attackPower, gameObject);
     }
 }
 }

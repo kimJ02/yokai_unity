@@ -162,13 +162,18 @@ public class PhysicsAndMageTests
         var mage = go.AddComponent<MageAttack>();
         var fireMethod = typeof(MageAttack).GetMethod("Fire", BindingFlags.NonPublic | BindingFlags.Instance);
 
+        // 스프린트 2부터 관통은 "죽인 수"가 아니라 "때린 수"로 소모된다(원본도 동일 — 체력이 남아도 pierce는 깎임).
+        // 그래서 체력을 붙이고 "피해를 입었나"로 확인한다.
         var enemies = new GameObject[4];
+        var healths = new YokaiFront.Enemies.EnemyHealth[4];
         for (int i = 0; i < enemies.Length; i++)
         {
             var e = new GameObject($"Enemy_{i}");
             e.tag = "Enemy";
             e.transform.position = new Vector3(0.6f + i * 0.3f, 0.36f, 0f);
             e.AddComponent<CircleCollider2D>().radius = 0.3f;
+            e.AddComponent<SpriteRenderer>();
+            healths[i] = e.AddComponent<YokaiFront.Enemies.EnemyHealth>();
             enemies[i] = e;
         }
 
@@ -181,12 +186,12 @@ public class PhysicsAndMageTests
             t += Time.fixedDeltaTime;
         }
 
-        Assert.IsTrue(enemies[0] == null, "1번째 적이 안 죽음");
-        Assert.IsTrue(enemies[1] == null, "2번째 적이 안 죽음");
-        Assert.IsTrue(enemies[2] == null, "3번째 적이 안 죽음(pierce=2는 총 3타여야 함)");
-        Assert.IsTrue(enemies[3] != null, "4번째 적까지 죽었다 — pierce 제한이 안 걸림");
+        Assert.Less(healths[0].CurrentHp, healths[0].MaxHp, "1번째 적이 안 맞음");
+        Assert.Less(healths[1].CurrentHp, healths[1].MaxHp, "2번째 적이 안 맞음");
+        Assert.Less(healths[2].CurrentHp, healths[2].MaxHp, "3번째 적이 안 맞음(pierce=2는 총 3타여야 함)");
+        Assert.AreEqual(healths[3].MaxHp, healths[3].CurrentHp, 0.001f, "4번째 적까지 맞았다 — pierce 제한이 안 걸림");
 
-        if (enemies[3] != null) Object.Destroy(enemies[3]);
+        foreach (var e in enemies) if (e != null) Object.Destroy(e);
         Object.Destroy(go);
         yield return null;
     }
