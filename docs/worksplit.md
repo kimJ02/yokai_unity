@@ -71,18 +71,29 @@ namespace YokaiFront.Core
 {
     public static class CombatEvents
     {
-        /// 적이 죽을 때. 콤보·살기·연쇄처치 집계(내 4번)가 구독한다.
+        /// 적이 죽을 때. 콤보·살기·연쇄처치·경험치구슬(내 4·5번)이 구독한다.
         public static event System.Action<GameObject> EnemyKilled;
         /// 성소 파괴 시 플레이어가 받을 버프 지속시간(초). 팀원 C가 발행 → 내 4번이 구독.
         public static event System.Action<float> ShrineBuffGranted;
+        /// 처치 보상 지급 후 결과 화면 집계용 알림 (gold, exp). 팀원이 발행 → 내 1번이 구독.
+        public static event System.Action<int, int> RewardGranted;
 
         public static void RaiseEnemyKilled(GameObject enemy);
         public static void RaiseShrineBuffGranted(float duration);
+        public static void RaiseRewardGranted(int gold, int exp);
     }
 }
 ```
 `Enemies`(2층)는 `Characters`(2층)를 참조할 수 없으므로 성소→플레이어 버프는 **반드시 이 이벤트로만** 넘긴다
 (`IDamageable`과 같은 이유, `CLAUDE.md` asmdef 계층표).
+
+⚠️ **팀원 필수 대응 2건** — `Systems/EnemySpawner.HandleEnemyDied`에서 보상을 지급한 직후:
+```csharp
+CombatEvents.RaiseEnemyKilled(enemy.gameObject);   // 콤보·살기·구슬이 여기 붙는다
+CombatEvents.RaiseRewardGranted(gold, exp);        // 결과 화면 집계
+```
+지급 자체(`ProfileService.Current.AddGold/AddExp`)는 지금 코드 그대로 두고, **알림 두 줄만** 추가하면 된다.
+(`RunState.RegisterKill`은 내가 이 이벤트를 구독해서 부르므로 팀원이 직접 부르지 않는다.)
 
 ### 이미 있는 것 (그대로 쓸 것, 다시 만들지 말 것)
 | 파일 | 용도 | 소유 |
