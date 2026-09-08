@@ -69,7 +69,7 @@ public class MageAttack : MonoBehaviour
 
         cdTimer -= Time.deltaTime;
 
-        bool held = Input.GetKey(KeyCode.Z);
+        bool held = GameInput.AttackHeld;
         if (held && !charging && cdTimer <= 0f)
         {
             charging = true;
@@ -97,8 +97,8 @@ public class MageAttack : MonoBehaviour
     {
         // 원본: aimX=우-좌, aimY=아래-위(화면좌표). Unity는 Y+가 위라 아래-위 항을 뒤집어서
         // "위 화살표=+Y"가 되게 맞췄다(원본과 시각적으로 동일한 결과).
-        float aimX = (Input.GetKey(KeyCode.RightArrow) ? 1 : 0) - (Input.GetKey(KeyCode.LeftArrow) ? 1 : 0);
-        float aimY = (Input.GetKey(KeyCode.UpArrow) ? 1 : 0) - (Input.GetKey(KeyCode.DownArrow) ? 1 : 0);
+        float aimX = (GameInput.Right ? 1 : 0) - (GameInput.Left ? 1 : 0);
+        float aimY = (GameInput.Up ? 1 : 0) - (GameInput.Down ? 1 : 0);
         if (aimX == 0f && aimY == 0f) aimX = mover != null ? mover.Facing : 1;
 
         Vector2 aim = new Vector2(aimX, aimY).normalized;

@@ -64,7 +64,7 @@ public class CharacterMover2D : MonoBehaviour
 
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.C)) jumpBufferTimer = jumpBufferTime;
+        if (GameInput.JumpDown) jumpBufferTimer = jumpBufferTime;
         else jumpBufferTimer -= Time.deltaTime;
 
         coyoteTimer = grounded ? coyoteTime : coyoteTimer - Time.deltaTime;
@@ -80,8 +80,8 @@ public class CharacterMover2D : MonoBehaviour
     void FixedUpdate()
     {
         float h = 0f;
-        if (Input.GetKey(KeyCode.LeftArrow)) h -= 1f;
-        if (Input.GetKey(KeyCode.RightArrow)) h += 1f;
+        if (GameInput.Left) h -= 1f;
+        if (GameInput.Right) h += 1f;
         if (h != 0f) Facing = h > 0 ? 1 : -1;
 
         // 원본 statMs()(project_test.html:1286) — 골드 강화(ms)가 반영된 배수. moveSpeed 필드 자체는

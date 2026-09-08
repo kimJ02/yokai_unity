@@ -60,7 +60,7 @@ namespace YokaiFront.Combat
         if (cdTimer > 0f) return;
 
         // 원본(project_test.html) KEYMAP: KeyZ = 기본 공격
-        if (Input.GetKeyDown(KeyCode.Z))
+        if (GameInput.AttackDown)
         {
             Attack();
             cdTimer = cooldown;
