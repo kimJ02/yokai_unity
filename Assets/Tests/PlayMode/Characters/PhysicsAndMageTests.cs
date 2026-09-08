@@ -127,7 +127,7 @@ public class PhysicsAndMageTests
         var fireMethod = typeof(MageAttack).GetMethod("Fire", BindingFlags.NonPublic | BindingFlags.Instance);
         Assert.IsNotNull(fireMethod);
 
-        fireMethod.Invoke(mage, new object[] { 0f });
+        fireMethod.Invoke(mage, new object[] { 0f, ProfileService.Current.mageBranch, ProfileService.Current.mageTier });
         yield return null;
         var noChargeBolt = GameObject.Find("MageBolt");
         Assert.IsNotNull(noChargeBolt, "차지 없이 발사했는데 투사체가 안 생겼다");
@@ -135,7 +135,7 @@ public class PhysicsAndMageTests
         Object.Destroy(noChargeBolt);
         yield return null;
 
-        fireMethod.Invoke(mage, new object[] { 1f });
+        fireMethod.Invoke(mage, new object[] { 1f, ProfileService.Current.mageBranch, ProfileService.Current.mageTier });
         yield return null;
         var fullChargeBolt = GameObject.Find("MageBolt");
         Assert.IsNotNull(fullChargeBolt, "풀차지로 발사했는데 투사체가 안 생겼다");
@@ -177,7 +177,7 @@ public class PhysicsAndMageTests
             enemies[i] = e;
         }
 
-        fireMethod.Invoke(mage, new object[] { 0f }); // chargeK=0 → pierce = B.pierce(2) + 0 = 2 → 총 3타 관통
+        fireMethod.Invoke(mage, new object[] { 0f, ProfileService.Current.mageBranch, ProfileService.Current.mageTier }); // chargeK=0 → pierce = B.pierce(2) + 0 = 2 → 총 3타 관통
 
         float t = 0f;
         while (t < 1.5f)
@@ -210,7 +210,7 @@ public class PhysicsAndMageTests
         var mage = go.AddComponent<MageAttack>();
         var fireMethod = typeof(MageAttack).GetMethod("Fire", BindingFlags.NonPublic | BindingFlags.Instance);
 
-        fireMethod.Invoke(mage, new object[] { 0f }); // 무차지 → life = range/speed = 8.8/10.8 ≈ 0.8148초
+        fireMethod.Invoke(mage, new object[] { 0f, ProfileService.Current.mageBranch, ProfileService.Current.mageTier }); // 무차지 → life = range/speed = 8.8/10.8 ≈ 0.8148초
         yield return null;
 
         var bolt = GameObject.Find("MageBolt");

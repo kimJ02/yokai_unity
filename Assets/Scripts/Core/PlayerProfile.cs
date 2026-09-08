@@ -16,7 +16,16 @@ namespace YokaiFront.Core
         public int level = 1;
         public int exp = 0;
         public int gold = 0;
+
+        /// <summary>
+        /// 스킬트리(전문화)에 쓴 SP. 원본은 캐릭터별로 따로 관리한다(`charProg().spUsed`,
+        /// project_test.html:1249) — 이 프로토타입엔 마법사 하나뿐이라 이 필드가 곧 마법사의 spUsed다.
+        /// 캐릭터가 늘어나면 `PlayerProfile` 자체를 캐릭터별로 두거나 이 필드를 분리해야 한다.
+        /// </summary>
         public int spUsed = 0;
+        public MageBranch mageBranch = MageBranch.None;
+        public int mageTier = 0;
+
         public UpgradeLevels upgrades = new UpgradeLevels();
 
         /// <summary>레벨이 실제로 오를 때(한 번 이상) 1회 발생. `Characters/PlayerHealth`가 구독해서
@@ -82,7 +91,39 @@ namespace YokaiFront.Core
                 case UpgradeStat.Crit: upgrades.crit = newLevel; break;
             }
         }
+
+        /// <summary>원본 `spTotal()`(project_test.html:1258) = 레벨-1. 1레벨엔 SP가 0이다.</summary>
+        public int SpTotal => level - 1;
+        /// <summary>원본 `spAvail()`(project_test.html:1259).</summary>
+        public int SpAvailable => SpTotal - spUsed;
+
+        /// <summary>
+        /// 마법사 빌드 티어당 SP 비용. 원본 `SPEC.bow.move/conv.tiers[].cost`(project_test.html:900-913) —
+        /// 두 갈래 모두 1,2,3,4,5로 동일하다.
+        /// </summary>
+        static readonly int[] MageTierCost = { 1, 2, 3, 4, 5 };
+
+        /// <summary>
+        /// 다음 티어를 습득한다(원본 `learnSkill`, project_test.html:7011). 갈래는 처음 배울 때 고정되고
+        /// (`branch !== null && branch !== 선택` 이면 거부), 반드시 순서대로만(1→2→3→4→5) 배울 수 있다.
+        /// </summary>
+        public bool TryLearnMageTier(MageBranch branch)
+        {
+            if (branch == MageBranch.None) return false;
+            if (mageBranch != MageBranch.None && mageBranch != branch) return false;
+            int nextTier = mageTier + 1;
+            if (nextTier > MageTierCost.Length) return false;
+            int cost = MageTierCost[nextTier - 1];
+            if (SpAvailable < cost) return false;
+            mageBranch = branch;
+            mageTier = nextTier;
+            spUsed += cost;
+            return true;
+        }
     }
+
+    /// <summary>원본 마법사 빌드 갈래. move=폭발 계열, conv=중력 계열(project_test.html:900-913).</summary>
+    public enum MageBranch { None, Explosion, Gravity }
 
     /// <summary>
     /// 골드 강화 5종의 현재 단계. 원본 `CONFIG.upgrades`(project_test.html:731)와 이름을 맞췄으나
