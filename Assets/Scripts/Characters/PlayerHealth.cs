@@ -49,11 +49,39 @@ namespace YokaiFront.Characters
         {
             CurrentHp = maxHp;
             rb = GetComponent<Rigidbody2D>();
+            // 원본은 레벨업 때만 최대체력을 다시 계산하고 풀피로 채운다(project_test.html:1850)
+            // — 골드 강화(hp)를 사더라도 다음 레벨업 전까지는 즉시 반영되지 않는, 원본 그대로의
+            // 비직관적 동작이다(임의로 "매 프레임 갱신"으로 바꾸지 말 것).
+            ProfileService.Current.LeveledUp += HandleLeveledUp;
+        }
+
+        void OnDestroy()
+        {
+            // 정적 싱글턴(ProfileService.Current) 구독이라 해제 안 하면 파괴된 오브젝트를 향한
+            // 호출이 남는다 — EnemyHealth 테스트 오염 때 겪은 것과 같은 함정.
+            ProfileService.Current.LeveledUp -= HandleLeveledUp;
+        }
+
+        void HandleLeveledUp()
+        {
+            maxHp = PlayerStatCalculator.ComputeMaxHp(ProfileService.Current);
+            CurrentHp = maxHp;
         }
 
         void Update()
         {
             if (InvulnRemaining > 0f) InvulnRemaining -= Time.deltaTime;
+        }
+
+        /// <summary>
+        /// 스프린트 2 임시 사망 처리(`docs/sprint2-handoff-split.md` 확정: "정지 + R키 재시작").
+        /// 원본은 런 종료+결과화면(:1927 `endRun('dead')`)이지만 런 사이클이 스프린트 3 범위라
+        /// 그때까지 테스트가 끊기지 않게 최소한만 만든다 — `PlayerDeathHandler`가 R키 입력 시 호출한다.
+        /// </summary>
+        public void Revive()
+        {
+            CurrentHp = maxHp;
+            InvulnRemaining = 0.5f; // 재시작 직후 바로 다시 안 맞게 하는 안전장치(원본에 없는 실무적 편의)
         }
 
         public void TakeDamage(float amount, GameObject source)
