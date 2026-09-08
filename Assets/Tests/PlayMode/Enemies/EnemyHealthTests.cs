@@ -166,11 +166,12 @@ public class EnemyHealthTests
         enemy.GetComponent<Rigidbody2D>().gravityScale = 0f;
         var health = enemy.GetComponent<EnemyHealth>();
 
-        var caster = new GameObject("TestCaster");
-        caster.transform.position = new Vector3(0f, 0.36f, 0f);
         YokaiFront.Characters.MageProjectile.Spawn(
             new Vector3(0.5f, 0.36f, 0f), new Vector2(6f, 0f),
-            damage: 9f, pierce: 2, life: 1f, sizeMul: 1f, sprite: null, color: Color.white, caster: caster);
+            damage: 9f, pierce: 2, life: 1f, sizeMul: 1f, sprite: null, color: Color.white,
+            infinitePierce: false, charged: false, explosive: false, explosionPower: 0f,
+            gravityOrb: false, gravityCharge: 0f, tier: 0,
+            casterPos: new Vector3(0f, 0.36f, 0f), casterFacing: 1);
 
         float t = 0f;
         while (t < 0.5f && enemy != null) { yield return new WaitForFixedUpdate(); t += Time.fixedDeltaTime; }
@@ -178,7 +179,6 @@ public class EnemyHealthTests
         Assert.IsTrue(enemy != null, "마법탄 한 발에 즉사했다 — 체력을 거치지 않고 파괴되는 것");
         Assert.Less(health.CurrentHp, health.MaxHp, "마법탄에 맞았는데 체력이 안 깎였다");
 
-        Object.Destroy(caster);
         if (enemy != null) Object.Destroy(enemy);
         yield return null;
     }

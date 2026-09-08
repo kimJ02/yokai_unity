@@ -64,7 +64,7 @@ public class CharacterMover2D : MonoBehaviour
 
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.C)) jumpBufferTimer = jumpBufferTime;
+        if (GameInput.JumpDown) jumpBufferTimer = jumpBufferTime;
         else jumpBufferTimer -= Time.deltaTime;
 
         coyoteTimer = grounded ? coyoteTime : coyoteTimer - Time.deltaTime;
@@ -80,8 +80,8 @@ public class CharacterMover2D : MonoBehaviour
     void FixedUpdate()
     {
         float h = 0f;
-        if (Input.GetKey(KeyCode.LeftArrow)) h -= 1f;
-        if (Input.GetKey(KeyCode.RightArrow)) h += 1f;
+        if (GameInput.Left) h -= 1f;
+        if (GameInput.Right) h += 1f;
         if (h != 0f) Facing = h > 0 ? 1 : -1;
 
         // 원본 statMs()(project_test.html:1286) — 골드 강화(ms)가 반영된 배수. moveSpeed 필드 자체는
@@ -99,6 +99,18 @@ public class CharacterMover2D : MonoBehaviour
             rb.position = new Vector2(Mathf.Clamp(rb.position.x, minX, maxX), rb.position.y);
 
         grounded = CheckGrounded();
+    }
+
+    /// <summary>조준 방향으로 바라보게 한다(원본 `if (Math.abs(aimX) > 0.1) p.facing = sign(aimX)`,
+    /// project_test.html:1959) — 이동이 없어도 마법사가 쏘는/스킬 쓰는 방향으로 몸을 돌린다.
+    /// FixedUpdate의 이동 입력 기반 갱신은 h==0(가만히 서서 조준)일 땐 이 값을 건드리지 않는다.</summary>
+    public void SetFacing(int dir) => Facing = dir;
+
+    /// <summary>즉시 순간이동(원본 불길 이동 X 스킬, `p.x=toX;p.y=toY;p.vx=0;p.vy=0`, project_test.html:2148).</summary>
+    public void Teleport(Vector3 position)
+    {
+        rb.position = position;
+        rb.linearVelocity = Vector2.zero;
     }
 
     bool CheckGrounded()

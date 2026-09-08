@@ -193,3 +193,7 @@ MonoBehaviour:
   knockbackSpeed: 2.4
   flashDecay: 6
   flashStrength: 0.75
+  maxBurnStacks: 10
+  burnDuration: 4
+  burnTickInterval: 0.5
+  burnDamagePerStackPct: 0.08

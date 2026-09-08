@@ -1,5 +1,6 @@
 using UnityEngine;
 using YokaiFront.Core;
+using YokaiFront.Combat;
 
 namespace YokaiFront.Enemies
 {
@@ -16,19 +17,25 @@ namespace YokaiFront.Enemies
     /// </summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(SpriteRenderer))]
-    public class EnemyHealth : MonoBehaviour, IDamageable
+    public class EnemyHealth : MonoBehaviour, IDamageable, IElementAfflictable
     {
         [Header("스탯 (원본 CONFIG.enemyBase.oni — project_test.html:709)")]
         [Tooltip("최대 체력. 원본 오니 38. 몹 종류가 늘면 EnemyData(SO)로 옮긴다(스프린트 4).")]
         public float maxHp = 38f;
 
         [Header("피격 반응 (원본 그대로)")]
-        [Tooltip("넉백 속도. 원본 kbBase 240px/s ÷100(project_test.html:1678).")]
+        [Tooltip("기본 넉백 속도(무기별 kb 지정이 없을 때). 원본 kbBase 240px/s ÷100(project_test.html:1678).")]
         public float knockbackSpeed = 2.4f;
         [Tooltip("피격 플래시 감쇠 속도. 원본 `e.flash -= dt*6`(project_test.html:4020) — 1에서 0까지 약 0.167초.")]
         public float flashDecay = 6f;
         [Tooltip("플래시 최대 강도. 원본은 흰색을 alpha `flash*0.75`로 덧그린다(project_test.html:4799).")]
         public float flashStrength = 0.75f;
+
+        [Header("화상 (원본 CONFIG.elem.burn — project_test.html:692)")]
+        public int maxBurnStacks = 10;
+        public float burnDuration = 4.0f;   // 원본 life: 4.0 — 매 적용마다 리필(누적 아님)
+        public float burnTickInterval = 0.5f;
+        public float burnDamagePerStackPct = 0.08f; // statAtk × 이 값 × 스택 수, 0.5초마다
 
         /// <summary>현재 체력. UI/테스트가 읽는다.</summary>
         public float CurrentHp { get; private set; }
@@ -44,6 +51,10 @@ namespace YokaiFront.Enemies
         EnemyMove mover;
         float flash;
 
+        int burnStacks;
+        float burnRemaining;
+        float burnTickTimer;
+
         void Awake()
         {
             CurrentHp = maxHp;
@@ -57,12 +68,55 @@ namespace YokaiFront.Enemies
 
         void Update()
         {
-            if (flash <= 0f) return;
-            flash = Mathf.Max(0f, flash - Time.deltaTime * flashDecay);
-            sr.color = Color.Lerp(baseColor, Color.white, flash * flashStrength);
+            if (flash > 0f)
+            {
+                flash = Mathf.Max(0f, flash - Time.deltaTime * flashDecay);
+                sr.color = Color.Lerp(baseColor, Color.white, flash * flashStrength);
+            }
+            UpdateBurn(Time.deltaTime);
+        }
+
+        /// <summary>원본 `updateElements()`의 burn 분기(project_test.html:1729-1741) 그대로.</summary>
+        void UpdateBurn(float dt)
+        {
+            if (burnStacks <= 0 || IsDead) return;
+            burnRemaining -= dt;
+            burnTickTimer += dt;
+            if (burnTickTimer >= burnTickInterval)
+            {
+                burnTickTimer -= burnTickInterval;
+                float atk = PlayerStatCalculator.ComputeAtk(ProfileService.Current);
+                float raw = atk * burnDamagePerStackPct * burnStacks;
+                // 화상 틱은 원본이 noCrit·noHitstop·kb:0으로 넘긴다 — 여기선 크리티컬 확률 0, 넉백 0.
+                int dmg = DamageCalculator.Roll(raw, 0f, out _);
+                TakeDamageWithKnockback(dmg, null, 1f, 0f);
+            }
+            if (burnRemaining <= 0f) burnStacks = 0; // 원본 `if (e.burnT <= 0) e.burnS = 0`
+        }
+
+        public void ApplyBurn(int stacks)
+        {
+            if (IsDead) return;
+            burnStacks = Mathf.Min(maxBurnStacks, burnStacks + stacks);
+            burnRemaining = burnDuration; // 원본 `e.burnT = E.life` — 누적이 아니라 리필
         }
 
         public void TakeDamage(float amount, GameObject source)
+        {
+            if (source == null)
+            {
+                TakeDamageWithKnockback(amount, null, 1f, knockbackSpeed);
+                return;
+            }
+            // 원본 `sign(e.x - player.x)`(project_test.html:1679) — 가해자 반대 방향으로 밀린다.
+            // 정확히 같은 X에 겹쳐 있으면 sign이 0이라 원본은 `|| player.facing`으로 대체하는데,
+            // 우리는 가해자 방향 정보가 없어 오른쪽(+1)으로 고정한다(겹친 순간에만 생기는 예외).
+            float dir = Mathf.Sign(transform.position.x - source.transform.position.x);
+            if (Mathf.Approximately(dir, 0f)) dir = 1f;
+            TakeDamageWithKnockback(amount, source, dir, knockbackSpeed);
+        }
+
+        public void TakeDamageWithKnockback(float amount, GameObject source, float knockbackDirSign, float knockbackSpeedOverride)
         {
             if (IsDead) return;
             // 원본은 `dealDamage` 진입 즉시 스폰 무적을 확인하고 0을 반환한다(project_test.html:1659).
@@ -73,15 +127,8 @@ namespace YokaiFront.Enemies
             CurrentHp -= amount;
             flash = 1f; // 원본 `e.flash = 1`(project_test.html:1666)
 
-            if (mover != null && source != null)
-            {
-                // 원본 `sign(e.x - player.x)`(project_test.html:1679) — 가해자 반대 방향으로 밀린다.
-                // 정확히 같은 X에 겹쳐 있으면 sign이 0이라 원본은 `|| player.facing`으로 대체하는데,
-                // 우리는 가해자 방향 정보가 없어 오른쪽(+1)으로 고정한다(겹친 순간에만 생기는 예외).
-                float dir = Mathf.Sign(transform.position.x - source.transform.position.x);
-                if (Mathf.Approximately(dir, 0f)) dir = 1f;
-                mover.ApplyKnockback(dir * knockbackSpeed);
-            }
+            if (mover != null && knockbackSpeedOverride > 0f)
+                mover.ApplyKnockback(knockbackDirSign * knockbackSpeedOverride);
 
             if (CurrentHp <= 0f) Die();
         }

@@ -31,7 +31,7 @@ namespace YokaiFront.Enemies
 [DisallowMultipleComponent]
 [RequireComponent(typeof(Rigidbody2D))]
 [RequireComponent(typeof(CircleCollider2D))]
-public class EnemyMove : MonoBehaviour, ISpawnProtectable
+public class EnemyMove : MonoBehaviour, ISpawnProtectable, IGravityAffectable
 {
     [Header("스탯 (HANDOFF.md 2번 - 오니 기준 시작값, 원본 76px/s를 100px=1유닛로 축척)")]
     public float moveSpeed = 0.76f;
@@ -112,6 +112,19 @@ public class EnemyMove : MonoBehaviour, ISpawnProtectable
     /// 걷던 방향과 무관하게 밀려난 뒤 자연스럽게 원래 이동으로 돌아온다.
     /// </summary>
     public void ApplyKnockback(float velocityX) => knockbackX = velocityX;
+
+    /// <summary>중력점(gravityWell)에 노출된 동안의 위치. Combat 도메인이 끌어당길 대상까지의 거리를 재는 데 쓴다.</summary>
+    public Vector2 WorldPosition => rb.position;
+
+    /// <summary>
+    /// 원본 `e.x += dx/d*force*dt; e.y += ...*0.28; e.kbx *= 0.85`(project_test.html:3823-3825).
+    /// 물리 속도가 아니라 위치를 직접 더하고, 기존 넉백을 추가로 감쇠시킨다.
+    /// </summary>
+    public void ApplyGravityWellPull(Vector2 positionDelta)
+    {
+        rb.position += positionDelta;
+        knockbackX *= 0.85f;
+    }
 
     void FixedUpdate()
     {

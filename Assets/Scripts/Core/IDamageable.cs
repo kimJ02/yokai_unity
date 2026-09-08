@@ -25,5 +25,22 @@ namespace YokaiFront.Core
 
         /// <summary>이미 죽었는지. 원본 `e.dead` — 죽은 대상에 중복으로 피해가 들어가지 않게 공격 쪽에서 확인한다.</summary>
         bool IsDead { get; }
+
+        /// <summary>
+        /// 넉백 방향·세기를 공격 쪽이 직접 지정하는 확장 경로. 원본 `dealDamage`의 `kb`/`kbDir` 인자
+        /// (project_test.html:1678-1679)에 대응한다 — 스킬마다 넉백 세기가 다르고(예: 마법탄 직격 140,
+        /// 폭발 260, 중력 충돌 70~280), 방향 기준도 "가해자 위치"가 아닐 때가 있다(예: 마법탄은
+        /// 자기 이동 방향 `sign(vx)`, 폭발/중력은 폭발 중심 기준). `Combat`은 `Enemies`를 참조할 수
+        /// 없어(asmdef 계층 규칙) 가해자 GameObject 위치로 방향을 대신 추론시킬 수 없는 경우가 많아서
+        /// 방향을 이미 계산된 부호로 직접 넘긴다.
+        ///
+        /// 기본 구현은 무시하고 2-인자 <see cref="TakeDamage(float, GameObject)"/>로 위임한다 —
+        /// 커스텀 넉백이 의미 없는 구현체(예: 아직 피격 넉백이 없는 <c>PlayerHealth</c>)는 아무것도
+        /// 바꿀 필요가 없다.
+        /// </summary>
+        /// <param name="knockbackDirSign">넉백 방향 부호(-1 또는 1). 0을 넘기면 안 된다(원본도 0이면 `||`로 대체 기준을 쓴다 — 호출자가 미리 대체해서 넘긴다).</param>
+        /// <param name="knockbackSpeed">넉백 속도. 0을 넘기면 넉백이 없다(원본 `kb: 0` — 화상 틱·중력 틱 등).</param>
+        void TakeDamageWithKnockback(float amount, GameObject source, float knockbackDirSign, float knockbackSpeed)
+            => TakeDamage(amount, source);
     }
 }

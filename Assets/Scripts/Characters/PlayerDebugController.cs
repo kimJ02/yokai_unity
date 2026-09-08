@@ -42,6 +42,11 @@ namespace YokaiFront.Characters
             var profile = ProfileService.Current;
             foreach (var (key, stat, _) in Bindings)
                 if (Input.GetKeyDown(key)) profile.TryBuyUpgrade(stat);
+
+            // 마법사 스킬트리(전문화) 임시 조작 — 정식 UI(강화/전문화 탭)가 생기기 전까지.
+            // 6=폭발 계열 다음 티어 습득, 7=중력 계열 다음 티어 습득(원본 learnSkill, project_test.html:7011).
+            if (Input.GetKeyDown(KeyCode.Alpha6)) profile.TryLearnMageTier(MageBranch.Explosion);
+            if (Input.GetKeyDown(KeyCode.Alpha7)) profile.TryLearnMageTier(MageBranch.Gravity);
         }
 
         void OnGUI()
@@ -49,11 +54,11 @@ namespace YokaiFront.Characters
             var p = ProfileService.Current;
             var style = new GUIStyle(GUI.skin.label) { fontSize = 14, normal = { textColor = Color.white } };
 
-            var panel = new Rect(6, 6, 720, 78);
+            var panel = new Rect(6, 6, 760, 100);
             GUI.DrawTexture(panel, bgTexture);
 
-            GUI.Label(new Rect(12, 10, 700, 22),
-                $"골드 {p.gold}   레벨 {p.level} (EXP {p.exp}/{PlayerProfile.RequiredExp(p.level)})", style);
+            GUI.Label(new Rect(12, 10, 740, 22),
+                $"골드 {p.gold}   레벨 {p.level} (EXP {p.exp}/{PlayerProfile.RequiredExp(p.level)})   SP {p.SpAvailable}/{p.SpTotal}", style);
 
             var levels = new System.Text.StringBuilder();
             var costs = new System.Text.StringBuilder();
@@ -63,8 +68,16 @@ namespace YokaiFront.Characters
                 levels.Append($"[{(int)key - (int)KeyCode.Alpha0}]{label} Lv{lv}  ");
                 costs.Append($"{label}{GoldUpgradeConfig.Cost(stat, lv)}  ");
             }
-            GUI.Label(new Rect(12, 32, 700, 22), levels.ToString(), style);
-            GUI.Label(new Rect(12, 54, 700, 22), $"다음 비용 — {costs}", style);
+            GUI.Label(new Rect(12, 32, 740, 22), levels.ToString(), style);
+            GUI.Label(new Rect(12, 54, 740, 22), $"다음 비용 — {costs}", style);
+
+            string branchLabel = p.mageBranch switch
+            {
+                MageBranch.Explosion => "폭발",
+                MageBranch.Gravity => "중력",
+                _ => "미선택",
+            };
+            GUI.Label(new Rect(12, 76, 740, 22), $"[6]폭발 [7]중력 — 마법사 빌드: {branchLabel} {p.mageTier}티어", style);
         }
     }
 }

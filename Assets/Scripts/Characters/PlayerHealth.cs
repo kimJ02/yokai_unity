@@ -84,6 +84,13 @@ namespace YokaiFront.Characters
             InvulnRemaining = 0.5f; // 재시작 직후 바로 다시 안 맞게 하는 안전장치(원본에 없는 실무적 편의)
         }
 
+        /// <summary>
+        /// 남은 무적시간을 최소 이 값까지 늘린다(줄이지는 않는다). 원본 `p.invuln = Math.max(p.invuln, 0.22)`
+        /// (project_test.html:2149, 불길 이동 텔레포트 직후 무적)에 대응 — 다른 무적(피격 직후 0.9초 등)이
+        /// 이미 더 길게 남아있으면 그대로 둔다.
+        /// </summary>
+        public void GrantInvuln(float duration) => InvulnRemaining = Mathf.Max(InvulnRemaining, duration);
+
         public void TakeDamage(float amount, GameObject source)
         {
             // 원본 `if (p.invuln > 0 ...) return;`(project_test.html:1881).

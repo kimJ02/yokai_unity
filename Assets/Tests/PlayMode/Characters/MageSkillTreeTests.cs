@@ -1,0 +1,250 @@
+using System.Collections;
+using System.Reflection;
+using NUnit.Framework;
+using UnityEngine;
+using UnityEngine.TestTools;
+using YokaiFront.Characters;
+using YokaiFront.Combat;
+using YokaiFront.Core;
+using YokaiFront.Enemies;
+
+namespace YokaiFront.Tests.PlayMode
+{
+
+/// <summary>
+/// 마법사 스킬트리(전문화) — 폭발/중력 두 갈래 전부(project_test.html:897-914, 1932-2179)를
+/// 검증한다. `ProfileService.Current`와 `GravityWellZone.Active`가 둘 다 정적 상태라 테스트끼리
+/// 오염되지 않게 매 테스트 전후로 리셋한다(이 프로젝트에서 이미 겪은 함정과 같은 종류).
+/// </summary>
+public class MageSkillTreeTests
+{
+    [SetUp]
+    public void Reset()
+    {
+        ProfileService.Reset();
+        GravityWellZone.ClearAllForTests();
+    }
+
+    [TearDown]
+    public void Cleanup()
+    {
+        ProfileService.Reset();
+        GravityWellZone.ClearAllForTests();
+        foreach (var go in Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None))
+        {
+            if (go == null) continue;
+            if (go.name.StartsWith("Test") || go.name == "MageBolt" || go.name == "FireTrailZone" || go.name == "GravityWellZone")
+                Object.DestroyImmediate(go);
+        }
+    }
+
+    static GameObject NewEnemy(Vector3 pos)
+    {
+        var go = new GameObject("TestEnemy");
+        go.tag = "Enemy";
+        go.transform.position = pos;
+        go.AddComponent<SpriteRenderer>();
+        go.AddComponent<CircleCollider2D>().radius = 0.3f;
+        var move = go.AddComponent<EnemyMove>();
+        go.AddComponent<EnemyHealth>();
+
+        var timerField = typeof(EnemyMove).GetField("spawnProtectTimer", BindingFlags.NonPublic | BindingFlags.Instance);
+        timerField.SetValue(move, 0f);
+        go.GetComponent<Rigidbody2D>().gravityScale = 0f;
+        return go;
+    }
+
+    // ---- 티어 습득(SP 경제, project_test.html:1258-1259, 7011) ----
+
+    [Test]
+    public void TryLearnMageTier_LocksBranchAndRequiresSequentialOrder()
+    {
+        var p = new PlayerProfile { level = 20 }; // SP 넉넉히
+        Assert.IsTrue(p.TryLearnMageTier(MageBranch.Explosion), "1티어(SP1)를 못 배웠다");
+        Assert.AreEqual(MageBranch.Explosion, p.mageBranch);
+        Assert.AreEqual(1, p.mageTier);
+
+        Assert.IsFalse(p.TryLearnMageTier(MageBranch.Gravity), "이미 폭발 갈래를 골랐는데 중력 갈래도 배워짐 — 갈래는 고정이어야 한다");
+        Assert.AreEqual(1, p.mageTier, "다른 갈래 시도가 실패해도 되는데 티어가 바뀜");
+
+        Assert.IsTrue(p.TryLearnMageTier(MageBranch.Explosion));
+        Assert.AreEqual(2, p.mageTier);
+        Assert.AreEqual(1 + 2, p.spUsed, "1+2티어 비용 합이 안 맞음");
+    }
+
+    [Test]
+    public void TryLearnMageTier_FailsWithoutEnoughSp()
+    {
+        var p = new PlayerProfile { level = 2 }; // SP = 1
+        Assert.IsTrue(p.TryLearnMageTier(MageBranch.Gravity), "SP1로 1티어(비용1)를 못 배웠다");
+        Assert.IsFalse(p.TryLearnMageTier(MageBranch.Gravity), "SP가 부족한데 2티어(비용2)가 배워졌다");
+        Assert.AreEqual(1, p.mageTier);
+    }
+
+    // ---- 화염 폭발 (MageSkillEffects.SpawnFireExplosion, project_test.html:1978) ----
+
+    [UnityTest]
+    public IEnumerator SpawnFireExplosion_DamagesAllEnemiesInRadius_NotJustDirectHit()
+    {
+        var center = NewEnemy(new Vector3(5f, 0.36f, 0f));
+        var nearby = NewEnemy(new Vector3(5.5f, 0.36f, 0f)); // 폭발 반경(3티어 ≈1.41유닛) 안
+        var far = NewEnemy(new Vector3(9f, 0.36f, 0f));      // 반경 훨씬 밖
+
+        bool hit = MageSkillEffects.SpawnFireExplosion(new Vector3(5f, 0.36f, 0f), tier: 3, power: 0.62f,
+            playerPos: new Vector3(4f, 0.36f, 0f), playerFacing: 1);
+        yield return null;
+
+        Assert.IsTrue(hit, "범위 안에 적이 있는데 hit=false");
+        Assert.Less(center.GetComponent<EnemyHealth>().CurrentHp, center.GetComponent<EnemyHealth>().MaxHp, "직격 지점 적이 안 맞음");
+        Assert.Less(nearby.GetComponent<EnemyHealth>().CurrentHp, nearby.GetComponent<EnemyHealth>().MaxHp, "반경 안 옆 적이 안 맞음(광역 판정 안 됨)");
+        Assert.AreEqual(far.GetComponent<EnemyHealth>().MaxHp, far.GetComponent<EnemyHealth>().CurrentHp, 0.001f, "반경 밖 적까지 맞았다");
+    }
+
+    // ---- 중력 충돌 + 중력점 생성 (MageSkillEffects.DetonateGravityOrb, project_test.html:2023) ----
+
+    [UnityTest]
+    public IEnumerator DetonateGravityOrb_DamagesEnemiesAndSpawnsWell()
+    {
+        var enemy = NewEnemy(new Vector3(5f, 0.36f, 0f));
+        Assert.AreEqual(0, GravityWellZone.Active.Count);
+
+        int hitCount = MageSkillEffects.DetonateGravityOrb(new Vector3(5f, 0.36f, 0f), tier: 1, chargeK: 0f, playerFacing: 1);
+        yield return null;
+
+        Assert.AreEqual(1, hitCount, "충돌 반경 안 적을 못 맞힘");
+        Assert.Less(enemy.GetComponent<EnemyHealth>().CurrentHp, enemy.GetComponent<EnemyHealth>().MaxHp);
+        Assert.AreEqual(1, GravityWellZone.Active.Count, "충돌 후 중력점이 하나 생겨야 한다");
+    }
+
+    [UnityTest]
+    public IEnumerator GravityWellZone_MergesInsteadOfSpawningSecond_WhenTierAtLeast2AndClose()
+    {
+        var well1 = GravityWellZone.SpawnOrMerge(new Vector3(5f, 0.36f, 0f), tier: 2, chargeK: 0f);
+        yield return null;
+        Assert.AreEqual(1, GravityWellZone.Active.Count);
+        int stackAfterFirst = well1.Stack;
+
+        var well2 = GravityWellZone.SpawnOrMerge(new Vector3(5.05f, 0.36f, 0f), tier: 2, chargeK: 0f); // 병합 반경 안
+        yield return null;
+
+        Assert.AreEqual(1, GravityWellZone.Active.Count, "가까이 또 만들었는데 새 중력점이 따로 생김 — 중첩이 아니라 새로 만들어짐");
+        Assert.AreSame(well1, well2, "같은 인스턴스를 돌려줘야 한다(중첩)");
+        Assert.Greater(well1.Stack, stackAfterFirst, "중첩 스택이 안 늘어남");
+    }
+
+    [UnityTest]
+    public IEnumerator GravityWellZone_PullsNearbyEnemyCloser()
+    {
+        var enemy = NewEnemy(new Vector3(6.5f, 0.36f, 0f)); // 중력점 반경 안, 충분히 떨어진 위치
+        var well = GravityWellZone.SpawnOrMerge(new Vector3(5f, 0.36f, 0f), tier: 3, chargeK: 0f);
+        float startDist = Vector3.Distance(enemy.transform.position, well.transform.position);
+
+        float t = 0f;
+        while (t < 0.5f)
+        {
+            yield return new WaitForFixedUpdate();
+            t += Time.fixedDeltaTime;
+        }
+
+        float endDist = Vector3.Distance(enemy.transform.position, well.transform.position);
+        Assert.Less(endDist, startDist, "중력점이 근처 적을 끌어당기지 않음");
+    }
+
+    // ---- 불길 이동 장판 (FireTrailZone, project_test.html:1995, 3844-3857) ----
+
+    [UnityTest]
+    public IEnumerator FireTrailZone_DamagesAndBurnsEnemyInRadius()
+    {
+        var enemy = NewEnemy(new Vector3(5f, 0.36f, 0f));
+        var health = enemy.GetComponent<EnemyHealth>();
+        FireTrailZone.Spawn(new Vector3(5f, 0.36f, 0f), tier: 3, power: 1f);
+
+        float t = 0f;
+        while (t < MageSpecConfig.FlameTrailTickInterval + 0.05f)
+        {
+            yield return new WaitForFixedUpdate();
+            t += Time.fixedDeltaTime;
+        }
+
+        Assert.Less(health.CurrentHp, health.MaxHp, "화염 장판 틱 피해가 안 들어감");
+    }
+
+    // ---- 대붕괴 (MageSkillEffects.GravityCollapse, project_test.html:2081) ----
+
+    [UnityTest]
+    public IEnumerator GravityCollapse_DetonatesNearbyWells_DamagesEnemies_AndClearsWells()
+    {
+        Vector3 playerPos = new Vector3(5f, 0.36f, 0f);
+        GravityWellZone.SpawnOrMerge(playerPos, tier: 3, chargeK: 0.99f); // 최대 스택으로 한 번에 생성
+        var enemy = NewEnemy(playerPos);
+        yield return null;
+
+        var (count, _, bursts) = MageSkillEffects.GravityCollapse(tier: 3, playerPos: playerPos, playerFacing: 1, nearestEnemyPos: null);
+        yield return null;
+
+        Assert.AreEqual(1, bursts, "중력점 1개가 있는데 폭발 지점 수가 다름");
+        Assert.GreaterOrEqual(count, 1, "대붕괴가 적을 못 맞힘");
+        Assert.Less(enemy.GetComponent<EnemyHealth>().CurrentHp, enemy.GetComponent<EnemyHealth>().MaxHp);
+        Assert.AreEqual(0, GravityWellZone.Active.Count, "터뜨린 중력점이 안 사라짐");
+    }
+
+    // ---- MageAttack 배선 통합 검증 ----
+
+    [UnityTest]
+    public IEnumerator MageAttack_ExplosionTier3_ChainExplodesOnHit_WithoutNeedingCharge()
+    {
+        ProfileService.Current.level = 20;
+        ProfileService.Current.TryLearnMageTier(MageBranch.Explosion);
+        ProfileService.Current.TryLearnMageTier(MageBranch.Explosion);
+        ProfileService.Current.TryLearnMageTier(MageBranch.Explosion); // 3티어
+
+        var go = new GameObject("TestMageCaster");
+        go.transform.position = new Vector3(2f, 0.36f, 0f);
+        var mage = go.AddComponent<MageAttack>();
+        var fireMethod = typeof(MageAttack).GetMethod("Fire", BindingFlags.NonPublic | BindingFlags.Instance);
+
+        var direct = NewEnemy(new Vector3(3f, 0.36f, 0f));
+        // 마법탄은 수평으로만 날아가므로(vy=0) 물리적으로 절대 못 지나가는 위치(수직으로 0.9유닛 위)에
+        // 두면, 이 적이 맞는다면 그건 관통이 아니라 반드시 폭발 판정 때문이다 — 두 메커니즘을 확실히 분리.
+        var splash = NewEnemy(new Vector3(3f, 1.26f, 0f)); // 직격 지점에서 수직으로 0.9유닛(폭발 반경 1.41 안)
+
+        fireMethod.Invoke(mage, new object[] { 0f, ProfileService.Current.mageBranch, ProfileService.Current.mageTier });
+
+        float t = 0f;
+        while (t < 1f) { yield return new WaitForFixedUpdate(); t += Time.fixedDeltaTime; }
+
+        Assert.Less(direct.GetComponent<EnemyHealth>().CurrentHp, direct.GetComponent<EnemyHealth>().MaxHp, "직격 적이 안 맞음");
+        Assert.Less(splash.GetComponent<EnemyHealth>().CurrentHp, splash.GetComponent<EnemyHealth>().MaxHp,
+            "3티어는 무차지여도 착탄마다 연쇄 폭발해야 하는데(project_test.html:3680) 옆 적이 안 맞음");
+
+        Object.Destroy(go);
+    }
+
+    [UnityTest]
+    public IEnumerator MageAttack_GravityBranch_HitDoesNotDealDirectDamage_ButSpawnsWell()
+    {
+        ProfileService.Current.level = 5;
+        ProfileService.Current.TryLearnMageTier(MageBranch.Gravity); // 1티어
+
+        var go = new GameObject("TestMageCaster");
+        go.transform.position = new Vector3(2f, 0.36f, 0f);
+        var mage = go.AddComponent<MageAttack>();
+        var fireMethod = typeof(MageAttack).GetMethod("Fire", BindingFlags.NonPublic | BindingFlags.Instance);
+
+        var enemy = NewEnemy(new Vector3(3f, 0.36f, 0f));
+
+        fireMethod.Invoke(mage, new object[] { 0f, ProfileService.Current.mageBranch, ProfileService.Current.mageTier });
+
+        float t = 0f;
+        while (t < 1f) { yield return new WaitForFixedUpdate(); t += Time.fixedDeltaTime; }
+
+        // 중력탄 직격 자체는 dealDamage를 안 부른다(project_test.html:3673-3677) — 대신 착탄 즉시
+        // detonateGravityOrb의 충돌 반경 AoE로만 피해가 들어가고, 중력점이 하나 생겨야 한다.
+        var health = enemy.GetComponent<EnemyHealth>();
+        Assert.Less(health.CurrentHp, health.MaxHp, "중력탄 충돌 AoE로도 적이 안 맞음");
+        Assert.AreEqual(1, GravityWellZone.Active.Count, "중력탄이 맞았는데 중력점이 안 생김");
+
+        Object.Destroy(go);
+    }
+}
+}
