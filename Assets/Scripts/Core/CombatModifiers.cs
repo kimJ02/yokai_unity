@@ -108,7 +108,16 @@ namespace YokaiFront.Core
         public static float DamageMultiplier =>
             (1f + Combo * ComboDamagePer)
             * (1f + RunState.Fury * FuryDamagePer)
-            * (ShrineBuffLeft > 0f ? ShrineDamageMult : 1f);
+            * (ShrineBuffLeft > 0f ? ShrineDamageMult : 1f)
+            * RebirthWallPlayerDamage;
+
+        /// <summary>
+        /// 윤회 장벽 — 권장 윤회 횟수에 모자란 지역에서는 **내 피해가 줄어든다**(×0.62^부족분).
+        /// 원본 `rebirthWallPlayerDmgMult(run.region)`(project_test.html:977, 적용 `:1664`).
+        /// 몹 체력·피해 쪽 장벽은 스폰할 때 `EnemySpawner`가 곱한다.
+        /// </summary>
+        public static float RebirthWallPlayerDamage =>
+            RebirthConfig.WallPlayerDamage(RunState.Region, ProfileService.Current.rebirths);
 
         /// <summary>원본 `goldMultAll()`(project_test.html:1304) — 콤보만(아이템 항은 아직 없다).</summary>
         public static float GoldMultiplier => 1f + Combo * ComboMoneyPer;

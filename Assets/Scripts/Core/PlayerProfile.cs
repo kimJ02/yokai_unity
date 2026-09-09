@@ -40,6 +40,11 @@ namespace YokaiFront.Core
 
         public UpgradeLevels upgrades = new UpgradeLevels();
 
+        /// <summary>윤회 포인트 — 가챠 재화. 원본 `meta.rp`(project_test.html:1147). **윤회해도 안 없어진다.**</summary>
+        public int rp = 0;
+        /// <summary>지금까지 윤회한 횟수. 원본 `meta.rebirths` — 윤회 장벽 계산의 기준이다.</summary>
+        public int rebirths = 0;
+
         /// <summary>
         /// 지역별 진행도 — 원본 `meta.regions[r] = { kills, bossUnlocked, bossCleared }`(project_test.html:1131).
         /// 인덱스는 0부터라 `[0]`이 1지역이다.
@@ -92,6 +97,60 @@ namespace YokaiFront.Core
         public void MarkBossCleared(int region)
         {
             if (InRange(region)) regionBossCleared[region - 1] = true;
+        }
+
+        /// <summary>
+        /// 지금 윤회하면 받을 윤회 포인트 — 원본 `rpPreview()`(project_test.html:6505).
+        /// **이번 생에 정복한 지역만** 센다. 원본 주석 그대로 "갈아넣은 시간이 아니라
+        /// '어디까지 뚫었나'가 보상이다" — 시간을 오래 쓴다고 늘지 않는다.
+        /// </summary>
+        public int RebirthPointPreview()
+        {
+            int sum = 0;
+            for (int r = 1; r <= RegionConfig.Count; r++)
+                if (IsBossCleared(r)) sum += RebirthConfig.RpOfRegion(r);
+            return sum;
+        }
+
+        /// <summary>이번 생에 정복한 지역 수. 원본 `clearedRegions()`(`:6496`).</summary>
+        public int ClearedRegionCount()
+        {
+            int n = 0;
+            for (int r = 1; r <= RegionConfig.Count; r++) if (IsBossCleared(r)) n++;
+            return n;
+        }
+
+        /// <summary>
+        /// 윤회한다 — 원본 `doRebirth()`(project_test.html:6509).
+        ///
+        /// **초기화**: 레벨·경험치·골드·골드 강화·전문화(SP)·지역 진행.
+        /// **유지**: 윤회 포인트·윤회 횟수(그리고 나중에 아이템).
+        ///
+        /// 정복한 지역이 하나도 없으면 아무 일도 안 한다(원본 `if (gain &lt; 1) return`) —
+        /// 얻을 게 없는데 진행만 날리는 걸 막는 안전장치다.
+        /// </summary>
+        /// <returns>얻은 윤회 포인트. 0이면 윤회가 일어나지 않았다.</returns>
+        public int DoRebirth()
+        {
+            int gain = RebirthPointPreview();
+            if (gain < 1) return 0;
+
+            rp += gain;
+            rebirths++;
+
+            level = 1;
+            exp = 0;
+            gold = 0;
+            upgrades = new UpgradeLevels();
+            spUsed = 0;
+            mageBranch = MageBranch.None;
+            mageTier = 0;
+
+            regionKills = new int[RegionConfig.Count];
+            regionBossUnlocked = new bool[RegionConfig.Count];
+            regionBossCleared = new bool[RegionConfig.Count];
+
+            return gain;
         }
 
         /// <summary>레벨이 실제로 오를 때(한 번 이상) 1회 발생. `Characters/PlayerHealth`가 구독해서

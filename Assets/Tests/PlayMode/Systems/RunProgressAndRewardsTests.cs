@@ -153,8 +153,13 @@ public class RunProgressAndRewardsTests
 
         var health = alive[0].GetComponent<EnemyHealth>();
         var move = alive[0].GetComponent<EnemyMove>();
-        float expectedHp = DifficultyScalingConfig.ScaledHp(OniBaseHp, 3);
-        float expectedDmg = DifficultyScalingConfig.ScaledDmg(OniBaseDmg, 3);
+        // 3지역은 권장 윤회 1회다 — 윤회 0회로 들어가면 **윤회 장벽**이 몹 체력 ×2.8, 피해 ×1.45로
+        // 얹힌다(원본 `rebirthWallHpMult` :975). 지역 배율만 기대하면 여기서 어긋난다.
+        int rebirths = ProfileService.Current.rebirths;
+        float expectedHp = DifficultyScalingConfig.ScaledHp(OniBaseHp, 3)
+                           * RebirthConfig.WallEnemyHp(3, rebirths);
+        float expectedDmg = DifficultyScalingConfig.ScaledDmg(OniBaseDmg, 3)
+                            * RebirthConfig.WallEnemyDamage(3, rebirths);
         Assert.AreEqual(expectedHp, health.MaxHp, 0.01f, "3지역 체력 스케일링(DifficultyScalingConfig.ScaledHp(OniBaseHp, 3))이 안 맞는다");
         Assert.AreEqual(expectedDmg, move.attackPower, 0.01f, "3지역 공격력 스케일링(DifficultyScalingConfig.ScaledDmg(OniBaseDmg, 3))이 안 맞는다");
         // SetMaxHp()를 거쳤다면 CurrentHp도 같이 갱신돼야 한다(안 그러면 이 프로젝트 단골 함정 재발).

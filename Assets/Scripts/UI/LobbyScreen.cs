@@ -25,9 +25,9 @@ namespace YokaiFront.UI
     [DisallowMultipleComponent]
     public class LobbyScreen : MonoBehaviour
     {
-        enum Tab { Character, Stage, Upgrade, Spec }
+        enum Tab { Character, Stage, Upgrade, Spec, Rebirth }
 
-        static readonly string[] TabNames = { "캐릭터 선택", "스테이지", "강화", "전문화" };
+        static readonly string[] TabNames = { "캐릭터 선택", "스테이지", "강화", "전문화", "윤회 ☸" };
 
         Tab tab = Tab.Character;
         RunController run;
@@ -36,6 +36,7 @@ namespace YokaiFront.UI
         string toast = "";
         float toastLeft;
         bool confirmingReset;
+        bool confirmingRebirth;
 
         void Awake()
         {
@@ -68,6 +69,7 @@ namespace YokaiFront.UI
                 case Tab.Stage: DrawStageTab(profile); break;
                 case Tab.Upgrade: DrawUpgradeTab(profile); break;
                 case Tab.Spec: DrawSpecTab(profile); break;
+                case Tab.Rebirth: DrawRebirthTab(profile); break;
             }
             GUILayout.EndScrollView();
 
@@ -86,7 +88,8 @@ namespace YokaiFront.UI
             GUILayout.BeginHorizontal();
             GUILayout.Label(
                 $"Lv.{profile.level}   경험치 {profile.exp} / {PlayerProfile.RequiredExp(profile.level)}   " +
-                $"골드 {profile.gold} G   SP {profile.SpAvailable} (총 {profile.SpTotal})");
+                $"골드 {profile.gold} G   SP {profile.SpAvailable} (총 {profile.SpTotal})   " +
+                $"윤회 {profile.rebirths}회   ☸ {profile.rp}");
             GUILayout.FlexibleSpace();
 
             // 원본 로비 헤더의 "전체 초기화"(project_test.html:524). 실수로 누르면 큰일이라 두 번 묻는다
@@ -363,6 +366,84 @@ namespace YokaiFront.UI
             "중력 취약 — 지속시간·흡입력 증가, 오래 노출된 적은 받는 피해 증가.",
             "대붕괴 — 최대 5중첩·5개, 밀집 시 대형 2차 폭발.",
         };
+
+        // ────────────────────────── 윤회 ──────────────────────────
+
+        /// <summary>
+        /// 원본 윤회 탭(project_test.html:6495~). **이 게임의 유일한 영구 성장 축**이다 —
+        /// 입장료와 몹 체력이 지역당 지수로 올라서 한 생의 강화만으로는 반드시 벽에 부딪히고,
+        /// 그 벽을 넘는 수단이 윤회뿐이다.
+        /// </summary>
+        void DrawRebirthTab(PlayerProfile profile)
+        {
+            int gain = profile.RebirthPointPreview();
+            int cleared = profile.ClearedRegionCount();
+
+            GUILayout.Label("윤회하면 이번 생을 처음부터 다시 시작하는 대신 **윤회 포인트**를 얻는다. " +
+                            "포인트는 뽑기(아이템)에 쓰고, 윤회 횟수 자체가 상위 지역의 벽을 낮춘다.");
+            GUILayout.Space(6f);
+            GUILayout.Label($"이번 생 정복한 지역   {cleared} / {RegionConfig.Count}");
+            GUILayout.Label($"윤회하면 받을 포인트   ☸ {gain}");
+            GUILayout.Label($"지금까지 윤회   {profile.rebirths}회   ·   보유 포인트   ☸ {profile.rp}");
+            GUILayout.Space(4f);
+            GUILayout.Label("보상은 **어디까지 뚫었나**로만 정해진다 — 오래 플레이한다고 늘지 않는다.");
+
+            GUILayout.Space(10f);
+            GUILayout.Label("<b>초기화</b>: 레벨 · 경험치 · 골드 · 골드 강화 · 전문화(SP) · 지역 진행", RichLabel());
+            GUILayout.Label("<b>유지</b>: 윤회 포인트 · 윤회 횟수", RichLabel());
+
+            GUILayout.Space(10f);
+            if (gain < 1)
+            {
+                GUILayout.Label("아직 정복한 지역이 없어서 윤회할 수 없다 — 보스를 하나라도 잡아야 한다.");
+            }
+            else if (!confirmingRebirth)
+            {
+                if (GUILayout.Button($"☸ 윤회하기 (+{gain})", GUILayout.Height(32f), GUILayout.Width(220f)))
+                    confirmingRebirth = true;
+            }
+            else
+            {
+                // 되돌릴 수 없는 조작이라 한 번 더 묻는다(원본도 confirm() 대화상자를 쓴다).
+                GUILayout.Label("정말 윤회할까? 이번 생의 진행은 전부 사라진다.");
+                GUILayout.BeginHorizontal();
+                if (GUILayout.Button($"네, 윤회합니다 (+{gain})", GUILayout.Height(30f), GUILayout.Width(200f)))
+                {
+                    int got = profile.DoRebirth();
+                    confirmingRebirth = false;
+                    if (got > 0)
+                    {
+                        ShowToast($"☸ 윤회 — 포인트 +{got}");
+                        SaveService.Save();
+                        tab = Tab.Stage; // 지역 진행이 초기화됐으니 그쪽을 보여준다
+                    }
+                }
+                if (GUILayout.Button("취소", GUILayout.Height(30f), GUILayout.Width(80f))) confirmingRebirth = false;
+                GUILayout.EndHorizontal();
+            }
+
+            GUILayout.Space(14f);
+            DrawRebirthWallTable(profile);
+        }
+
+        /// <summary>
+        /// 지역별 권장 윤회와 지금 걸리는 벽. 원본은 스테이지 탭에 "윤회 N회"로 적어두는데,
+        /// **얼마나 불리해지는지**는 안 보여준다 — 숫자를 직접 보여주는 편이 판단에 도움이 된다.
+        /// </summary>
+        void DrawRebirthWallTable(PlayerProfile profile)
+        {
+            GUILayout.Label("<b>지역별 윤회 장벽</b>  (권장에 모자라면 몹이 단단해지고 내 피해가 줄어든다)", RichLabel());
+            for (int r = 3; r <= RegionConfig.Count; r++) // 1·2지역은 권장 0회라 벽이 없다
+            {
+                int req = RebirthConfig.RequiredRebirths(r);
+                int gap = RebirthConfig.Gap(r, profile.rebirths);
+                string line = $"{r}. {RegionConfig.NameOf(r)}   권장 윤회 {req}회";
+                if (gap == 0) line += "   ✔ 벽 없음";
+                else line += $"   ⚠ {gap}회 부족 → 몹 체력 ×{RebirthConfig.WallEnemyHp(r, profile.rebirths):0.0}" +
+                             $" · 내 피해 ×{RebirthConfig.WallPlayerDamage(r, profile.rebirths):0.00}";
+                GUILayout.Label(line);
+            }
+        }
 
         // ────────────────────────── 잡동사니 ──────────────────────────
 
