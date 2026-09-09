@@ -35,6 +35,7 @@ namespace YokaiFront.UI
         Vector2 scroll;
         string toast = "";
         float toastLeft;
+        bool confirmingReset;
 
         void Awake()
         {
@@ -82,9 +83,30 @@ namespace YokaiFront.UI
         void DrawHeader(PlayerProfile profile)
         {
             GUILayout.Label("<size=22><b>요괴전선 — 로비</b></size>", RichLabel());
+            GUILayout.BeginHorizontal();
             GUILayout.Label(
                 $"Lv.{profile.level}   경험치 {profile.exp} / {PlayerProfile.RequiredExp(profile.level)}   " +
                 $"골드 {profile.gold} G   SP {profile.SpAvailable} (총 {profile.SpTotal})");
+            GUILayout.FlexibleSpace();
+
+            // 원본 로비 헤더의 "전체 초기화"(project_test.html:524). 실수로 누르면 큰일이라 두 번 묻는다
+            // — 원본은 confirm() 대화상자를 쓰는데 IMGUI엔 그게 없어서 버튼 상태로 대신한다.
+            if (!confirmingReset)
+            {
+                if (GUILayout.Button("전체 초기화", GUILayout.Width(100f))) confirmingReset = true;
+            }
+            else
+            {
+                GUILayout.Label("정말 지울까?");
+                if (GUILayout.Button("네, 지웁니다", GUILayout.Width(110f)))
+                {
+                    SaveService.DeleteSave();
+                    confirmingReset = false;
+                    ShowToast("전체 초기화 완료");
+                }
+                if (GUILayout.Button("취소", GUILayout.Width(60f))) confirmingReset = false;
+            }
+            GUILayout.EndHorizontal();
             GUILayout.Space(6f);
         }
 
@@ -217,7 +239,11 @@ namespace YokaiFront.UI
                                      GUILayout.Height(28f), GUILayout.Width(320f)))
                 {
                     // 골드 차감과 단계 상승은 프로필이 원자적으로 처리한다(원본 `buyGoldUpgrade` :7042).
-                    if (profile.TryBuyUpgrade(stat)) ShowToast($"{UpgradeLabel(stat)} +{level + 1}");
+                    if (profile.TryBuyUpgrade(stat))
+                    {
+                        ShowToast($"{UpgradeLabel(stat)} +{level + 1}");
+                        SaveService.Save(); // 원본도 구매 직후 `saveMeta()`(:7097)
+                    }
                 }
                 GUI.enabled = true;
                 GUILayout.Label(UpgradeHint(stat));
@@ -299,7 +325,11 @@ namespace YokaiFront.UI
                 string mark = learned ? "✔" : (isNext ? "▶" : "·");
                 if (GUILayout.Button($"{mark} {t}층   (SP {cost})", GUILayout.Height(26f), GUILayout.Width(180f)))
                 {
-                    if (profile.TryLearnMageTier(branch)) ShowToast($"{title} {t}층 습득");
+                    if (profile.TryLearnMageTier(branch))
+                    {
+                        ShowToast($"{title} {t}층 습득");
+                        SaveService.Save(); // 원본 `learnSkill` 직후 저장(:7020)
+                    }
                 }
                 GUI.enabled = true;
                 GUILayout.Label(tiers[t - 1]);

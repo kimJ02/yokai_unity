@@ -250,6 +250,9 @@ public static class BuildPartAScene
     static void BuildRunController()
     {
         var go = new GameObject("RunController");
+        // ⚠️ AutoSave를 **RunController보다 먼저** 붙인다 — 같은 오브젝트에선 붙인 순서대로 Awake가
+        // 도므로, 세이브를 먼저 읽어 `ProfileService.Current`를 교체한 뒤에 나머지가 그걸 보게 된다.
+        go.AddComponent<AutoSave>();
         go.AddComponent<RunController>();
 
         // 화면(로비/HUD/결과)은 전부 이 오브젝트에 같이 붙인다. 각자 `GameState`를 보고 자기 차례에만

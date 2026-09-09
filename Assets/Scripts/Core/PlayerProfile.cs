@@ -11,6 +11,7 @@ namespace YokaiFront.Core
     /// 이름·타입을 임의로 바꾸면 두 트랙이 동시에 깨진다. 트랙 A(처치 보상)는 <see cref="AddGold"/>/
     /// <see cref="AddExp"/>만 호출하고 `gold`/`exp` 필드를 직접 증가시키지 않는다.
     /// </summary>
+    [System.Serializable]
     public class PlayerProfile
     {
         public int level = 1;
@@ -66,6 +67,8 @@ namespace YokaiFront.Core
         /// <summary>레벨이 실제로 오를 때(한 번 이상) 1회 발생. `Characters/PlayerHealth`가 구독해서
         /// 최대체력 재계산 + 풀피 회복을 한다(원본 `project_test.html:1850`, 레벨업 때만 일어나고
         /// 골드 강화 구매 자체로는 즉시 반영되지 않는다 — 원본과 동일한 비직관적 동작).</summary>
+        // 이벤트는 직렬화 대상이 아니다 — 뒤에 숨은 델리게이트 필드가 private이라 `JsonUtility`가
+        // 애초에 건드리지 않는다(`[NonSerialized]`는 이벤트 선언에 못 붙는다, CS0592).
         public event System.Action LeveledUp;
 
         /// <summary>트랙 A(처치 보상)가 호출. 즉시 누적만 하면 됨(레벨 개념 없음).</summary>
