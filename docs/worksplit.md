@@ -128,10 +128,11 @@ public interface ICharacterKit
 투사체, 장판 전부 해당한다. 안 붙이면 로비로 나갔다 다시 들어와도 그게 필드에 남아 있는다.
 **에러가 안 나는 종류의 버그**라 눈으로는 늦게 발견된다. (`RunTransient.Mark(go)` 또는 `AddComponent`)
 
-⚠️ **공격 쿨다운에 `CombatModifiers.AttackSpeedMultiplier`를 곱할 것** — 살기(런 내 처치당 공속 +0.4%,
-원본 `CONFIG.fury.asPer` `:702`)가 거기 들어 있다. 계산은 이미 돼 있는데 **곱하는 쪽이 없어서**
-지금은 아무 캐릭터도 살기 공속을 못 받는다. 피해 쪽(콤보·살기·레벨페널티)은 `DamageCalculator`가
-자동으로 처리하므로 키트가 신경 쓸 필요 없다.
+✅ **공속·피해 배수는 키트가 신경 쓸 게 없다.** 살기(fury) 공속은 원본과 똑같이 **`statAs()` 안**에
+들어 있으므로(`PlayerStatCalculator.ComputeAttackSpeedMultiplier`), 쿨다운을 `기본값 / statAs`로만
+계산하면 자동으로 붙는다. 피해 쪽(콤보·살기·레벨페널티)도 `DamageCalculator`가 전부 처리한다.
+*(2026-09-10 이전 판에는 "키트가 직접 곱하라"고 적혀 있었는데, 원본을 다시 보니 스탯 안에 있는 게
+맞아서 그쪽으로 고쳤다 — 키트마다 곱하는 걸 잊는 실수가 원천적으로 안 생긴다.)*
 
 ⚠️ **게임이 멈춰 있을 때(`Time.timeScale = 0`)를 전제로 짜지 말 것** — 반대로, 그 덕분에 키트 코드에
 `IsRunning` 검사를 **넣을 필요가 없다.** 로비·일시정지에선 `Time.deltaTime`이 0이라 쿨다운도 안 돈다.

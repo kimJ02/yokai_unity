@@ -29,7 +29,16 @@ namespace YokaiFront.Core
 
         public static float ComputeMoveSpeedMultiplier(PlayerProfile p) => 1f + p.upgrades.ms * 0.04f;
 
-        public static float ComputeAttackSpeedMultiplier(PlayerProfile p) => 1f + p.upgrades.atkSpeed * 0.04f;
+        /// <summary>
+        /// 원본 `statAs()`(project_test.html:1287):
+        /// `(1 + upgrades.as * 0.04 + itemAdd) * (1 + run.fury * 0.004) * (1 + killRage)`.
+        ///
+        /// **살기(fury)가 스탯 자체에 들어 있다** — 키트가 따로 곱하는 게 아니다. 여기 두면
+        /// 이미 `statAs`를 쓰는 모든 공격(마법사·메카닉, 앞으로 섬영·드루이드)이 자동으로 받는다.
+        /// 아이템 항(`itemAdd('as')`, `killRage`)은 그 시스템이 아직 없어 빠져 있다.
+        /// </summary>
+        public static float ComputeAttackSpeedMultiplier(PlayerProfile p) =>
+            (1f + p.upgrades.atkSpeed * 0.04f) * CombatModifiers.AttackSpeedMultiplier;
 
         public static float ComputeCritChance(PlayerProfile p) => BaseCritChance + p.upgrades.crit * 0.02f;
     }

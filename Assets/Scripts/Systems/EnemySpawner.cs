@@ -46,6 +46,9 @@ public class EnemySpawner : MonoBehaviour
     public int maxSpawnPerWave = 7;
     public int maxAliveTotal = 22;
 
+    /// <summary>런 시작 후 첫 웨이브까지. 원본 `run.waveTimer = 0.6`(project_test.html:4314).</summary>
+    public const float FirstWaveDelay = 0.6f;
+
     [Header("보스전 미니언 (원본 CONFIG.run, project_test.html:695)")]
     [Tooltip("보스전에서 잡몹이 나오는 간격. 원본 minionInterval 7.")]
     public float minionInterval = 7f;
@@ -114,7 +117,9 @@ public class EnemySpawner : MonoBehaviour
     void HandleSceneChanged(GameScene scene)
     {
         if (scene != GameScene.Run) return;
-        waveTimer = RunState.Mode == RunMode.Boss ? minionInterval : waveInterval;
+        // 원본 `run.waveTimer = 0.6`(project_test.html:4314) — **첫 웨이브는 0.6초 뒤에 온다.**
+        // 여기에 waveInterval(3.6)을 넣으면 입장 후 3초를 빈 필드에서 기다리게 된다.
+        waveTimer = RunState.Mode == RunMode.Boss ? minionInterval : FirstWaveDelay;
         shrineTimer = Shrine.FirstAt;
         aliveShrine = null;
 
