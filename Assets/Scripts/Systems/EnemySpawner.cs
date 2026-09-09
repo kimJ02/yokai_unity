@@ -454,15 +454,26 @@ public class EnemySpawner : MonoBehaviour
             if (data != null) move.moveSpeed = data.moveSpeed * Random.Range(0.9f, 1.1f);
         }
 
-        ApplySize(monster, data, elite);
-
         if (data != null)
         {
             var sr = monster.GetComponent<SpriteRenderer>();
-            if (sr != null) sr.color = data.color; // 색은 지역 배율과 무관한 종류 고유값
+            if (sr != null)
+            {
+                if (data.sprite != null)
+                {
+                    // 프로토타입 그림이 있으면 그걸 쓰고 **색조는 흰색으로 둔다** — 그림에 이미
+                    // 종류별 색이 칠해져 있어서 여기서 또 곱하면 전부 그 색으로 물든다.
+                    sr.sprite = data.sprite;
+                    sr.color = Color.white;
+                }
+                else sr.color = data.color; // 그림이 없을 때만 원형 스프라이트를 종류색으로 칠한다
+            }
             AttachTypeBehaviour(monster, data, sr);
             spawnedData[monster] = data; // 처치 보상에서 종류별 exp/gold를 읽으려고 기억해둔다
         }
+
+        // ⚠️ 스프라이트를 꽂은 **뒤에** 크기를 정한다 — 그림 높이를 보고 스케일을 계산하기 때문.
+        ApplySize(monster, data, elite);
     }
 
     /// <summary>
@@ -479,14 +490,36 @@ public class EnemySpawner : MonoBehaviour
         var col = monster.GetComponent<CircleCollider2D>();
         if (col == null) return;
 
-        float localRadius = col.radius;                       // 프리팹 로컬 반지름(오니 0.5)
-        if (localRadius <= 0f) return;
-        float scaleBefore = monster.transform.localScale.x;
-        float scaleAfter = (data != null ? data.colliderRadius / localRadius : scaleBefore)
+        float prefabWorldRadius = col.radius * monster.transform.localScale.x; // 오니 기준 0.5
+        if (prefabWorldRadius <= 0f) return;
+
+        float wantRadius = (data != null ? data.colliderRadius : prefabWorldRadius)
                            * (elite ? DifficultyScalingConfig.EliteScale : 1f);
 
-        monster.transform.localScale = new Vector3(scaleAfter, scaleAfter, 1f);
-        monster.transform.position += new Vector3(0f, localRadius * (scaleAfter - scaleBefore), 0f);
+        // ── 크기를 정하는 두 조건을 동시에 맞춘다 ──────────────────────────────
+        // 콜라이더와 스프라이트가 **같은 GameObject**에 있어서 `localScale`이 둘 다에 걸린다.
+        // 그래서 스케일 하나로 그림 크기를 맞추고, 콜라이더는 `radius`를 역으로 나눠 보정한다:
+        //   월드 반지름 = radius × scale  →  radius = 원하는반지름 / scale
+        // 이렇게 안 하면 둘 중 하나는 반드시 어긋난다(그림이 히트박스보다 작거나, 그 반대).
+        float scale = 1f;
+        var sr = monster.GetComponent<SpriteRenderer>();
+        if (data != null && data.sprite != null && sr != null)
+        {
+            float spriteHeight = data.sprite.bounds.size.y; // PPU 100이라 원본 픽셀 그대로의 유닛 크기
+            if (spriteHeight > 0.0001f) scale = (wantRadius * 2f) / spriteHeight;
+        }
+        else
+        {
+            // 그림이 없으면 예전처럼 원형 스프라이트를 스케일로 키운다.
+            scale = wantRadius / prefabWorldRadius;
+        }
+
+        monster.transform.localScale = new Vector3(scale, scale, 1f);
+        col.radius = wantRadius / scale;
+
+        // 스폰 지점은 프리팹 반지름 기준으로 계산돼 있다 — 커진 만큼 들어올려 발을 지면에 맞춘다.
+        // 안 그러면 큰 몹이 지면에 파묻힌 채 물리에 밀려 튀어오른다.
+        monster.transform.position += new Vector3(0f, wantRadius - prefabWorldRadius, 0f);
     }
 
     /// <summary>

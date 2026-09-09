@@ -50,6 +50,14 @@ namespace YokaiFront.Core
         public float colliderRadius = 0.5f;
         public Color color = new Color(0.85f, 0.2f, 0.2f);
 
+        /// <summary>
+        /// 이 종류의 그림. 원본 프로토타입의 `draw*()` 결과를 구워낸 임시 스프라이트다
+        /// (`Assets/Sprites/Prototype/`, 만든 절차는 `docs/prototype-sprites.md`).
+        /// **비어 있으면 프리팹의 기본 원형 스프라이트를 종류색으로 칠해서 쓴다** — 정식 아트로
+        /// 갈아끼울 때 같은 이름으로 파일만 덮어쓰면 되고, 없다고 게임이 깨지지는 않는다.
+        /// </summary>
+        public Sprite sprite;
+
         [Header("원본 기록용 (환산 근거 — 로직에서 읽지 않는다)")]
         public float originalWidthPx = 42f;
         public float originalHeightPx = 46f;

@@ -34,12 +34,20 @@ namespace YokaiFront.Characters
             }
         }
 
+        [Header("캐릭터 그림 (프로토타입에서 구워낸 임시 스프라이트)")]
+        [Tooltip("CharacterId 순서(마법사·메카닉·섬영·드루이드)대로. 비어 있으면 기본 원형을 그대로 쓴다.")]
+        public Sprite[] characterSprites = new Sprite[4];
+        [Tooltip("그림 높이를 이 값(월드 유닛)에 맞춘다. 플레이어 콜라이더 지름과 같게 두면 히트박스와 어긋나 보이지 않는다.")]
+        public float spriteHeight = 1f;
+
         readonly List<ICharacterKit> kits = new List<ICharacterKit>();
         CharacterMover2D mover;
+        SpriteRenderer sr;
 
         void Awake()
         {
             mover = GetComponent<CharacterMover2D>();
+            sr = GetComponent<SpriteRenderer>();
             kits.Clear();
             kits.AddRange(GetComponents<ICharacterKit>());
 
@@ -81,6 +89,41 @@ namespace YokaiFront.Characters
             return false;
         }
 
+        /// <summary>
+        /// 선택된 캐릭터의 그림으로 갈아끼운다. 그림마다 원본 픽셀 크기가 달라서(마법사 81×116,
+        /// 메카닉 63×66 …) 그대로 쓰면 캐릭터끼리 덩치가 제각각으로 보인다 — **높이를 콜라이더
+        /// 지름에 맞춰 정규화**해서 히트박스와 어긋나 보이지 않게 한다.
+        ///
+        /// 그림이 없으면(정식 아트 전) 아무것도 안 하고 기본 원형 스프라이트를 그대로 둔다.
+        /// </summary>
+        void ApplySprite(CharacterId id)
+        {
+            if (sr == null || characterSprites == null) return;
+            int i = (int)id;
+            if (i < 0 || i >= characterSprites.Length) return;
+            var sprite = characterSprites[i];
+            if (sprite == null) return;
+
+            sr.sprite = sprite;
+            sr.color = Color.white; // 그림에 이미 색이 칠해져 있다
+
+            float h = sprite.bounds.size.y;
+            if (h <= 0.0001f) return;
+            float scale = spriteHeight / h;
+
+            // ⚠️ 콜라이더가 같은 GameObject에 있어서 `localScale`이 물리에도 걸린다 —
+            // 스케일만 바꾸면 지면 판정·발판 착지가 통째로 틀어진다. 그래서 반지름을 역으로
+            // 나눠 **월드 반지름을 그대로 유지**한다(적 쪽 `EnemySpawner.ApplySize`와 같은 방식).
+            var col = GetComponent<CircleCollider2D>();
+            if (col != null)
+            {
+                float worldRadius = col.radius * transform.localScale.x;
+                transform.localScale = new Vector3(scale, scale, 1f);
+                col.radius = worldRadius / scale;
+            }
+            else transform.localScale = new Vector3(scale, scale, 1f);
+        }
+
         void ApplySelection(CharacterId id, bool notifyPrevious)
         {
             foreach (var kit in kits)
@@ -97,6 +140,7 @@ namespace YokaiFront.Characters
 
             Current = id;
             ProfileService.Current.character = id;
+            ApplySprite(id);
 
             foreach (var kit in kits)
             {

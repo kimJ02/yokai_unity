@@ -59,10 +59,24 @@ namespace YokaiFront.Editor
         const float OniHeightPx = 46f;
         static float RadiusFor(float heightPx) => OniRadius * (heightPx / OniHeightPx);
 
+        /// <summary>`Assets/Sprites/Prototype/` 안의 파일명 규칙.</summary>
+        static string SpriteNameFor(EnemyType type) => type switch
+        {
+            EnemyType.Wisp => "enemy_wisp",
+            EnemyType.Oni => "enemy_oni",
+            EnemyType.BigOni => "enemy_bigoni",
+            EnemyType.Charger => "enemy_charger",
+            EnemyType.Shooter => "enemy_shooter",
+            EnemyType.Splitter => "enemy_splitter",
+            EnemyType.Splitlet => "enemy_splitlet",
+            _ => null,
+        };
+
         [MenuItem("YokaiFront/Build Enemy Data")]
         public static void Build()
         {
             Directory.CreateDirectory(DataFolder);
+            BuildPrototypeSprites.Apply(); // 스프라이트 import 설정을 먼저 맞춘다
 
             foreach (var row in Rows)
             {
@@ -82,6 +96,8 @@ namespace YokaiFront.Editor
                 asset.knockbackMultiplier = row.knockbackMul;
                 asset.colliderRadius = RadiusFor(row.h);
                 asset.color = row.color;
+                // 프로토타입에서 구워낸 그림을 연결한다(없으면 null → 프리팹 기본 원형 유지).
+                asset.sprite = BuildPrototypeSprites.Load(SpriteNameFor(row.type));
                 asset.originalWidthPx = row.w;
                 asset.originalHeightPx = row.h;
 

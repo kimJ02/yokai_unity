@@ -233,7 +233,16 @@ public static class BuildPartAScene
 
         // 캐릭터 키트 전환기. **키트를 전부 붙인 뒤 마지막에** 추가해야 Awake에서 전부 찾는다
         // (GetComponents는 이미 붙어 있는 것만 본다). 섬영·드루이드 키트가 생기면 위에 같이 붙일 것.
-        go.AddComponent<PlayerRig>();
+        var rig = go.AddComponent<PlayerRig>();
+        // 캐릭터 그림(프로토타입에서 구워낸 임시 스프라이트) — CharacterId 순서(마법사·메카닉·섬영·드루이드).
+        // 섬영·드루이드는 키트가 아직 없어 선택되지 않지만, 키트가 붙는 순간 그림도 같이 나온다.
+        rig.characterSprites = new[]
+        {
+            BuildPrototypeSprites.Load("char_mage"),
+            BuildPrototypeSprites.Load("char_gunner"),
+            BuildPrototypeSprites.Load("char_blade"),
+            BuildPrototypeSprites.Load("char_druid"),
+        };
 
         return go;
     }

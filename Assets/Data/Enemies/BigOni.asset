@@ -23,5 +23,6 @@ MonoBehaviour:
   knockbackMultiplier: 0.4
   colliderRadius: 0.8695652
   color: {r: 0.69, g: 0.75, b: 1, a: 1}
+  sprite: {fileID: 21300000, guid: 1d6701fd90e299d46bd14955ebf0f71d, type: 3}
   originalWidthPx: 68
   originalHeightPx: 80
