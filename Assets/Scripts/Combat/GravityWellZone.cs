@@ -143,6 +143,11 @@ namespace YokaiFront.Combat
                     pullable.ApplyGravityWellPull(new Vector2(dir.x * force * dt, dir.y * force * dt * 0.28f));
                 }
 
+                // 원본 `e.gravityExpose += dt * (1 + stack*0.16)` → 1.25 넘으면 취약 3초(`:3817`~`:3819`).
+                // 끌어당김·틱 피해와 달리 **범위 안에 있기만 하면** 누적된다(보스 예외 없음).
+                var vulnerable = col.GetComponent<IVulnerable>();
+                vulnerable?.AddGravityExposure(dt * (1f + Stack * MageSpecConfig.GravityExposureRatePerStack));
+
                 var target = col.GetComponent<IDamageable>();
                 if (target != null && !target.IsDead)
                     affected.Add((target, Mathf.Clamp(1f - d / pullR, 0f, 1f) * 0.05f));

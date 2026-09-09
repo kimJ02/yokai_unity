@@ -17,7 +17,7 @@ namespace YokaiFront.Enemies
     /// </summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(SpriteRenderer))]
-    public class EnemyHealth : MonoBehaviour, IDamageable, IElementAfflictable
+    public class EnemyHealth : MonoBehaviour, IDamageable, IElementAfflictable, IVulnerable
     {
         [Header("스탯 (원본 CONFIG.enemyBase.oni — project_test.html:709)")]
         [Tooltip("최대 체력. 원본 오니 38. 몹 종류가 늘면 EnemyData(SO)로 옮긴다(스프린트 4).")]
@@ -56,6 +56,9 @@ namespace YokaiFront.Enemies
         int burnStacks;
         float burnRemaining;
         float burnTickTimer;
+        // 원본 `e.vulnT` / `e.gravityExpose`(project_test.html:3968에서 0으로 시작).
+        float vulnRemaining;
+        float gravityExpose;
 
         void Awake()
         {
@@ -76,6 +79,26 @@ namespace YokaiFront.Enemies
                 sr.color = Color.Lerp(baseColor, Color.white, flash * flashStrength);
             }
             UpdateBurn(Time.deltaTime);
+            // 원본 `e.vulnT = Math.max(0, e.vulnT - dt)`(project_test.html:1726).
+            if (vulnRemaining > 0f) vulnRemaining = Mathf.Max(0f, vulnRemaining - Time.deltaTime);
+        }
+
+        // ---- IVulnerable (원본 vulnT, project_test.html:1663·:1726·:3818) ----
+
+        public bool IsVulnerable => vulnRemaining > 0f;
+
+        public void ApplyVulnerable(float duration) => vulnRemaining = Mathf.Max(vulnRemaining, duration);
+
+        /// <summary>
+        /// 원본 `e.gravityExpose += dt * (1 + stack*0.16); if (>= 1.25) e.vulnT = max(vulnT, 3.0)`(`:3817`).
+        /// 누적치는 **줄어들지 않는다** — 한 번 임계치를 넘긴 적은 이후 중력점에 닿을 때마다 곧바로 다시 취약해진다.
+        /// </summary>
+        public void AddGravityExposure(float exposure)
+        {
+            if (IsDead) return;
+            gravityExpose += exposure;
+            if (gravityExpose >= MageSpecConfig.GravityVulnerableThreshold)
+                ApplyVulnerable(MageSpecConfig.VulnerableDuration);
         }
 
         /// <summary>원본 `updateElements()`의 burn 분기(project_test.html:1729-1741) 그대로.</summary>
@@ -125,6 +148,11 @@ namespace YokaiFront.Enemies
             // 공격 스크립트(MageProjectile)도 별도로 확인하는데, 그건 **관통 카운트를 소모하지 않기 위해서**라
             // 역할이 다르다 — 여기 검사는 "어떤 경로로 들어온 피해든 무적이면 무효"를 보장한다.
             if (spawnProtect != null && spawnProtect.IsSpawnProtected) return;
+
+            // 원본 `vulnMult`(project_test.html:1663) — 취약한 적은 모든 경로의 피해를 1.2배로 받는다.
+            // 여기서 곱하는 이유와 반올림 편차는 `DamageCalculator.VulnerableMultiplier` 주석 참고.
+            if (IsVulnerable)
+                amount = Mathf.Max(1f, Mathf.Round(amount * DamageCalculator.VulnerableMultiplier));
 
             CurrentHp -= amount;
             flash = 1f; // 원본 `e.flash = 1`(project_test.html:1666)

@@ -253,5 +253,70 @@ public class MageSkillTreeTests
 
         Object.Destroy(go);
     }
+
+    // ────────────────────────── 중력 취약 (원본 vulnT, :1663·:1726·:3818) ──────────────────────────
+
+    /// <summary>
+    /// 중력점에 오래(누적 1.25) 노출되면 취약이 걸린다. 원본은 노출량이 **중첩에 비례해 빨리** 쌓인다
+    /// (`dt * (1 + stack*0.16)`)는 것까지 확인한다 — 여기선 계산이 결정적이라 인터페이스로 직접 먹인다.
+    /// </summary>
+    [Test]
+    public void GravityExposure_TurnsEnemyVulnerable_AtThreshold()
+    {
+        var enemy = NewEnemy(new Vector3(5f, 0.36f, 0f));
+        var vuln = enemy.GetComponent<IVulnerable>();
+        Assert.IsNotNull(vuln, "EnemyHealth가 IVulnerable을 구현해야 중력점이 취약을 걸 수 있다");
+
+        vuln.AddGravityExposure(MageSpecConfig.GravityVulnerableThreshold - 0.01f);
+        Assert.IsFalse(vuln.IsVulnerable, "임계치 직전엔 아직 취약이 아니다");
+
+        vuln.AddGravityExposure(0.02f);
+        Assert.IsTrue(vuln.IsVulnerable, "누적 1.25를 넘으면 취약해져야 한다");
+
+        Object.DestroyImmediate(enemy);
+    }
+
+    /// <summary>취약한 적은 받는 피해가 1.2배다(원본 `vulnMult`, `:1663`).</summary>
+    [Test]
+    public void Vulnerable_IncreasesDamageTaken()
+    {
+        var plain = NewEnemy(new Vector3(5f, 0.36f, 0f));
+        var weak = NewEnemy(new Vector3(8f, 0.36f, 0f));
+        weak.GetComponent<IVulnerable>().ApplyVulnerable(MageSpecConfig.VulnerableDuration);
+
+        const float hit = 10f;
+        var plainHealth = plain.GetComponent<EnemyHealth>();
+        var weakHealth = weak.GetComponent<EnemyHealth>();
+        float plainBefore = plainHealth.CurrentHp, weakBefore = weakHealth.CurrentHp;
+
+        // 넉백 0으로 넣어 물리가 개입하지 않게 한다(피해량만 보는 테스트).
+        plainHealth.TakeDamageWithKnockback(hit, null, 1f, 0f);
+        weakHealth.TakeDamageWithKnockback(hit, null, 1f, 0f);
+
+        Assert.AreEqual(hit, plainBefore - plainHealth.CurrentHp, 0.01f);
+        Assert.AreEqual(hit * DamageCalculator.VulnerableMultiplier, weakBefore - weakHealth.CurrentHp, 0.01f);
+
+        Object.DestroyImmediate(plain);
+        Object.DestroyImmediate(weak);
+    }
+
+    /// <summary>
+    /// 취약은 시간이 지나면 풀린다(원본 `vulnT = max(0, vulnT - dt)`, `:1726`).
+    /// 안 풀리면 한 번 중력점에 닿은 적이 **영구히** 1.2배로 맞는 전혀 다른 밸런스가 된다.
+    /// </summary>
+    [UnityTest]
+    public IEnumerator Vulnerable_ExpiresOverTime()
+    {
+        var enemy = NewEnemy(new Vector3(5f, 0.36f, 0f));
+        var vuln = enemy.GetComponent<IVulnerable>();
+        vuln.ApplyVulnerable(0.1f);
+        Assert.IsTrue(vuln.IsVulnerable);
+
+        float waited = 0f;
+        while (waited < 0.4f) { waited += Time.deltaTime; yield return null; }
+        Assert.IsFalse(vuln.IsVulnerable, "지속시간이 지났는데도 취약이 안 풀렸다");
+
+        Object.DestroyImmediate(enemy);
+    }
 }
 }

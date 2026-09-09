@@ -31,6 +31,17 @@ namespace YokaiFront.Combat
         public const float VarianceMax = 1.1f;
 
         /// <summary>
+        /// 취약 상태의 피해 배수. 원본 `vulnMult = e.vulnT > 0 ? 1.2 + itemPow('vuln') : 1`(`:1663`) —
+        /// 아이템 항(`itemPow`)은 아이템 시스템이 아직 없어서 빠져 있고 기본값 1.2만 쓴다.
+        ///
+        /// 이 배수는 **대상이 알고 있는 값**이라 여기서 곱하지 않고 `EnemyHealth`가 피해를 받을 때 곱한다
+        /// (`DamageCalculator`는 대상 참조가 없는 순수 계산기다). 원본은 곱셈을 전부 모은 뒤 한 번만
+        /// 반올림하는데 우리는 굴림 → 반올림 → 배수 → 반올림이라 **드물게 1 차이가 날 수 있다** —
+        /// 대상별로 굴림을 다시 하려면 10곳의 호출부가 전부 대상을 알아야 해서 그쪽이 더 나빴다.
+        /// </summary>
+        public const float VulnerableMultiplier = 1.2f;
+
+        /// <summary>
         /// 최종 피해량을 굴린다. `baseDamage`는 무기 배수·차지 배수까지 이미 반영된 값을 넘긴다
         /// (예: `MageAttack`이 `baseDamage × (1 + chargeDmgMult × chargeK)`를 계산해서 전달).
         /// `critChance`를 생략하면 <see cref="BaseCritChance"/>(골드 강화 미적용 기본값)를 쓴다 —

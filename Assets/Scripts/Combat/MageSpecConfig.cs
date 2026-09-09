@@ -105,6 +105,14 @@ namespace YokaiFront.Combat
         public static float GravityDamageTickInterval(int stack) => stack >= 4 ? 0.28f : 0.34f;
         public static float GravityTickDamageMult(int tier, int stack, float nearBonus) => 0.045f + tier * 0.012f + stack * 0.012f + nearBonus;
 
+        // ---- 중력 취약 (gravityExpose → vulnT, project_test.html:3817-3819) ----
+        /// <summary>노출 누적 속도. 원본 `dt * (1 + stack * 0.16)` — 중첩이 클수록 빨리 취약해진다.</summary>
+        public const float GravityExposureRatePerStack = 0.16f;
+        /// <summary>이 누적치를 넘으면 취약이 걸린다. 원본 `gravityExpose >= 1.25`.</summary>
+        public const float GravityVulnerableThreshold = 1.25f;
+        /// <summary>취약 지속시간. 원본 `Math.max(e.vulnT, 3.0)`.</summary>
+        public const float VulnerableDuration = 3.0f;
+
         // ---- 대붕괴 (gravityCollapse, X 스킬, project_test.html:2081) ----
         public const float CollapseSearchHalfWidth = 7.6f;
         public const float CollapseSearchHalfHeight = 4.2f;
