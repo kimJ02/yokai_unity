@@ -21,15 +21,15 @@ namespace YokaiFront.Core
         public const float DmgPerRegion = 1.4f;     // CONFIG.scale.dmgPerRegion(:727)
         public const float RewardGrow = 1.42f;      // CONFIG.scale.rewardGrow(:727)
 
-        public const float OniBaseHp = 38f;         // CONFIG.enemyBase.oni.hp(:709)
-        public const float OniBaseDmg = 13f;        // CONFIG.enemyBase.oni.dmg(:709)
-        public const float OniBaseExp = 8f;         // CONFIG.enemyBase.oni.exp(:709)
-        public const int OniGoldMin = 5;            // CONFIG.enemyBase.oni.gold[0](:709)
-        public const int OniGoldMax = 10;           // CONFIG.enemyBase.oni.gold[1](:709) — 포함 상한
-        public const float GoldDropChance = 0.75f;  // CONFIG.goldDropChance(:712)
+        public const float GoldDropChance = 0.75f;  // CONFIG.goldDropChance(:744)
 
-        public static float ScaledHp(int regionLv) => OniBaseHp * Mathf.Pow(HpPerRegion, regionLv - 1);
-        public static float ScaledDmg(int regionLv) => OniBaseDmg * Mathf.Pow(DmgPerRegion, regionLv - 1);
+        // ⚠️ 몹별 기본 스탯(체력·피해·경험치·골드)은 더 이상 여기 없다 — `Core/EnemyData` SO가 소유한다.
+        // 몹이 7종이 되면서 "오니 상수"를 여기 두면 종류마다 상수를 늘려야 하고, CLAUDE.md
+        // "데이터(밸런스 값)" 규칙(스탯은 SO)에도 어긋난다. 이 파일은 **지역 배율만** 맡는다.
+        // 원본도 같은 구조다: `CONFIG.enemyBase[type]`(종류별 스탯) × `CONFIG.scale`(지역 배율), `:3958`.
+
+        public static float ScaledHp(float baseHp, int regionLv) => baseHp * Mathf.Pow(HpPerRegion, regionLv - 1);
+        public static float ScaledDmg(float baseDmg, int regionLv) => baseDmg * Mathf.Pow(DmgPerRegion, regionLv - 1);
         public static float RewardMultiplier(int regionLv) => Mathf.Pow(RewardGrow, regionLv - 1);
     }
 }

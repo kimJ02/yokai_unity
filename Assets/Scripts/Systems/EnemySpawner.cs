@@ -51,7 +51,13 @@ public class EnemySpawner : MonoBehaviour
     public float minSpacing = 0.52f;
     public int maxPlacementRetries = 10;
 
+    [Header("몹 종류별 수치 (Assets/Data/Enemies/, BuildEnemyData가 생성)")]
+    [Tooltip("스폰할 몹 종류들. 비어 있으면 프리팹에 들어 있는 값을 그대로 쓴다. 지역별 해금표(원본 rollSpawnType :3933)는 몹 6종을 붙일 때 여기에 얹는다.")]
+    public EnemyData[] enemyTypes;
+
     readonly List<Transform> aliveMonsters = new List<Transform>();
+    // 스폰된 몹이 어떤 종류였는지 — 처치 보상에서 종류별 exp/gold를 읽어야 해서 들고 있는다.
+    readonly Dictionary<GameObject, EnemyData> spawnedData = new Dictionary<GameObject, EnemyData>();
     float waveTimer;
     float cachedMonsterRadius = -1f; // Awake 시점엔 monsterPrefab이 아직 할당 전이라(씬 빌드 순서상)
                                       // 필요할 때 지연 계산한다(GetMonsterRadius 참고).
@@ -87,7 +93,7 @@ public class EnemySpawner : MonoBehaviour
             if (TryGetSpawnPosition(placedThisWave, out Vector2 spawnPos))
             {
                 GameObject monster = Instantiate(monsterPrefab, spawnPos, Quaternion.identity);
-                ApplyRegionScaling(monster);
+                ApplyEnemyData(monster, PickEnemyData());
                 aliveMonsters.Add(monster.transform);
                 placedThisWave.Add(spawnPos);
             }
@@ -170,44 +176,83 @@ public class EnemySpawner : MonoBehaviour
     }
 
     /// <summary>
-    /// 난이도 스케일링(가상 지역 레벨) 적용 + 처치 보상 연결. 스폰 직후 한 번만 호출한다
-    /// (`docs/sprints/03-growth-curve-worksplit.md` 트랙 A 2번). 실제 공식/수치는 전부
-    /// <see cref="DifficultyScalingConfig"/>에 있다 — 여기선 호출만 한다.
+    /// 이번에 스폰할 몹 종류를 고른다. **지금은 등록된 종류 중 균등 랜덤**이고, 원본의 지역별 해금표
+    /// (`rollSpawnType(region)` project_test.html:3933 — 지역이 오를수록 강한 종이 확률표에 추가된다)는
+    /// 몹 6종을 실제로 붙일 때 여기에 얹는다(`HANDOFF.md` 6번).
     /// </summary>
-    void ApplyRegionScaling(GameObject monster)
+    EnemyData PickEnemyData()
     {
+        if (enemyTypes == null || enemyTypes.Length == 0) return null;
+        return enemyTypes[Random.Range(0, enemyTypes.Length)];
+    }
+
+    /// <summary>
+    /// 스폰 직후 한 번: **종류별 기본 스탯(`EnemyData`) × 지역 배율(`DifficultyScalingConfig`)** 을 적용하고
+    /// 처치 보상을 연결한다. 원본도 같은 두 층 구조다 — `CONFIG.enemyBase[type]`에 지역 배율을 곱한다(`:3958`).
+    ///
+    /// `EnemyData`가 안 꽂혀 있으면 프리팹에 들어 있는 값을 그대로 쓴다(스폰 자체는 계속 되게).
+    /// </summary>
+    void ApplyEnemyData(GameObject monster, EnemyData data)
+    {
+        int regionLv = RunProgress.RegionLv;
+
         var health = monster.GetComponent<EnemyHealth>();
         if (health != null)
         {
+            float baseHp = data != null ? data.maxHp : health.MaxHp;
             // 필드만 바꾸면 이미 실행된 Awake가 세팅한 CurrentHp엔 반영 안 되는 이 프로젝트 단골
             // 함정이 있어(EnemyHealth 참고) 반드시 SetMaxHp()를 통해서 바꾼다.
-            health.SetMaxHp(DifficultyScalingConfig.ScaledHp(RunProgress.RegionLv));
+            health.SetMaxHp(DifficultyScalingConfig.ScaledHp(baseHp, regionLv));
+            if (data != null) health.knockbackMultiplier = data.knockbackMultiplier;
             health.Died += HandleEnemyDied;
         }
 
         var move = monster.GetComponent<EnemyMove>();
         if (move != null)
-            move.attackPower = DifficultyScalingConfig.ScaledDmg(RunProgress.RegionLv);
+        {
+            float baseDmg = data != null ? data.attackPower : move.attackPower;
+            move.attackPower = DifficultyScalingConfig.ScaledDmg(baseDmg, regionLv);
+            if (data != null) move.moveSpeed = data.moveSpeed;
+        }
+
+        if (data != null)
+        {
+            // 몸집·색은 지역 배율과 무관한 종류 고유값이다.
+            var col = monster.GetComponent<CircleCollider2D>();
+            if (col != null) col.radius = data.colliderRadius;
+            var sr = monster.GetComponent<SpriteRenderer>();
+            if (sr != null) sr.color = data.color;
+
+            spawnedData[monster] = data; // 처치 보상에서 종류별 exp/gold를 읽으려고 기억해둔다
+        }
     }
 
     /// <summary>
     /// 처치 보상(원본 killEnemy(), project_test.html:1793) — EXP는 항상 지급, 골드는 확률 드랍.
-    /// 엘리트 배수·연쇄처치·살기(fury) 보너스는 범위 밖 — "몹 1마리 = 고정 공식" 루프만 구현한다
-    /// (`docs/sprints/03-growth-curve-worksplit.md` 트랙 A "확정된 세부 결정" 참고). 실제 공식/수치는 전부
-    /// <see cref="DifficultyScalingConfig"/>에 있다 — 여기선 호출만 한다.
+    /// 종류별 기본 보상은 <see cref="EnemyData"/>, 지역 배율은 <see cref="DifficultyScalingConfig"/>.
+    /// 엘리트 배수·연쇄처치·살기(fury) 보너스는 아직 범위 밖 — "몹 1마리 = 고정 공식" 루프만 구현한다.
     /// </summary>
     void HandleEnemyDied(EnemyHealth enemy)
     {
         RunProgress.RegisterKill();
 
+        EnemyData data = null;
+        if (enemy != null) spawnedData.TryGetValue(enemy.gameObject, out data);
+
         float sc = DifficultyScalingConfig.RewardMultiplier(RunProgress.RegionLv);
-        ProfileService.Current.AddExp(Mathf.RoundToInt(DifficultyScalingConfig.OniBaseExp * sc));
+        float baseExp = data != null ? data.exp : 8f;
+        int goldMin = data != null ? data.goldMin : 5;
+        int goldMax = data != null ? data.goldMax : 10;
+
+        ProfileService.Current.AddExp(Mathf.RoundToInt(baseExp * sc));
 
         if (Random.value < DifficultyScalingConfig.GoldDropChance)
         {
-            int rolled = Random.Range(DifficultyScalingConfig.OniGoldMin, DifficultyScalingConfig.OniGoldMax + 1); // 상한이 배타적이라 +1
+            int rolled = Random.Range(goldMin, goldMax + 1); // Random.Range(int)는 상한이 배타적이라 +1
             ProfileService.Current.AddGold(Mathf.RoundToInt(rolled * sc));
         }
+
+        if (enemy != null) spawnedData.Remove(enemy.gameObject);
     }
 }
 }

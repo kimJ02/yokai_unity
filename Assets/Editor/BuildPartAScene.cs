@@ -254,6 +254,15 @@ public static class BuildPartAScene
         var go = new GameObject("EnemySpawner");
         var spawner = go.AddComponent<EnemySpawner>();
         spawner.monsterPrefab = monsterPrefab;
+
+        // 몹 종류별 수치는 EnemyData(SO)에서 온다. 에셋이 없으면 여기서 만들어 둔다.
+        BuildEnemyData.Build();
+
+        // ⚠️ **지금은 오니만 등록한다.** 다른 6종의 데이터 에셋은 이미 만들어져 있지만, 행동 스크립트
+        // (wisp 비행 / charger 돌진 / shooter 사격 / splitter 분열)가 아직 없어서 지금 등록하면
+        // 전부 "오니처럼 걷는" 잘못된 몹이 나온다. 종류별 행동을 붙일 때(HANDOFF.md 4번) 같이 등록할 것.
+        var oni = AssetDatabase.LoadAssetAtPath<EnemyData>("Assets/Data/Enemies/Oni.asset");
+        spawner.enemyTypes = oni != null ? new[] { oni } : new EnemyData[0];
     }
 
     /// <summary>

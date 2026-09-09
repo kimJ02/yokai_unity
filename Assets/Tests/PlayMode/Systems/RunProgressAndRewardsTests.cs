@@ -21,6 +21,13 @@ namespace YokaiFront.Tests.PlayMode
 /// </summary>
 public class RunProgressAndRewardsTests
 {
+    // 오니 기본 스탯(원본 CONFIG.enemyBase.oni, project_test.html:709).
+    // 2026-09-09 SO 전환으로 `DifficultyScalingConfig`에서 `Core/EnemyData`(에셋)로 옮겨졌다.
+    // 아래 테스트들은 `EnemyData`를 안 꽂고 **프리팹 기본값 폴백 경로**를 검증하므로 기대값을 여기 둔다.
+    const float OniBaseHp = 38f;
+    const float OniBaseDmg = 13f;
+    const float OniBaseExp = 8f;
+
     [SetUp]
     public void ResetStatics()
     {
@@ -130,12 +137,52 @@ public class RunProgressAndRewardsTests
 
         var health = alive[0].GetComponent<EnemyHealth>();
         var move = alive[0].GetComponent<EnemyMove>();
-        float expectedHp = DifficultyScalingConfig.ScaledHp(3);
-        float expectedDmg = DifficultyScalingConfig.ScaledDmg(3);
-        Assert.AreEqual(expectedHp, health.MaxHp, 0.01f, "3지역 체력 스케일링(DifficultyScalingConfig.ScaledHp(3))이 안 맞는다");
-        Assert.AreEqual(expectedDmg, move.attackPower, 0.01f, "3지역 공격력 스케일링(DifficultyScalingConfig.ScaledDmg(3))이 안 맞는다");
+        float expectedHp = DifficultyScalingConfig.ScaledHp(OniBaseHp, 3);
+        float expectedDmg = DifficultyScalingConfig.ScaledDmg(OniBaseDmg, 3);
+        Assert.AreEqual(expectedHp, health.MaxHp, 0.01f, "3지역 체력 스케일링(DifficultyScalingConfig.ScaledHp(OniBaseHp, 3))이 안 맞는다");
+        Assert.AreEqual(expectedDmg, move.attackPower, 0.01f, "3지역 공격력 스케일링(DifficultyScalingConfig.ScaledDmg(OniBaseDmg, 3))이 안 맞는다");
         // SetMaxHp()를 거쳤다면 CurrentHp도 같이 갱신돼야 한다(안 그러면 이 프로젝트 단골 함정 재발).
         Assert.AreEqual(expectedHp, health.CurrentHp, 0.01f, "SetMaxHp() 대신 필드 직접 대입을 써서 CurrentHp가 안 갱신됐다");
+    }
+
+    /// <summary>
+    /// SO 전환 검증 — `EnemyData`를 꽂으면 프리팹 기본값 대신 **그 종류의 수치**가 적용되는지.
+    /// 대오니 값(체력 160·피해 26·넉백 0.4, 원본 `:710`·`:1678`)으로 확인한다.
+    /// </summary>
+    [UnityTest]
+    public IEnumerator SpawnWave_AppliesEnemyDataStats_InsteadOfPrefabDefaults()
+    {
+        var prefab = NewMonsterPrefab();
+        var spawner = NewSpawner(prefab);
+        spawner.maxSpawnPerWave = 1;
+
+        var bigOni = ScriptableObject.CreateInstance<EnemyData>();
+        bigOni.type = EnemyType.BigOni;
+        bigOni.maxHp = 160f;
+        bigOni.attackPower = 26f;
+        bigOni.moveSpeed = 0.44f;
+        bigOni.knockbackMultiplier = 0.4f;
+        bigOni.colliderRadius = 0.87f;
+        spawner.enemyTypes = new[] { bigOni };
+
+        InvokeSpawnWave(spawner);
+        yield return null;
+
+        var alive = GetAlive(spawner);
+        Assert.AreEqual(1, alive.Count);
+
+        var health = alive[0].GetComponent<EnemyHealth>();
+        var move = alive[0].GetComponent<EnemyMove>();
+
+        // 1지역이라 지역 배율은 1 — EnemyData 값이 그대로 나와야 한다.
+        Assert.AreEqual(160f, health.MaxHp, 0.01f, "EnemyData의 체력이 안 쓰였다(프리팹 기본값 38이 그대로인 듯)");
+        Assert.AreEqual(160f, health.CurrentHp, 0.01f, "SetMaxHp()를 안 거쳐서 CurrentHp가 안 갱신됐다");
+        Assert.AreEqual(26f, move.attackPower, 0.01f, "EnemyData의 공격력이 안 쓰였다");
+        Assert.AreEqual(0.44f, move.moveSpeed, 0.01f, "EnemyData의 이동속도가 안 쓰였다");
+        Assert.AreEqual(0.4f, health.knockbackMultiplier, 0.01f, "대오니 넉백 저항(0.4, 원본 :1678)이 안 쓰였다");
+        Assert.AreEqual(0.87f, alive[0].GetComponent<CircleCollider2D>().radius, 0.01f, "EnemyData의 몸집이 안 쓰였다");
+
+        Object.DestroyImmediate(bigOni);
     }
 
     /// <summary>몹 1마리를 죽였을 때 EXP는 항상 지급되고(1지역, sc=1 → 8 그대로) 처치 수도 오르는지 확인한다.</summary>
@@ -159,8 +206,8 @@ public class RunProgressAndRewardsTests
         yield return null;
 
         Assert.AreEqual(1, RunProgress.TotalKills, "죽였는데 누적 처치 수가 안 올랐다");
-        int expectedExp = Mathf.RoundToInt(DifficultyScalingConfig.OniBaseExp * DifficultyScalingConfig.RewardMultiplier(1));
-        Assert.AreEqual(expectedExp, ProfileService.Current.exp, "1지역(sc=1) 오니 처치 EXP는 DifficultyScalingConfig.OniBaseExp 그대로여야 한다");
+        int expectedExp = Mathf.RoundToInt(OniBaseExp * DifficultyScalingConfig.RewardMultiplier(1));
+        Assert.AreEqual(expectedExp, ProfileService.Current.exp, "1지역(sc=1) 오니 처치 EXP는 OniBaseExp 그대로여야 한다");
     }
 
     /// <summary>
@@ -191,7 +238,7 @@ public class RunProgressAndRewardsTests
         }
 
         Assert.AreEqual(kills, RunProgress.TotalKills);
-        int expectedExp = Mathf.RoundToInt(DifficultyScalingConfig.OniBaseExp * DifficultyScalingConfig.RewardMultiplier(1)) * kills;
+        int expectedExp = Mathf.RoundToInt(OniBaseExp * DifficultyScalingConfig.RewardMultiplier(1)) * kills;
         Assert.AreEqual(expectedExp, ProfileService.Current.exp, $"40마리 전부 1지역(sc=1)이라 EXP는 결정적이어야 한다(OniBaseExp×{kills})");
         Assert.Greater(ProfileService.Current.gold, 0, $"{kills}마리 죽였는데 골드가 한 번도 안 드랍됐다(DifficultyScalingConfig.GoldDropChance 확률상 사실상 불가능) — 확률 로직 확인 필요");
     }
