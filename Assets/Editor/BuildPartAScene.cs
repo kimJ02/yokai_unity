@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -258,11 +259,17 @@ public static class BuildPartAScene
         // 몹 종류별 수치는 EnemyData(SO)에서 온다. 에셋이 없으면 여기서 만들어 둔다.
         BuildEnemyData.Build();
 
-        // ⚠️ **지금은 오니만 등록한다.** 다른 6종의 데이터 에셋은 이미 만들어져 있지만, 행동 스크립트
-        // (wisp 비행 / charger 돌진 / shooter 사격 / splitter 분열)가 아직 없어서 지금 등록하면
-        // 전부 "오니처럼 걷는" 잘못된 몹이 나온다. 종류별 행동을 붙일 때(HANDOFF.md 4번) 같이 등록할 것.
-        var oni = AssetDatabase.LoadAssetAtPath<EnemyData>("Assets/Data/Enemies/Oni.asset");
-        spawner.enemyTypes = oni != null ? new[] { oni } : new EnemyData[0];
+        // 7종 전부 등록한다. **어떤 종이 실제로 나올지는 여기가 아니라 지역별 해금표가 정한다**
+        // (`EnemySpawnTable.Roll`, 원본 rollSpawnType :3933) — 새끼(Splitlet)는 그 표에 없어서
+        // 웨이브로는 나오지 않고 분열귀가 죽을 때만 나오지만, 그때 수치를 찾아 쓰려면 여기 등록돼 있어야 한다.
+        var types = new List<EnemyData>();
+        foreach (EnemyType t in System.Enum.GetValues(typeof(EnemyType)))
+        {
+            var data = AssetDatabase.LoadAssetAtPath<EnemyData>($"Assets/Data/Enemies/{t}.asset");
+            if (data != null) types.Add(data);
+            else Debug.LogWarning($"[BuildPartAScene] EnemyData 에셋이 없다: {t}");
+        }
+        spawner.enemyTypes = types.ToArray();
     }
 
     /// <summary>

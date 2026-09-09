@@ -28,6 +28,14 @@ namespace YokaiFront.Core
         // "데이터(밸런스 값)" 규칙(스탯은 SO)에도 어긋난다. 이 파일은 **지역 배율만** 맡는다.
         // 원본도 같은 구조다: `CONFIG.enemyBase[type]`(종류별 스탯) × `CONFIG.scale`(지역 배율), `:3958`.
 
+        // 엘리트(원본 CONFIG.elite, project_test.html:696). 종류와 무관하게 아무 몹이나 확률로 승격된다.
+        // 새끼(splitlet)만 예외 — 원본이 `noElite: true`로 낳는다(`:1842`).
+        public const float EliteChance = 0.08f;
+        public const float EliteHpMult = 4f;
+        public const float EliteDmgMult = 1.5f;
+        public const float EliteRewardMult = 5f;
+        public const float EliteScale = 1.35f;
+
         public static float ScaledHp(float baseHp, int regionLv) => baseHp * Mathf.Pow(HpPerRegion, regionLv - 1);
         public static float ScaledDmg(float baseDmg, int regionLv) => baseDmg * Mathf.Pow(DmgPerRegion, regionLv - 1);
         public static float RewardMultiplier(int regionLv) => Mathf.Pow(RewardGrow, regionLv - 1);

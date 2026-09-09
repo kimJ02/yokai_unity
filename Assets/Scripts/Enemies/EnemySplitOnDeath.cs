@@ -43,7 +43,10 @@ namespace YokaiFront.Enemies
                 // 원본 `for (const off of [-24, 24])` — 2마리를 좌우 대칭으로. 3마리 이상이면 균등 분배.
                 float t = childCount == 1 ? 0f : (i / (float)(childCount - 1)) * 2f - 1f; // -1 ~ +1
                 float x = Mathf.Clamp(pos.x + t * spawnOffsetX, FieldBounds.MinX, FieldBounds.MaxX);
-                EnemySpawnRequestBus.Request(new Vector2(x, pos.y), childType);
+                // 원본 `Math.min(e.y, CONFIG.world.groundY)` — 지면보다 아래에서는 안 나온다.
+                // 원본은 Y+가 아래라 min이지만 우리 좌표계에선 max다.
+                float y = Mathf.Max(pos.y, FieldBounds.GroundY);
+                EnemySpawnRequestBus.Request(new Vector2(x, y), childType);
             }
         }
     }
