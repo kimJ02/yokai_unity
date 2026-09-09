@@ -27,10 +27,15 @@
 단계 3  완성된 캐릭터부터 밸런스 (기획자 상윤) ← 런 사이클은 이 직전에
 ```
 
-1. **[나] 착수 전제** — `Core/CharacterId`(+캐릭터 스탯배수), `CharacterMover2D` 관성 이동 모드,
-   `Characters/PlayerRig`+`ICharacterKit`, 캐릭터 전환 디버그 키. **팀원이 이걸 기다린다 — 올리면 연락.**
-2. **[나] 메카닉 0차** → **`EnemyData` SO 전환**(몹 추가보다 먼저) → **몹 6종** → **엘리트** → **지역 스폰표**
-3. **[팀원] 섬영 0차 → 드루이드 0차** (착수 전제가 `main`에 올라간 뒤)
+1. ✅ **[나] 착수 전제 완료 — `main` 병합·push 끝.** `Core/CharacterId`(+캐릭터 스탯배수),
+   `CharacterMover2D` 관성 이동 모드, `Characters/PlayerRig`+`ICharacterKit`, Tab 캐릭터 전환.
+   **→ 팀원은 지금 바로 섬영·드루이드 0차에 착수 가능하다.** 계약은 `docs/worksplit.md` 3절.
+2. ✅ **[나] 메카닉 0차 완료** — `GunnerAttack`/`GunnerBullet`.
+3. ✅ **[나] `EnemyData` SO 전환 완료** — 몹 7종 수치를 `Assets/Data/Enemies/`로 분리.
+4. **[나] 다음: 몹 6종 행동 구현** — wisp(비행)·charger(돌진 상태머신)·shooter(사격)·splitter(분열)는
+   전용 스크립트, bigOni·splitlet은 `EnemyData`만 다르면 된다(CLAUDE.md SO 규칙). 그 뒤 엘리트 → 지역 스폰표.
+   ⚠️ **스포너에는 아직 오니만 등록돼 있다** — 행동 스크립트를 붙일 때 나머지 6종도 같이 등록할 것.
+5. **[팀원] 섬영 0차 → 드루이드 0차**
 
 런 사이클 스펙은 폐기하지 않고 [`docs/sprints/04-run-cycle.md`](docs/sprints/04-run-cycle.md)에 보존해뒀다
 — 계약(`GameState`/`RunState`/`CombatEvents`/`IRunResettable`)은 이미 `main`에 있으니 그때 구현만 하면 된다.
@@ -78,6 +83,14 @@ git checkout main            # 미병합 브랜치 없음 — main만 보면 된
   이 파일 하나만 교체하면 되도록 다른 스크립트와 결합시키지 않았다.
 
 ## 로그 (최신이 위)
+
+- **2026-09-09** — **단계 1 착수: 캐릭터 뼈대 + 메카닉 0차 + EnemyData SO 전환 (PlayMode 77/77).** 세 덩어리를 순서대로 `main`에 병합·push.
+  - **캐릭터 뼈대(착수 전제)** — `Core/CharacterId` + `CharacterStats.StatMultiplier`(원본 `CHAR_STAT_MULT` `:1282`, 섬영만 1.5이고 **statAtk·statMaxHp에만** 곱한다), `CharacterMover2D.MoveMode.Inertial`(원본 `bladeMove` `:2454`), `Characters/PlayerRig`+`ICharacterKit`(원본 `updatePlayer` 무기별 분기 `:3509`), Tab 캐릭터 전환(임시). 키트를 컴포넌트로 붙이기만 하면 `PlayerRig`가 자동 등록해서 팀원이 그 파일을 고칠 필요가 없다.
+  - **테스트가 실제 버그를 잡음**: JS `Math.sign(0)`은 0인데 Unity `Mathf.Sign(0f)`은 1이라, 정지 상태의 첫 입력이 "이미 달리던 중"으로 오판돼 baseSpeed에 한 프레임 가속이 더 붙었다(원본은 정확히 baseSpeed). 명시적 부호 비교로 교체.
+  - **메카닉 0차** — `GunnerAttack`/`GunnerBullet`. 원본 `gunnerFire()`(`:2188`)의 `laserTier==0` 분기 그대로(cd 0.24/statAs, 탄속 13.2, 수명 0.62, 피해 statAtk×0.82, 관통 1, 넉백 kb:95를 총알 진행 방향으로). **0차엔 스택이 아예 안 쌓인다** — `addGunnerStack`이 갈래 미선택이면 즉시 반환(`:1414`).
+  - **`EnemyData` SO 전환** — CLAUDE.md 규칙("2번째 적 종류를 만들기 전에 SO 전환을 끝낸다") 이행. `Core/EnemyData`+`EnemyType` 7종, `Assets/Editor/BuildEnemyData`가 원본 `CONFIG.enemyBase`(`:707`~`:714`)·넉백 배율(`:1678`) 그대로 에셋 7개를 생성. `DifficultyScalingConfig`에서 오니 기본 스탯을 걷어내 **지역 배율만** 맡게 하고(원본도 `enemyBase[type] × scale` 두 층, `:3958`), `EnemySpawner`가 스폰 시 스탯·몸집·색·넉백저항을 주입 + 처치 보상도 종류별 값을 쓴다.
+  - **테스트 2건의 숨은 문제도 같이 수정**: 총알 테스트가 적 콜라이더를 0.3으로 둬서 실제 게임에선 맞는 공격이 테스트에서만 빗나갔다(실제 프리팹은 0.5). 대붕괴 테스트는 3중첩 피해가 치명타를 만나면 오니를 한 방에 죽여 파괴된 오브젝트를 참조하는 **플래키 테스트**였다 — "죽었거나 체력이 깎였거나"로 완화.
+  - **남긴 판단**: 우리 포트는 플레이어·오니를 원본(34×56, 42×46px)보다 크게(지름 1유닛) 잡아둔 계통 편차가 있다. 이번에 바꾸면 스폰 높이·충돌·기존 테스트가 한꺼번에 흔들려서, 오니를 현재 값에 고정하고 **종류 간 상대 크기만** 원본 비율로 환산했다. 절대 크기 재조정은 별도 작업.
 
 - **2026-09-09** — **회의 결과로 진행 순서 전면 재편 — "캐릭터·몬스터 폭 먼저, 깊이는 나중".** 기존 계획은 메타 시스템(런사이클→로비UI→세이브→배수체인→아이템)을 먼저 쌓는 순서였는데, 회의에서 **① 모든 캐릭터를 0차(=기본공격만)까지 + 모든 몬스터를 프로토타입 그대로 → ② 캐릭터 하나씩 5차까지 심화 → ③ 완성된 캐릭터부터 밸런스**로 바꿨다. 밸런스를 잡으려면 비교 대상이 다 있어야 하기 때문(캐릭터 하나만 깊게 파 놓으면 "캐릭터가 센 건지 몹이 약한 건지"를 못 가른다).
   - **"0차" 정의 확정**(사용자 확인): 각 캐릭터의 **기본공격만 있는 상태**. 원본이 `tier < 1`이면 X 스킬을 막는 그 상태다(`:2169`/`:2741`/`:3385`). 기본공격이 채우는 자원(메카닉 스택·드루이드 마나)은 기본공격의 일부라 같이 이식하되 소비처가 전부 X 스킬이라 0차엔 쌓이기만 한다.
