@@ -25,9 +25,12 @@ namespace YokaiFront.Characters
         };
 
         Texture2D bgTexture;
+        PlayerRig rig;
 
         void Awake()
         {
+            rig = GetComponent<PlayerRig>();
+
             // 씬 배경색이 흰색(BuildPartAScene.cs `cam.backgroundColor = Color.white`)이라 흰 글씨가
             // 그대로 묻혀서 안 보였다(사용자가 직접 플레이해보고 지적) — 배경색과 무관하게 항상 읽히도록
             // 텍스트 뒤에 어두운 반투명 판을 깐다.
@@ -51,6 +54,10 @@ namespace YokaiFront.Characters
             // 6=폭발 계열 다음 티어 습득, 7=중력 계열 다음 티어 습득(원본 learnSkill, project_test.html:7011).
             if (Input.GetKeyDown(KeyCode.Alpha6)) profile.TryLearnMageTier(MageBranch.Explosion);
             if (Input.GetKeyDown(KeyCode.Alpha7)) profile.TryLearnMageTier(MageBranch.Gravity);
+
+            // Tab = 다음 캐릭터로 전환. 원본은 로비의 캐릭터 선택 탭이라 이것도 임시 조작이다.
+            // 아직 키트가 붙지 않은 캐릭터(섬영·드루이드)는 자동으로 건너뛴다.
+            if (Input.GetKeyDown(KeyCode.Tab) && rig != null) rig.SelectNext();
         }
 
         void OnGUI()
@@ -58,7 +65,7 @@ namespace YokaiFront.Characters
             var p = ProfileService.Current;
             var style = new GUIStyle(GUI.skin.label) { fontSize = 14, normal = { textColor = Color.white } };
 
-            var panel = new Rect(6, 6, 760, 100);
+            var panel = new Rect(6, 6, 760, 122);
             GUI.DrawTexture(panel, bgTexture);
 
             GUI.Label(new Rect(12, 10, 740, 22),
@@ -82,6 +89,16 @@ namespace YokaiFront.Characters
                 _ => "미선택",
             };
             GUI.Label(new Rect(12, 76, 740, 22), $"[6]폭발 [7]중력 — 마법사 빌드: {branchLabel} {p.mageTier}티어", style);
+
+            string charLabel = p.character switch
+            {
+                CharacterId.Mage => "마법사",
+                CharacterId.Gunner => "메카닉",
+                CharacterId.Blade => "섬영",
+                CharacterId.Druid => "드루이드",
+                _ => p.character.ToString(),
+            };
+            GUI.Label(new Rect(12, 98, 740, 22), $"[Tab] 캐릭터 전환 — 현재: {charLabel}", style);
         }
     }
 }

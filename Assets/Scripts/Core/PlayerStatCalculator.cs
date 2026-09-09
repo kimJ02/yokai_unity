@@ -4,8 +4,8 @@ namespace YokaiFront.Core
 {
     /// <summary>
     /// 골드 강화가 반영된 파생 스탯. 원본 `statAtk`/`statMaxHp`/`statMs`/`statAs`/`statCrit`
-    /// (project_test.html:1284~1288)에서 아이템 항(전부 0, 아이템 시스템 없음)과 캐릭터 배수
-    /// (마법사=1이라 무시 가능)를 뺀 형태다.
+    /// (project_test.html:1284~1288)에서 아이템 항(전부 0, 아이템 시스템이 아직 없음)만 뺀 형태다.
+    /// 캐릭터 배수(`charStatMult()`)는 반영돼 있다.
     ///
     /// 기본값은 원본 `CONFIG.player`(:605)·`CONFIG.bow.dmg`(:609)를 그대로 옮긴 것.
     /// `BaseCritChance`가 `Combat.DamageCalculator.BaseCritChance`와 값이 겹치는데(둘 다 0.10) —
@@ -19,9 +19,13 @@ namespace YokaiFront.Core
         public const float BaseCritChance = 0.10f; // CONFIG.player.baseCrit
         public const float BowDamageMult = 0.9f;   // CONFIG.bow.dmg(:609) — 마법사 무기 배수
 
-        public static float ComputeAtk(PlayerProfile p) => BaseAtk + p.upgrades.atk * 3f;
+        // 원본 statAtk/statMaxHp는 완성된 스탯 전체에 캐릭터 배수를 곱한다(`charStatMult()`, :1284~1285).
+        // ms/as/crit(:1286~1288)엔 곱하지 않는다 — 원본 그대로이니 "일관성"을 이유로 바꾸지 말 것.
+        public static float ComputeAtk(PlayerProfile p) =>
+            (BaseAtk + p.upgrades.atk * 3f) * CharacterStats.StatMultiplier(p.character);
 
-        public static float ComputeMaxHp(PlayerProfile p) => Mathf.Round(BaseMaxHp + p.upgrades.hp * 25f);
+        public static float ComputeMaxHp(PlayerProfile p) =>
+            Mathf.Round((BaseMaxHp + p.upgrades.hp * 25f) * CharacterStats.StatMultiplier(p.character));
 
         public static float ComputeMoveSpeedMultiplier(PlayerProfile p) => 1f + p.upgrades.ms * 0.04f;
 
