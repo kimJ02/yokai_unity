@@ -31,7 +31,17 @@ namespace YokaiFront.Core
         /// </summary>
         public static event System.Action<int, int> RewardGranted;
 
+        /// <summary>
+        /// 플레이어가 죽었을 때. 원본 `damagePlayer`가 체력이 0이 되면 바로 `endRun('dead')`를 부르는
+        /// 자리(project_test.html:1927)에 대응한다.
+        ///
+        /// `Systems`(3층)가 `Characters`(2층)를 직접 참조할 수 없어서(계층 규칙) `RunController`는
+        /// `PlayerHealth.Died`를 직접 구독하지 못한다 — 그래서 이 이벤트를 거친다.
+        /// </summary>
+        public static event System.Action PlayerDied;
+
         public static void RaiseEnemyKilled(GameObject enemy) => EnemyKilled?.Invoke(enemy);
+        public static void RaisePlayerDied() => PlayerDied?.Invoke();
         public static void RaiseShrineBuffGranted(float duration) => ShrineBuffGranted?.Invoke(duration);
         public static void RaiseRewardGranted(int gold, int exp) => RewardGranted?.Invoke(gold, exp);
 
@@ -42,6 +52,7 @@ namespace YokaiFront.Core
         public static void Reset()
         {
             EnemyKilled = null;
+            PlayerDied = null;
             ShrineBuffGranted = null;
             RewardGranted = null;
         }

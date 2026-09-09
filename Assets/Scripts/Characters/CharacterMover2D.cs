@@ -28,7 +28,7 @@ namespace YokaiFront.Characters
 /// </summary>
 [RequireComponent(typeof(Rigidbody2D))]
 [RequireComponent(typeof(Collider2D))]
-public class CharacterMover2D : MonoBehaviour
+public class CharacterMover2D : MonoBehaviour, Core.IRunResettable
 {
     public float moveSpeed = 2.7f;
     public float jumpSpeed = 9.6f;
@@ -210,6 +210,10 @@ public class CharacterMover2D : MonoBehaviour
     /// <summary>즉시 순간이동(원본 불길 이동 X 스킬, `p.x=toX;p.y=toY;p.vx=0;p.vy=0`, project_test.html:2148).</summary>
     public void Teleport(Vector3 position)
     {
+        // `rb.position`만 바꾸면 `transform`은 **다음 물리 스텝에야** 따라온다 — 그 사이에 위치를 읽는
+        // 쪽(카메라, 같은 프레임의 다른 스크립트, 런 시작 직후 판정)은 옛 좌표를 본다. 실제로
+        // 런 시작 리셋에서 플레이어가 한 프레임 동안 엉뚱한 자리에 남아 있는 걸로 드러났다.
+        transform.position = position;
         rb.position = position;
         rb.linearVelocity = Vector2.zero;
         inertialVx = 0f; // 원본도 vx를 0으로 만든다 — 관성 모드가 들고 있던 속도도 같이 버려야 한다
@@ -219,6 +223,23 @@ public class CharacterMover2D : MonoBehaviour
     /// 캐릭터를 바꿀 때 이동 상태를 초기화한다(<see cref="PlayerRig"/>가 호출).
     /// 관성 속도가 남아 있으면 다른 캐릭터로 바꾼 직후에도 그 속도로 미끄러진다.
     /// </summary>
+    /// <summary>
+    /// 새 사냥 시작 시 — 원본 `resetPlayerForRun()`의 이동 부분
+    /// (`p.x = 220; p.y = groundY; p.vx = 0; p.vy = 0; p.facing = 1; p.runDir = 1`, project_test.html:1513).
+    /// **시작 위치 2.2유닛은 원본 220px 그대로다**(100px=1유닛).
+    /// </summary>
+    public void ResetForRun()
+    {
+        ResetMotion();
+        Facing = 1;
+        Teleport(new Vector3(RunStartX, Core.FieldBounds.GroundY + StartHeightAboveGround, 0f));
+    }
+
+    /// <summary>원본 `p.x = 220`(project_test.html:1513) ÷100.</summary>
+    public const float RunStartX = 2.2f;
+    /// <summary>바닥에 발을 붙이고 시작하기 위한 여유(콜라이더 반높이). 원본은 y=groundY에 바로 놓는다.</summary>
+    public const float StartHeightAboveGround = 0.5f;
+
     public void ResetMotion()
     {
         inertialVx = 0f;

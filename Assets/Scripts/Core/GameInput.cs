@@ -33,5 +33,12 @@ namespace YokaiFront.Core
 
         // ---- 스킬 (원본 ult, X) ----
         public static bool UltDown => Input.GetKeyDown(KeyCode.X);
+
+        // ---- 일시정지 (원본 :1026 — ESC로 run ↔ pause 토글) ----
+        /// <summary>
+        /// ESC. 원본은 사냥 중 ESC로 일시정지하고, 그 화면에서 "게임으로 돌아가기 / 로비로 돌아가기"를
+        /// 고른다(`:1027`~`:1028`). **ESC 자체가 로비로 나가는 키가 아니다** — 한 단계 거친다.
+        /// </summary>
+        public static bool PauseDown => Input.GetKeyDown(KeyCode.Escape);
     }
 }

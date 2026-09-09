@@ -19,10 +19,18 @@ namespace YokaiFront.Tests.PlayMode
 public class PlayerProgressionTests
 {
     [SetUp]
-    public void ResetProfile() => ProfileService.Reset();
+    public void ResetProfile() => ResetStatics();
 
     [TearDown]
-    public void CleanupProfile() => ProfileService.Reset();
+    public void CleanupProfile() => ResetStatics();
+
+    // 정적 이벤트(`CombatEvents`)도 같이 끊는다 — 구독을 남기면 파괴된 오브젝트로 콜백이 날아가고
+    // 다음 테스트의 카운트가 오염된다(이 프로젝트에서 반복해서 겪은 함정).
+    static void ResetStatics()
+    {
+        ProfileService.Reset();
+        CombatEvents.Reset();
+    }
 
     // ---- 순수 계산 (레벨/경험치, project_test.html:706) ----
 
@@ -190,31 +198,34 @@ public class PlayerProgressionTests
     // 나와 검증이 안 된다. 배율 계산 자체는 `PlayerStatCalculator_MatchesOriginalFormulas`가 이미
     // 검증했고, 코드 리뷰로 `CharacterMover2D.FixedUpdate()`가 그 값을 실제로 곱하는 것만 확인했다.
 
-    // ---- 통합: 사망 → 정지 → R키 재시작 ----
+    // ---- 통합: 사망 ----
 
+    /// <summary>
+    /// 체력이 0이 되면 `Core.CombatEvents.PlayerDied`가 발행된다 — 원본이 그 자리에서 바로
+    /// `endRun('dead')`를 부르는 것(project_test.html:1927)에 대응한다. `Systems/RunController`가
+    /// 이 신호로 런을 끝내므로, 여기가 끊기면 죽어도 게임이 안 끝난다.
+    ///
+    /// (이전엔 이 자리에 R키 부활 테스트가 있었다 — 원본에 없는 임시방편이라
+    /// `PlayerDeathHandler`와 함께 삭제됐다. `docs/sprints/04-run-cycle.md` 7번.)
+    /// </summary>
     [UnityTest]
-    public IEnumerator PlayerDeathHandler_FreezesOnDeath_RevivesOnR()
+    public IEnumerator PlayerDeath_RaisesPlayerDiedEvent()
     {
         var go = new GameObject("TestPlayer");
         go.AddComponent<Rigidbody2D>().gravityScale = 0f;
-        go.AddComponent<CircleCollider2D>().radius = 0.5f; // CharacterMover2D가 RequireComponent로 요구
+        go.AddComponent<CircleCollider2D>().radius = 0.5f;
         var health = go.AddComponent<PlayerHealth>();
-        var mover = go.AddComponent<CharacterMover2D>();
-        var deathHandler = go.AddComponent<PlayerDeathHandler>();
+        go.AddComponent<CharacterMover2D>();
         yield return null;
+
+        int raised = 0;
+        CombatEvents.PlayerDied += () => raised++;
 
         health.TakeDamage(500f, null); // 큰 피해로 즉시 사망
         yield return null;
 
-        Assert.IsTrue(deathHandler.IsDead, "체력이 0인데 사망 처리가 안 됐다");
-        Assert.IsFalse(mover.enabled, "죽었는데 이동 컴포넌트가 그대로 켜져 있다(정지 안 됨)");
-
-        // R 키 입력 자체는 시뮬레이트 불가(실제 키 이벤트 큐 의존, 이 프로젝트 다른 곳과 같은 제약)라
-        // Update()가 누르면 호출하는 바로 그 public 메서드를 직접 불러 전체 부활 경로를 검증한다.
-        deathHandler.Revive();
-        Assert.IsTrue(health.CurrentHp > 0f, "Revive 후에도 체력이 0이다");
-        Assert.IsTrue(mover.enabled, "부활했는데 이동이 다시 안 켜졌다");
-        Assert.IsFalse(deathHandler.IsDead, "부활했는데 여전히 사망 상태다");
+        Assert.AreEqual(1, raised, "죽었는데 CombatEvents.PlayerDied가 안 왔다 — 런이 안 끝난다");
+        Assert.IsTrue(health.IsDead);
 
         Object.Destroy(go);
         yield return null;

@@ -16,7 +16,7 @@ namespace YokaiFront.Characters
     ///
     /// 이동은 마법사와 같은 즉시-속도 방식(원본 `updatePlayerCommon`의 bow/gunner 공통 분기).
     /// </summary>
-    public class GunnerAttack : MonoBehaviour, ICharacterKit
+    public class GunnerAttack : MonoBehaviour, ICharacterKit, IRunResettable
     {
         [Header("원본 CONFIG/gunnerFire 그대로 (거리·속도는 100px=1유닛 축척)")]
         [Tooltip("표시용 현재 쿨다운. 매 프레임 BaseCooldownConst ÷ 공격속도 배수로 다시 계산된다.")]
@@ -45,6 +45,9 @@ namespace YokaiFront.Characters
 
         public void OnSelected() => cdTimer = 0f;
         public void OnDeselected() { }
+
+        /// <summary>새 사냥 시작 시 쿨다운 초기화 — 원본 `resetPlayerForRun()`의 `p.atkCds`(:1516).</summary>
+        public void ResetForRun() => OnSelected();
 
         void Awake() => mover = GetComponent<CharacterMover2D>();
 

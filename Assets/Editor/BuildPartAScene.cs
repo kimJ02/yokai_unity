@@ -42,6 +42,9 @@ public static class BuildPartAScene
         var player = BuildPlayer();
         BuildCamera(player.transform);
         BuildEnemySpawner();
+        // ⚠️ 반드시 `NewScene()` **뒤에** 만들 것 — 앞에서 만들면 씬이 교체되면서 그대로 버려진다
+        // (실제로 그렇게 넣었다가 씬에 RunController가 없는 채로 빌드됐다).
+        BuildRunController();
 
         Directory.CreateDirectory("Assets/Scenes");
         bool ok = EditorSceneManager.SaveScene(scene, "Assets/Scenes/CombatCore.unity");
@@ -227,7 +230,6 @@ public static class BuildPartAScene
         gunner.bulletSprite = circleSprite;
         // 섬영·드루이드 키트(팀원 작업)가 생기면 여기에 같이 붙일 것 — PlayerRig가 자동으로 찾는다.
 
-        go.AddComponent<PlayerDeathHandler>();   // ⚠️ 삭제 예정(원본에 없는 R키 부활) — 런 사이클 때 제거
         go.AddComponent<PlayerDebugController>(); // ⚠️ 삭제 예정(원본은 로비 탭) — 로비 UI 때 제거
 
         // 캐릭터 키트 전환기. **키트를 전부 붙인 뒤 마지막에** 추가해야 Awake에서 전부 찾는다
@@ -243,6 +245,15 @@ public static class BuildPartAScene
     /// Part B(docs/sprints/01-combat-core.md 2번) 웨이브 스포너를 씬에 등록. 프리팹은 Part B가 만든
     /// Assets/Prefabs/Enemy_Oni.prefab(구 Monster.prefab)을 그대로 참조한다 — 여기서 새로 만들지 않는다.
     /// </summary>
+    /// <summary>
+    /// 게임 뼈대(로비↔사냥↔결과). 씬에 하나만 있으면 되고, 시작 시 스스로 로비 상태로 들어간다.
+    /// </summary>
+    static void BuildRunController()
+    {
+        var go = new GameObject("RunController");
+        go.AddComponent<RunController>();
+    }
+
     static void BuildEnemySpawner()
     {
         var monsterPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(MonsterPrefabPath);

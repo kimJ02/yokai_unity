@@ -16,7 +16,7 @@ namespace YokaiFront.Characters
     /// </summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(Rigidbody2D))]
-    public class PlayerHealth : MonoBehaviour, IDamageable
+    public class PlayerHealth : MonoBehaviour, IDamageable, IRunResettable
     {
         [Header("스탯 (원본 CONFIG.player — project_test.html:605~606)")]
         [Tooltip("최대 체력. 원본 baseHp 100.")]
@@ -38,9 +38,9 @@ namespace YokaiFront.Characters
         public float InvulnRemaining { get; private set; }
 
         /// <summary>
-        /// 사망 시 1회 발생. 지금 구독자는 `PlayerDeathHandler`(⚠️ 삭제 예정 — 원본에 없는 R키 부활)뿐이다.
-        /// 런 사이클(현재 스프린트, `HANDOFF.md` 4번)에서 이 신호가 `endRun('dead')` → 결과 화면으로
-        /// 이어져야 한다 — 원본도 여기서 `endRun('dead')`를 부른다(project_test.html:1927).
+        /// 사망 시 1회 발생. 같은 오브젝트 안에서 쓰는 국지적 신호다.
+        /// **런을 끝내는 경로는 이게 아니라 `Core.CombatEvents.PlayerDied`** — `Systems`(3층)가
+        /// `Characters`(2층)를 참조할 수 없어서 `RunController`는 그쪽만 구독한다(원본 :1927).
         /// </summary>
         public event Action Died;
 
@@ -75,15 +75,18 @@ namespace YokaiFront.Characters
         }
 
         /// <summary>
-        /// ⚠️ **삭제 예정** — 원본에 없는 R키 부활(`PlayerDeathHandler`)이 부르는 메서드다.
-        /// 런 사이클(`HANDOFF.md` 7번)에서 `PlayerDeathHandler`와 함께 정리한다.
-        /// 대신 런 시작 시 초기화는 `Core.IRunResettable.ResetForRun()`으로 구현할 것
-        /// (원본 `resetPlayerForRun()`, project_test.html:1511).
+        /// 새 사냥 시작 시 초기화 — 원본 `resetPlayerForRun()`의 체력 부분
+        /// (`p.maxHp = statMaxHp(); p.hp = p.maxHp; p.invuln = 0`, project_test.html:1515).
+        ///
+        /// **최대체력을 여기서 다시 계산하는 게 핵심이다.** 평소엔 레벨업 때만 갱신돼서(`:1850`)
+        /// 로비에서 체력 강화를 사도 즉시 반영되지 않는데, 런에 입장할 때 이 재계산이 일어나
+        /// 그제서야 적용된다 — 원본 그대로의 동작이라 "매 프레임 갱신"으로 바꾸지 말 것.
         /// </summary>
-        public void Revive()
+        public void ResetForRun()
         {
+            maxHp = PlayerStatCalculator.ComputeMaxHp(ProfileService.Current);
             CurrentHp = maxHp;
-            InvulnRemaining = 0.5f; // 재시작 직후 바로 다시 안 맞게 하는 안전장치(원본에 없는 실무적 편의)
+            InvulnRemaining = 0f; // 원본 `p.invuln = 0`
         }
 
         /// <summary>
@@ -126,6 +129,8 @@ namespace YokaiFront.Characters
             {
                 CurrentHp = 0f;
                 Died?.Invoke();
+                // 원본은 체력이 0이 되는 그 자리에서 바로 런을 끝낸다(`endRun('dead')`, :1927).
+                CombatEvents.RaisePlayerDied();
             }
         }
     }
