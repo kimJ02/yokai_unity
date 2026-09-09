@@ -36,6 +36,9 @@ public class EnemySpawnAndMoveTests
         var spawner = spawnerGO.AddComponent<EnemySpawner>();
         spawner.monsterPrefab = prefab;
         spawner.maxSpawnPerWave = 5;
+        // 엘리트는 몸집이 1.35배라 착지 높이가 그만큼 올라간다 — 이 테스트가 보려는 건
+        // "스폰 포인트가 발판/바닥 높이에 정확히 맞는가"라 그 변수를 뺀다(엘리트는 전용 테스트에서 확인).
+        spawner.eliteChanceOverride = 0f;
 
         var spawnWave = typeof(EnemySpawner).GetMethod("SpawnWave", BindingFlags.NonPublic | BindingFlags.Instance);
         var aliveField = typeof(EnemySpawner).GetField("aliveMonsters", BindingFlags.NonPublic | BindingFlags.Instance);

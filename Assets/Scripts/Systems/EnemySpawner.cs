@@ -51,6 +51,14 @@ public class EnemySpawner : MonoBehaviour
     public float minSpacing = 0.52f;
     public int maxPlacementRetries = 10;
 
+    [Header("엘리트 (원본 CONFIG.elite, project_test.html:696)")]
+    [Tooltip("엘리트 승격 확률. **음수로 두면 DifficultyScalingConfig.EliteChance(원본 0.08)를 쓴다** — " +
+             "평소엔 그대로 두고, 확률을 0이나 1로 고정해야 하는 테스트와 밸런스 실험에서만 덮어쓴다. " +
+             "기본값을 여기 숫자로 박아두지 않는 건 씬에 저장된 값이 나중에 설정 파일과 어긋나는 걸 막으려는 것.")]
+    public float eliteChanceOverride = -1f;
+
+    float EliteChance => eliteChanceOverride >= 0f ? eliteChanceOverride : DifficultyScalingConfig.EliteChance;
+
     [Header("몹 종류별 수치 (Assets/Data/Enemies/, BuildEnemyData가 생성)")]
     [Tooltip("스폰할 몹 종류들. 비어 있으면 프리팹에 들어 있는 값을 그대로 쓴다. 지역별 해금표(원본 rollSpawnType :3933)는 몹 6종을 붙일 때 여기에 얹는다.")]
     public EnemyData[] enemyTypes;
@@ -61,6 +69,42 @@ public class EnemySpawner : MonoBehaviour
     float waveTimer;
     float cachedMonsterRadius = -1f; // Awake 시점엔 monsterPrefab이 아직 할당 전이라(씬 빌드 순서상)
                                       // 필요할 때 지연 계산한다(GetMonsterRadius 참고).
+
+    // 몹이 몹을 낳는 요청(분열귀 → 새끼)을 받는다. 정적 이벤트라 **반드시 OnDisable에서 해제**해야
+    // 파괴된 스포너를 계속 참조하지 않는다(CLAUDE.md "낮은 층이 높은 층의 기능을 요청" 항목).
+    /// <summary>원본 `spawnEnemyAt(..., { protect: 0.35 })`(project_test.html:1842).</summary>
+    const float SplitSpawnProtect = 0.35f;
+
+    void OnEnable() => EnemySpawnRequestBus.Requested += HandleSpawnRequest;
+    void OnDisable() => EnemySpawnRequestBus.Requested -= HandleSpawnRequest;
+
+    /// <summary>
+    /// 원본 `spawnEnemyAt(x, y, 'splitlet', { noElite: true, protect: 0.35 })`(project_test.html:1842).
+    /// 웨이브 상한과 무관하게 즉시 스폰한다 — 원본도 죽은 자리에서 바로 낳는다.
+    /// </summary>
+    void HandleSpawnRequest(Vector2 position, EnemyType enemyType)
+    {
+        if (monsterPrefab == null) return;
+
+        var data = FindData(enemyType);
+        var monster = Instantiate(monsterPrefab, position, Quaternion.identity);
+        // 원본 `noElite: true`(project_test.html:1842) — 새끼는 엘리트로 승격되지 않는다.
+        ApplyEnemyData(monster, data, allowElite: false);
+
+        // 원본 `protect: 0.35` — 새끼는 일반 스폰(2초)보다 훨씬 짧은 보호만 받는다.
+        var move = monster.GetComponent<EnemyMove>();
+        if (move != null) move.SetSpawnProtection(SplitSpawnProtect);
+
+        aliveMonsters.Add(monster.transform);
+    }
+
+    EnemyData FindData(EnemyType enemyType)
+    {
+        if (enemyTypes == null) return null;
+        foreach (var d in enemyTypes)
+            if (d != null && d.type == enemyType) return d;
+        return null;
+    }
 
     void Update()
     {
@@ -93,7 +137,7 @@ public class EnemySpawner : MonoBehaviour
             if (TryGetSpawnPosition(placedThisWave, out Vector2 spawnPos))
             {
                 GameObject monster = Instantiate(monsterPrefab, spawnPos, Quaternion.identity);
-                ApplyEnemyData(monster, PickEnemyData());
+                ApplyEnemyData(monster, PickEnemyData(), allowElite: true);
                 aliveMonsters.Add(monster.transform);
                 placedThisWave.Add(spawnPos);
             }
@@ -176,14 +220,15 @@ public class EnemySpawner : MonoBehaviour
     }
 
     /// <summary>
-    /// 이번에 스폰할 몹 종류를 고른다. **지금은 등록된 종류 중 균등 랜덤**이고, 원본의 지역별 해금표
-    /// (`rollSpawnType(region)` project_test.html:3933 — 지역이 오를수록 강한 종이 확률표에 추가된다)는
-    /// 몹 6종을 실제로 붙일 때 여기에 얹는다(`HANDOFF.md` 6번).
+    /// 이번에 스폰할 몹 종류를 고른다 — 원본 지역별 해금표(<see cref="EnemySpawnTable"/>) 그대로.
+    /// 표가 고른 종류의 `EnemyData`가 등록돼 있지 않으면(예: 아직 에셋을 안 꽂았을 때) 그냥
+    /// 등록된 것 중 아무거나로 떨어진다 — 스폰 자체가 멈추는 것보단 낫다.
     /// </summary>
     EnemyData PickEnemyData()
     {
         if (enemyTypes == null || enemyTypes.Length == 0) return null;
-        return enemyTypes[Random.Range(0, enemyTypes.Length)];
+        var rolled = FindData(EnemySpawnTable.Roll(RunProgress.RegionLv));
+        return rolled != null ? rolled : enemyTypes[Random.Range(0, enemyTypes.Length)];
     }
 
     /// <summary>
@@ -192,17 +237,24 @@ public class EnemySpawner : MonoBehaviour
     ///
     /// `EnemyData`가 안 꽂혀 있으면 프리팹에 들어 있는 값을 그대로 쓴다(스폰 자체는 계속 되게).
     /// </summary>
-    void ApplyEnemyData(GameObject monster, EnemyData data)
+    void ApplyEnemyData(GameObject monster, EnemyData data, bool allowElite)
     {
         int regionLv = RunProgress.RegionLv;
+
+        // 원본 `elite = !opts.noElite && Math.random() < CONFIG.elite.chance`(project_test.html:3948).
+        // 엘리트는 별도 종류가 아니라 **아무 몹에게나 붙는 승격**이라, 종류를 정한 뒤에 굴린다.
+        bool elite = allowElite && Random.value < EliteChance;
+        if (elite) monster.AddComponent<EnemyElite>();
 
         var health = monster.GetComponent<EnemyHealth>();
         if (health != null)
         {
             float baseHp = data != null ? data.maxHp : health.MaxHp;
+            float hp = DifficultyScalingConfig.ScaledHp(baseHp, regionLv);
+            if (elite) hp *= DifficultyScalingConfig.EliteHpMult;
             // 필드만 바꾸면 이미 실행된 Awake가 세팅한 CurrentHp엔 반영 안 되는 이 프로젝트 단골
             // 함정이 있어(EnemyHealth 참고) 반드시 SetMaxHp()를 통해서 바꾼다.
-            health.SetMaxHp(DifficultyScalingConfig.ScaledHp(baseHp, regionLv));
+            health.SetMaxHp(hp);
             if (data != null) health.knockbackMultiplier = data.knockbackMultiplier;
             health.Died += HandleEnemyDied;
         }
@@ -211,20 +263,88 @@ public class EnemySpawner : MonoBehaviour
         if (move != null)
         {
             float baseDmg = data != null ? data.attackPower : move.attackPower;
-            move.attackPower = DifficultyScalingConfig.ScaledDmg(baseDmg, regionLv);
-            if (data != null) move.moveSpeed = data.moveSpeed;
+            float dmg = DifficultyScalingConfig.ScaledDmg(baseDmg, regionLv);
+            if (elite) dmg *= DifficultyScalingConfig.EliteDmgMult;
+            move.attackPower = dmg;
+            // 원본 `speed: base.speed * rand(0.9, 1.1)`(project_test.html:3960) — 같은 종이라도 마리마다
+            // 걸음이 조금씩 다르다. 이게 없으면 한 웨이브가 통째로 한 덩어리로 몰려온다.
+            if (data != null) move.moveSpeed = data.moveSpeed * Random.Range(0.9f, 1.1f);
         }
+
+        ApplySize(monster, data, elite);
 
         if (data != null)
         {
-            // 몸집·색은 지역 배율과 무관한 종류 고유값이다.
-            var col = monster.GetComponent<CircleCollider2D>();
-            if (col != null) col.radius = data.colliderRadius;
             var sr = monster.GetComponent<SpriteRenderer>();
-            if (sr != null) sr.color = data.color;
-
+            if (sr != null) sr.color = data.color; // 색은 지역 배율과 무관한 종류 고유값
+            AttachTypeBehaviour(monster, data, sr);
             spawnedData[monster] = data; // 처치 보상에서 종류별 exp/gold를 읽으려고 기억해둔다
         }
+    }
+
+    /// <summary>
+    /// 종류별 몸집(`EnemyData.colliderRadius`)과 엘리트 확대(원본 `w: base.w * sizeMul`, `:3954`)를
+    /// **`transform.localScale`로** 적용한다. 콜라이더 반지름만 바꾸면 스프라이트는 그대로라
+    /// 대오니가 "보이는 것보다 훨씬 넓게 때리는" 몹이 된다 — 눈에 안 보이는 종류의 어긋남이라
+    /// 굳이 스케일 쪽으로 통일했다(<see cref="EnemyMove.WorldRadius"/> 참고).
+    ///
+    /// 스폰 지점 Y는 프리팹 반지름(오니 0.5) 기준으로 이미 계산돼 있으므로, 커진 만큼 들어올려
+    /// 발을 지면/발판에 맞춘다. 안 그러면 큰 몹이 지면에 파묻힌 채 물리에 밀려 튀어오른다.
+    /// </summary>
+    void ApplySize(GameObject monster, EnemyData data, bool elite)
+    {
+        var col = monster.GetComponent<CircleCollider2D>();
+        if (col == null) return;
+
+        float localRadius = col.radius;                       // 프리팹 로컬 반지름(오니 0.5)
+        if (localRadius <= 0f) return;
+        float scaleBefore = monster.transform.localScale.x;
+        float scaleAfter = (data != null ? data.colliderRadius / localRadius : scaleBefore)
+                           * (elite ? DifficultyScalingConfig.EliteScale : 1f);
+
+        monster.transform.localScale = new Vector3(scaleAfter, scaleAfter, 1f);
+        monster.transform.position += new Vector3(0f, localRadius * (scaleAfter - scaleBefore), 0f);
+    }
+
+    /// <summary>
+    /// 종류별 행동 스크립트를 붙인다 — 원본 `updateEnemies()`의 타입 분기(project_test.html:4042~4111)와
+    /// `killEnemy()`의 분열 분기(`:1840`)에 각각 대응한다.
+    ///
+    /// 오니·대오니·새끼는 **붙일 게 없다**. 셋 다 기본 보행 AI를 그대로 쓰고 수치만 다르기 때문이다
+    /// (CLAUDE.md "SO는 수치만, 행동이 다르면 스크립트 분리" 규칙의 '수치만' 쪽).
+    ///
+    /// 붙인 뒤 <see cref="EnemyMove.RefreshTypeBehaviour"/>를 **반드시** 불러야 한다 —
+    /// `Instantiate` 시점에 이미 끝난 `EnemyMove.Awake`는 여기서 붙인 컴포넌트를 모르기 때문이다.
+    /// </summary>
+    void AttachTypeBehaviour(GameObject monster, EnemyData data, SpriteRenderer sr)
+    {
+        switch (data.type)
+        {
+            case EnemyType.Wisp:
+                monster.AddComponent<EnemyWispMotion>();
+                // 원본은 도깨비불만 스폰 지점보다 50px 위에서 나온다(`y: type === 'wisp' ? y - 50 : y`,
+                // project_test.html:3955 — 원본은 Y+가 아래라 부호가 뒤집힌다).
+                monster.transform.position += new Vector3(0f, 0.5f, 0f);
+                break;
+
+            case EnemyType.Charger:
+                monster.AddComponent<EnemyChargerMotion>();
+                break;
+
+            case EnemyType.Shooter:
+                var shooter = monster.AddComponent<EnemyShooterMotion>();
+                // 화염탄은 런타임에 새 오브젝트로 생성된다 — 몹이 쓰는 스프라이트를 그대로 물려준다.
+                if (sr != null) shooter.boltSprite = sr.sprite;
+                shooter.boltColor = data.color;
+                break;
+
+            case EnemyType.Splitter:
+                monster.AddComponent<EnemySplitOnDeath>();
+                break;
+        }
+
+        var move = monster.GetComponent<EnemyMove>();
+        if (move != null) move.RefreshTypeBehaviour();
     }
 
     /// <summary>
@@ -240,13 +360,18 @@ public class EnemySpawner : MonoBehaviour
         if (enemy != null) spawnedData.TryGetValue(enemy.gameObject, out data);
 
         float sc = DifficultyScalingConfig.RewardMultiplier(RunProgress.RegionLv);
+        // 원본 `eliteMult = e.elite ? CONFIG.elite.rewardMult : 1`(project_test.html:1810).
+        bool elite = enemy != null && enemy.GetComponent<EnemyElite>() != null;
+        if (elite) sc *= DifficultyScalingConfig.EliteRewardMult;
+
         float baseExp = data != null ? data.exp : 8f;
         int goldMin = data != null ? data.goldMin : 5;
         int goldMax = data != null ? data.goldMax : 10;
 
         ProfileService.Current.AddExp(Mathf.RoundToInt(baseExp * sc));
 
-        if (Random.value < DifficultyScalingConfig.GoldDropChance)
+        // 원본 `if (Math.random() < goldDropChance || e.boss || e.elite)`(`:1818`) — 엘리트는 확률 무시하고 항상 드랍.
+        if (elite || Random.value < DifficultyScalingConfig.GoldDropChance)
         {
             int rolled = Random.Range(goldMin, goldMax + 1); // Random.Range(int)는 상한이 배타적이라 +1
             ProfileService.Current.AddGold(Mathf.RoundToInt(rolled * sc));

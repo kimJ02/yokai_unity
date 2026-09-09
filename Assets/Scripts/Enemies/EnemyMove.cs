@@ -69,6 +69,10 @@ public class EnemyMove : MonoBehaviour, ISpawnProtectable, IGravityAffectable
     CircleCollider2D col;
     float spawnProtectTimer;
     Transform target;
+    // 종류 전용 이동 스크립트(있으면 기본 보행 대신 이쪽에 물어본다). 원본 updateEnemies의 타입 분기.
+    IEnemyMotion motion;
+    IEnemyVerticalMotion verticalMotion;
+    IEnemyContactDamageModifier contactDamageModifier;
     int dir = 1; // 원본 e.dir(1 또는 -1) — 추적/배회/가장자리반전이 전부 이 값을 공유
     float wanderTimer;
     // 원본 `e.kbx` — AI 이동 속도를 대체하는 게 아니라 **거기에 더해지는 별도 성분**이다
@@ -81,8 +85,39 @@ public class EnemyMove : MonoBehaviour, ISpawnProtectable, IGravityAffectable
         rb = GetComponent<Rigidbody2D>();
         rb.freezeRotation = true;
         col = GetComponent<CircleCollider2D>();
+        RefreshTypeBehaviour();
         spawnProtectTimer = spawnProtectDuration;
         wanderTimer = Random.Range(wanderIntervalRange.x, wanderIntervalRange.y);
+        dir = Random.value < 0.5f ? 1 : -1; // 원본 `dir: Math.random() < 0.5 ? 1 : -1`(project_test.html:3959)
+    }
+
+    /// <summary>
+    /// 종류 전용 이동 스크립트(<see cref="IEnemyMotion"/> 등)를 다시 찾아 붙인다.
+    ///
+    /// **스포너는 `Instantiate` 뒤에 종류별 컴포넌트를 붙인다** — 그 시점엔 이 스크립트의 `Awake`가
+    /// 이미 끝나 있어서, 위에서 캐시한 `motion`이 계속 null로 남는다(이 프로젝트 단골 함정:
+    /// `AddComponent`/`Instantiate`는 `Awake`를 그 자리에서 동기 실행한다). 그래서 컴포넌트를 다 붙인
+    /// 스포너가 마지막에 이 메서드를 한 번 불러 준다. 안 부르면 도깨비불이 중력에 떨어지고
+    /// 돌진귀가 그냥 걷기만 하는, **에러 없이 조용히 틀리는** 상태가 된다.
+    /// </summary>
+    public void RefreshTypeBehaviour()
+    {
+        // 종류에 맞는 이동 스크립트가 붙어 있으면 그쪽을 쓴다. 없으면(오니·대오니·분열귀·새끼) 기본 보행.
+        motion = GetComponent<IEnemyMotion>();
+        verticalMotion = GetComponent<IEnemyVerticalMotion>();
+        contactDamageModifier = GetComponent<IEnemyContactDamageModifier>();
+        if (verticalMotion != null) rb.gravityScale = 0f; // 비행형은 중력을 안 받는다(원본 wisp 분기)
+    }
+
+    /// <summary>
+    /// 스폰 보호 시간을 덮어쓴다. 원본 `spawnEnemyAt(..., { protect: 0.35 })`(project_test.html:3968) —
+    /// 분열귀가 낳는 새끼만 일반 스폰(2초)보다 훨씬 짧은 보호를 받는다. 죽은 자리에서 바로 나오는데
+    /// 2초나 무적이면 플레이어가 손을 못 대기 때문이다.
+    /// </summary>
+    public void SetSpawnProtection(float seconds)
+    {
+        spawnProtectDuration = seconds;
+        spawnProtectTimer = seconds;
     }
 
     void Update()
@@ -99,8 +134,11 @@ public class EnemyMove : MonoBehaviour, ISpawnProtectable, IGravityAffectable
         if (target == null || !target.gameObject.activeInHierarchy)
             target = FindNearestPlayer();
 
-        UpdateDirection();
-        TryTurnBackAtPlatformEdge();
+        // 기본 보행의 방향 판단(추적/배회)은 종류 전용 스크립트가 없을 때만 돈다 —
+        // 돌진귀·사수귀는 자기 상태기계 안에서 방향을 직접 정한다(원본도 타입별 분기 안에서 e.dir을 정함).
+        if (motion == null) UpdateDirection();
+        // 발판 가장자리 반전은 지상형만 — 비행형은 발판과 무관하다.
+        if (verticalMotion == null) TryTurnBackAtPlatformEdge();
 
         if (target != null && OverlapsTarget())
             TryAttack(target); // 원본: 쿨다운 없이 겹치는 동안 매 프레임 호출(실제 반복 피해 방지는 플레이어 무적시간 담당)
@@ -112,6 +150,13 @@ public class EnemyMove : MonoBehaviour, ISpawnProtectable, IGravityAffectable
     /// 걷던 방향과 무관하게 밀려난 뒤 자연스럽게 원래 이동으로 돌아온다.
     /// </summary>
     public void ApplyKnockback(float velocityX) => knockbackX = velocityX;
+
+    /// <summary>
+    /// 실제 월드 반지름. 몸집이 다른 종류(대오니는 오니의 1.74배)와 엘리트(×1.35)는 콜라이더 값을
+    /// 고치는 대신 <c>transform.localScale</c>로 키운다 — 그래야 스프라이트와 판정이 같이 커진다.
+    /// 그래서 `col.radius`(로컬 값)를 그대로 쓰면 큰 몹일수록 판정이 실제보다 작아진다.
+    /// </summary>
+    public float WorldRadius => col.radius * Mathf.Abs(transform.lossyScale.x);
 
     /// <summary>중력점(gravityWell)에 노출된 동안의 위치. Combat 도메인이 끌어당길 대상까지의 거리를 재는 데 쓴다.</summary>
     public Vector2 WorldPosition => rb.position;
@@ -133,11 +178,28 @@ public class EnemyMove : MonoBehaviour, ISpawnProtectable, IGravityAffectable
 
         // 스폰 보호 중엔 수평 이동을 하지 않는다(위 Update 주석 참고). 중력·착지는 Physics2D에 그대로 맡긴다
         // — 원본은 스폰 지점이 이미 착지 높이라 낙하가 없지만, 우리 쪽은 안전하게 물리에 맡겨 둔다.
-        float vx = IsSpawnProtected ? 0f : dir * moveSpeed + knockbackX; // 원본 `e.vx + e.kbx`
+        //
+        // 종류 전용 이동 스크립트가 있으면 수평 속도를 그쪽이 정한다(원본 updateEnemies의 타입별 mvx).
+        float ownSpeed = motion != null
+            ? motion.GetHorizontalSpeed(Time.fixedDeltaTime, target, moveSpeed)
+            : dir * moveSpeed;
+        float vx = IsSpawnProtected ? 0f : ownSpeed + knockbackX; // 원본 `e.vx + e.kbx`
+
         float minX = FieldBounds.MinX + edgeMargin;
         float maxX = FieldBounds.MaxX - edgeMargin;
         if (rb.position.x <= minX && vx < 0f) vx = 0f;
         if (rb.position.x >= maxX && vx > 0f) vx = 0f;
+
+        if (verticalMotion != null)
+        {
+            // 비행형: 중력·착지 없이 Y를 직접 놓는다(원본 wisp는 `e.y +=`로 좌표를 직접 옮긴다).
+            float y = IsSpawnProtected
+                ? rb.position.y
+                : verticalMotion.GetVerticalPosition(Time.fixedDeltaTime, target, rb.position.y);
+            rb.linearVelocity = new Vector2(vx, 0f);
+            rb.position = new Vector2(Mathf.Clamp(rb.position.x, minX, maxX), y);
+            return;
+        }
 
         float vy = Mathf.Max(rb.linearVelocity.y, -terminalFallSpeed); // 원본 종단속도 상한
         rb.linearVelocity = new Vector2(vx, vy); // Y(중력·착지)는 Physics2D에 맡김
@@ -145,6 +207,15 @@ public class EnemyMove : MonoBehaviour, ISpawnProtectable, IGravityAffectable
         if (rb.position.x < minX || rb.position.x > maxX)
             rb.position = new Vector2(Mathf.Clamp(rb.position.x, minX, maxX), rb.position.y);
     }
+
+    /// <summary>
+    /// 종류 전용 스크립트가 방향을 직접 정할 때 쓴다(원본은 타입별 분기 안에서 `e.dir`을 바꾼다).
+    /// `EnemyMove`가 들고 있는 `dir`은 스프라이트 방향·발판 반전과도 얽혀 있어 한 곳에서만 바꾼다.
+    /// </summary>
+    public void SetDirection(int newDir) => dir = newDir >= 0 ? 1 : -1;
+
+    /// <summary>현재 바라보는 방향(1/-1). 종류 전용 스크립트가 읽는다.</summary>
+    public int Direction => dir;
 
     /// <summary>원본: `if (Math.abs(dx) < 300) dir = sign(dx) || dir; else { wander }`.</summary>
     void UpdateDirection()
@@ -178,11 +249,11 @@ public class EnemyMove : MonoBehaviour, ISpawnProtectable, IGravityAffectable
     void TryTurnBackAtPlatformEdge()
     {
         if (Mathf.Abs(rb.linearVelocity.y) > 0.01f) return; // 낙하/착지 중이면 스킵(원본 e.vy===0)
-        if (transform.position.y <= FieldBounds.GroundY + col.radius + 0.02f) return; // 바닥이면 발판 로직 불필요
+        if (transform.position.y <= FieldBounds.GroundY + WorldRadius + 0.02f) return; // 바닥이면 발판 로직 불필요
 
         for (int i = 0; i < FieldLayout.Platforms.GetLength(0); i++)
         {
-            float landingY = FieldLayout.PlatformLandingY(i, col.radius);
+            float landingY = FieldLayout.PlatformLandingY(i, WorldRadius);
             if (Mathf.Abs(transform.position.y - landingY) >= onPlatformYTolerance) continue;
 
             float left = FieldLayout.PlatformLeftX(i);
@@ -211,7 +282,7 @@ public class EnemyMove : MonoBehaviour, ISpawnProtectable, IGravityAffectable
         var targetCol = target.GetComponent<Collider2D>();
         float targetRadius = targetCol != null ? targetCol.bounds.extents.x : 0.5f;
         float dist = Vector2.Distance(transform.position, target.position);
-        return dist < col.radius + targetRadius;
+        return dist < WorldRadius + targetRadius;
     }
 
     Transform FindNearestPlayer()
@@ -245,8 +316,10 @@ public class EnemyMove : MonoBehaviour, ISpawnProtectable, IGravityAffectable
     {
         var damageable = playerTransform.GetComponent<IDamageable>();
         if (damageable == null || damageable.IsDead) return;
+        // 원본은 돌진귀가 질주 중일 때만 접촉 피해 ×1.4다(`chargeMul`, project_test.html:4147).
+        float mul = contactDamageModifier != null ? contactDamageModifier.ContactDamageMultiplier : 1f;
         // 피해 난수(±10%)는 원본이 피격자 쪽(damagePlayer)에서 굴리므로 여기선 원본 스탯 그대로 넘긴다.
-        damageable.TakeDamage(attackPower, gameObject);
+        damageable.TakeDamage(attackPower * mul, gameObject);
     }
 }
 }
