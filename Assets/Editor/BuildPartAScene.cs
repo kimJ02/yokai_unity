@@ -157,19 +157,29 @@ public static class BuildPartAScene
     /// 통과하고 위에서 떨어질 때만 착지되는" 원웨이 발판 — Unity 내장 PlatformEffector2D(
     /// useOneWay=true) + Collider2D.usedByEffector로 구현했다(막힌 콜라이더였던 이전 버전은
     /// 원본과 달리 점프 중 발판 밑면에 머리가 막히는 버그가 있었음 — 사용자 피드백으로 수정).
-    /// 원본의 dropTimer(아래로 뛰어내리기 입력)는 이번엔 안 넣음 — "위에서 착지, 아래서 통과"
-    /// 자체가 요청받은 핵심이라 그 이상은 범위 밖.
+    /// 아래키 관통 낙하는 `CharacterMover2D.UpdateDropThrough`가 콜라이더 쌍 무시로 처리한다.
+    ///
+    /// **두 무대(일반/보스)를 다 만들어 두고 한쪽만 켠다** — 런타임에 발판을 만들고 없애면
+    /// 콜라이더가 프레임 중간에 사라져 그 위에 서 있던 대상이 튀거나 빠진다.
     /// </summary>
     static void BuildPlatforms()
     {
-        int groundLayer = LayerMask.NameToLayer(GroundLayer);
-        var parent = new GameObject("Platforms").transform;
+        BuildPlatformSet("Platforms_Normal", FieldLayout.NormalPlatforms, boss: false);
+        BuildPlatformSet("Platforms_Boss", FieldLayout.BossPlatforms, boss: true);
+    }
 
-        for (int i = 0; i < FieldLayout.Platforms.GetLength(0); i++)
+    static void BuildPlatformSet(string parentName, float[,] table, bool boss)
+    {
+        int groundLayer = LayerMask.NameToLayer(GroundLayer);
+        var parentGo = new GameObject(parentName);
+        parentGo.AddComponent<PlatformSet>().bossArena = boss;
+        var parent = parentGo.transform;
+
+        for (int i = 0; i < table.GetLength(0); i++)
         {
-            float cx = FieldLayout.Platforms[i, 0];
-            float cy = FieldLayout.Platforms[i, 1];
-            float w = FieldLayout.Platforms[i, 2];
+            float cx = table[i, 0];
+            float cy = table[i, 1];
+            float w = table[i, 2];
 
             var go = new GameObject($"Platform_{i}");
             go.transform.SetParent(parent);
@@ -193,6 +203,9 @@ public static class BuildPartAScene
             lr.startColor = lr.endColor = new Color(0.4f, 0.32f, 0.22f, 1f); // 목조 발판 느낌의 갈색
             lr.sortingOrder = -1;
         }
+
+        // 시작은 일반 무대. 보스 무대는 보스전에 입장할 때 켜진다(RunController).
+        parentGo.SetActive(!boss);
     }
 
     static GameObject BuildPlayer()

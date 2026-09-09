@@ -39,6 +39,12 @@ public class CharacterMover2D : MonoBehaviour, Core.IRunResettable
     public float coyoteTime = 0.10f;      // 원본 COYOTE_T
     public float jumpBufferTime = 0.13f;  // 원본 INPUT_BUF_T
     public float terminalFallSpeed = 15f; // 원본 1500px/s ÷100
+
+    [Header("아래키 발판 관통 (원본 :3460)")]
+    [Tooltip("발판을 통과하는 시간. 원본 dropTimer 0.22.")]
+    public float dropThroughTime = 0.22f;
+    [Tooltip("통과 시작할 때 아래로 밀어주는 속도. 원본 vy 140 ÷100(원본은 Y+가 아래라 부호가 반대).")]
+    public float dropThroughSpeed = 1.4f;
     public float edgeMargin = 0.24f;      // 원본 clamp(nx, 24, mapW-24)의 24px ÷100
 
     /// <summary>
@@ -94,6 +100,9 @@ public class CharacterMover2D : MonoBehaviour, Core.IRunResettable
     Rigidbody2D rb;
     Collider2D col;
     bool grounded;
+    // 아래키 발판 관통 — 통과 중인 동안 무시한 발판 콜라이더들과 남은 시간.
+    readonly System.Collections.Generic.List<Collider2D> ignoredPlatforms = new System.Collections.Generic.List<Collider2D>();
+    float dropTimer;
     float coyoteTimer;
     float jumpBufferTimer;
     float inertialVx; // 관성 모드가 프레임을 넘겨 들고 가는 수평 속도(원본 p.vx)
@@ -109,6 +118,8 @@ public class CharacterMover2D : MonoBehaviour, Core.IRunResettable
 
     void Update()
     {
+        UpdateDropThrough(Time.deltaTime);
+
         if (GameInput.JumpDown) jumpBufferTimer = jumpBufferTime;
         else jumpBufferTimer -= Time.deltaTime;
 
@@ -230,6 +241,7 @@ public class CharacterMover2D : MonoBehaviour, Core.IRunResettable
     /// </summary>
     public void ResetForRun()
     {
+        CancelDropThrough();
         ResetMotion();
         Facing = 1;
         Teleport(new Vector3(RunStartX, Core.FieldBounds.GroundY + StartHeightAboveGround, 0f));
@@ -248,6 +260,59 @@ public class CharacterMover2D : MonoBehaviour, Core.IRunResettable
         MoveScale = 1f;
         AccelMultiplier = 1f;
         if (rb != null) rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
+    }
+
+    /// <summary>
+    /// 아래키로 발판을 통과해 내려간다 — 원본 `:3460`:
+    /// <code>if (down &amp;&amp; onGround &amp;&amp; y &lt; groundY - 2) { dropTimer = 0.22; vy = 140; onGround = false; }</code>
+    ///
+    /// **바닥(맨 아래 지면)에서는 안 된다** — 원본의 `y &lt; groundY - 2` 조건이 그것이다.
+    /// 4층 수직 맵인데 이게 없으면 내려오는 수단이 "가장자리로 걸어서 떨어지기"뿐이라 이동이 답답해진다.
+    ///
+    /// 구현은 **콜라이더 쌍 무시**(`Physics2D.IgnoreCollision`)다. 레이어를 통째로 끄면 같은 레이어의
+    /// 적까지 발판을 통과하고, 플레이어 콜라이더를 끄면 맨 바닥까지 빠진다.
+    /// </summary>
+    void UpdateDropThrough(float dt)
+    {
+        if (dropTimer > 0f)
+        {
+            dropTimer -= dt;
+            if (dropTimer <= 0f) RestoreDroppedPlatforms();
+            return;
+        }
+
+        if (!GameInput.Down || !grounded) return;
+        // 맨 바닥에 서 있으면 통과할 발판이 없다(원본 `y < groundY - 2`).
+        if (transform.position.y <= FieldBounds.GroundY + col.bounds.extents.y + 0.05f) return;
+
+        // 지금 밟고 있는 발판(원웨이 이펙터가 붙은 것)만 골라 무시한다.
+        var hits = Physics2D.OverlapCircleAll(
+            (Vector2)transform.position + Vector2.down * col.bounds.extents.y, groundCheckRadius * 3f, groundMask);
+        foreach (var hit in hits)
+        {
+            if (hit == null || hit.GetComponent<PlatformEffector2D>() == null) continue;
+            Physics2D.IgnoreCollision(col, hit, true);
+            ignoredPlatforms.Add(hit);
+        }
+        if (ignoredPlatforms.Count == 0) return;
+
+        dropTimer = dropThroughTime;
+        rb.linearVelocity = new Vector2(rb.linearVelocity.x, -dropThroughSpeed);
+        grounded = false;
+    }
+
+    void RestoreDroppedPlatforms()
+    {
+        foreach (var c in ignoredPlatforms)
+            if (c != null) Physics2D.IgnoreCollision(col, c, false);
+        ignoredPlatforms.Clear();
+    }
+
+    /// <summary>런이 끝나거나 순간이동할 때 통과 상태가 남지 않게 한다.</summary>
+    public void CancelDropThrough()
+    {
+        dropTimer = 0f;
+        RestoreDroppedPlatforms();
     }
 
     bool CheckGrounded()

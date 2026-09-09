@@ -94,6 +94,11 @@ namespace YokaiFront.Systems
         {
             RunState.Begin(region, mode);
 
+            // 무대를 먼저 바꾼다 — 발판 배치와 맵 폭(`FieldBounds.MaxX`)이 여기서 정해지고,
+            // 아래의 플레이어 리셋·필드 정리가 그 값을 보고 좌표를 잡는다.
+            // 원본도 `startRun`에서 `run.mapW`와 `platforms`를 먼저 갈아끼운다(:4313·:4316).
+            YokaiFront.World.PlatformSet.Activate(mode == RunMode.Boss);
+
             // 원본 `enemies = []; projectiles = []; zones = []; ...`(:4318) — 지난 런의 잔해를 지운다.
             RunTransient.DestroyAll();
             CombatModifiers.ResetForRun(); // 원본 `combo.n = 0; run.chainN = 0`(:4307·:4319)
@@ -140,6 +145,7 @@ namespace YokaiFront.Systems
         /// <summary>원본 `toLobby()`(:4382).</summary>
         public void EnterLobby()
         {
+            YokaiFront.World.PlatformSet.Activate(false); // 로비에선 일반 무대로 되돌린다
             RunTransient.DestroyAll(); // 결과 화면을 거치지 않고 나가도 필드가 남지 않게
             GameState.Set(GameScene.Lobby);
             Time.timeScale = 0f;
