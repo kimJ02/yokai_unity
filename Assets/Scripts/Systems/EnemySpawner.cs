@@ -59,6 +59,10 @@ public class EnemySpawner : MonoBehaviour
 
     float EliteChance => eliteChanceOverride >= 0f ? eliteChanceOverride : DifficultyScalingConfig.EliteChance;
 
+    [Header("경험치 구슬")]
+    [Tooltip("구슬 스프라이트. 씬 빌더가 꽂아준다. 비어 있어도 동작은 하고 안 보이기만 한다.")]
+    public Sprite orbSprite;
+
     [Header("몹 종류별 수치 (Assets/Data/Enemies/, BuildEnemyData가 생성)")]
     [Tooltip("스폰할 몹 종류들. 비어 있으면 프리팹에 들어 있는 값을 그대로 쓴다. 지역별 해금표(원본 rollSpawnType :3933)는 몹 6종을 붙일 때 여기에 얹는다.")]
     public EnemyData[] enemyTypes;
@@ -400,6 +404,11 @@ public class EnemySpawner : MonoBehaviour
 
         // 원본 `run.goldEarned += g; run.expEarned += exp`(:1816·:1820) — 결과 화면에 쓴다.
         RunState.RegisterReward(goldGained, expGained);
+
+        // 경험치 구슬 — 원본 `if (run.kills % CONFIG.orb.every === 0)`(:1860).
+        // **이번 런 처치 수 기준**이라(누적이 아니다) 런마다 50마리째부터 다시 센다.
+        if (RunState.Kills > 0 && RunState.Kills % ExpOrb.DropEveryKills == 0 && enemy != null)
+            ExpOrb.Spawn(enemy.transform.position, orbSprite);
 
         if (enemy != null) spawnedData.Remove(enemy.gameObject);
     }

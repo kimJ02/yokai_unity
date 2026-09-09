@@ -275,6 +275,7 @@ public static class BuildPartAScene
         var go = new GameObject("EnemySpawner");
         var spawner = go.AddComponent<EnemySpawner>();
         spawner.monsterPrefab = monsterPrefab;
+        spawner.orbSprite = AssetDatabase.LoadAssetAtPath<Sprite>(SpritePath); // 경험치 구슬 표시용
 
         // 몹 종류별 수치는 EnemyData(SO)에서 온다. 에셋이 없으면 여기서 만들어 둔다.
         BuildEnemyData.Build();
