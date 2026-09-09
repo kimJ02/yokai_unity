@@ -39,6 +39,30 @@ namespace YokaiFront.Core
 
         public UpgradeLevels upgrades = new UpgradeLevels();
 
+        /// <summary>
+        /// 지역별 보스 격파 여부. 원본 `meta.regions[r].bossCleared`(project_test.html:6435)로,
+        /// **다음 지역을 여는 유일한 조건**이다(`regionOpen(r) = r === 1 || regions[r-1].bossCleared`).
+        /// 인덱스는 0부터라 `regionBossCleared[0]`이 1지역이다.
+        /// </summary>
+        public bool[] regionBossCleared = new bool[RegionConfig.Count];
+
+        /// <summary>
+        /// ⚠️ **임시 — 보스를 구현하면 삭제한다.** 지역 해금 조건이 "이전 지역 보스 격파"인데
+        /// 보스가 아직 없어서 정상적으로는 1지역에서 영영 못 나간다. 그러면 방금 만든 지역별
+        /// 몹 해금표·난이도 스케일링을 **실제로 확인할 방법이 없어서** 열어둔 스위치다.
+        /// 원본에 없는 동작이므로 보스가 생기는 즉시 이 필드와 참조처를 지울 것.
+        /// </summary>
+        public bool debugUnlockAllRegions = true;
+
+        /// <summary>원본 `regionOpen(r)`(project_test.html:6434).</summary>
+        public bool IsRegionOpen(int region)
+        {
+            if (region <= 1) return true;
+            if (debugUnlockAllRegions) return true;
+            int prev = region - 2; // 이전 지역의 0-based 인덱스
+            return prev >= 0 && prev < regionBossCleared.Length && regionBossCleared[prev];
+        }
+
         /// <summary>레벨이 실제로 오를 때(한 번 이상) 1회 발생. `Characters/PlayerHealth`가 구독해서
         /// 최대체력 재계산 + 풀피 회복을 한다(원본 `project_test.html:1850`, 레벨업 때만 일어나고
         /// 골드 강화 구매 자체로는 즉시 반영되지 않는다 — 원본과 동일한 비직관적 동작).</summary>

@@ -358,6 +358,8 @@ public class EnemySpawner : MonoBehaviour
     void HandleEnemyDied(EnemyHealth enemy)
     {
         RunProgress.RegisterKill();
+        // 결과 화면·HUD가 읽는 이번 런 집계. 원본도 `run.kills`와 누적 통계를 따로 센다(:1857).
+        RunState.RegisterKill(isBoss: false);
 
         EnemyData data = null;
         if (enemy != null) spawnedData.TryGetValue(enemy.gameObject, out data);
@@ -371,14 +373,20 @@ public class EnemySpawner : MonoBehaviour
         int goldMin = data != null ? data.goldMin : 5;
         int goldMax = data != null ? data.goldMax : 10;
 
-        ProfileService.Current.AddExp(Mathf.RoundToInt(baseExp * sc));
+        int expGained = Mathf.RoundToInt(baseExp * sc);
+        ProfileService.Current.AddExp(expGained);
+        int goldGained = 0;
 
         // 원본 `if (Math.random() < goldDropChance || e.boss || e.elite)`(`:1818`) — 엘리트는 확률 무시하고 항상 드랍.
         if (elite || Random.value < DifficultyScalingConfig.GoldDropChance)
         {
             int rolled = Random.Range(goldMin, goldMax + 1); // Random.Range(int)는 상한이 배타적이라 +1
-            ProfileService.Current.AddGold(Mathf.RoundToInt(rolled * sc));
+            goldGained = Mathf.RoundToInt(rolled * sc);
+            ProfileService.Current.AddGold(goldGained);
         }
+
+        // 원본 `run.goldEarned += g; run.expEarned += exp`(:1816·:1820) — 결과 화면에 쓴다.
+        RunState.RegisterReward(goldGained, expGained);
 
         if (enemy != null) spawnedData.Remove(enemy.gameObject);
     }

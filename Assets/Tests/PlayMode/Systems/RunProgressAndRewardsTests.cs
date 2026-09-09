@@ -262,6 +262,38 @@ public class RunProgressAndRewardsTests
     }
 
     /// <summary>
+    /// 결과 화면에 뜰 이번 런 집계(처치수·골드·경험치)가 실제 처치 경로에서 쌓이는지.
+    /// 배선이 빠지면 **에러 없이 결과 화면이 전부 0으로만 뜬다** — 눈에 안 띄는 종류의 고장이라 못 박는다.
+    /// </summary>
+    [UnityTest]
+    public IEnumerator EnemyKill_AccumulatesRunTotalsForResultScreen()
+    {
+        RunState.Begin(1, RunMode.Normal);
+        Assert.AreEqual(0, RunState.Kills);
+        Assert.AreEqual(0, RunState.ExpEarned);
+
+        var attacker = new GameObject("TestAttacker");
+        var prefab = NewMonsterPrefab();
+        var spawner = NewSpawner(prefab);
+        spawner.maxSpawnPerWave = 1;
+        spawner.maxAliveTotal = 10;
+
+        InvokeSpawnWave(spawner);
+        yield return null;
+
+        var enemyGO = GetAlive(spawner)[0].gameObject;
+        RemoveSpawnProtection(enemyGO);
+        var health = enemyGO.GetComponent<EnemyHealth>();
+        health.TakeDamage(health.MaxHp + 1f, attacker);
+        yield return null;
+
+        Assert.AreEqual(1, RunState.Kills, "몹을 잡았는데 이번 런 처치수가 안 올랐다");
+        Assert.Greater(RunState.ExpEarned, 0, "EXP는 항상 지급되므로 집계도 0이면 안 된다");
+        Assert.AreEqual(ProfileService.Current.exp, RunState.ExpEarned,
+            "결과 화면 집계와 실제 지급액이 어긋난다");
+    }
+
+    /// <summary>
     /// 엘리트 승격(원본 `CONFIG.elite` :696) — 체력 ×4, 피해 ×1.5, 몸집 ×1.35.
     /// 확률을 1로 고정해서 결정적으로 본다.
     /// </summary>

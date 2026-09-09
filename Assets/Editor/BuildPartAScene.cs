@@ -6,6 +6,7 @@ using UnityEngine;
 using YokaiFront.Characters;
 using YokaiFront.Core;
 using YokaiFront.Systems;
+using YokaiFront.UI;
 using YokaiFront.World;
 
 namespace YokaiFront.Editor
@@ -230,8 +231,6 @@ public static class BuildPartAScene
         gunner.bulletSprite = circleSprite;
         // 섬영·드루이드 키트(팀원 작업)가 생기면 여기에 같이 붙일 것 — PlayerRig가 자동으로 찾는다.
 
-        go.AddComponent<PlayerDebugController>(); // ⚠️ 삭제 예정(원본은 로비 탭) — 로비 UI 때 제거
-
         // 캐릭터 키트 전환기. **키트를 전부 붙인 뒤 마지막에** 추가해야 Awake에서 전부 찾는다
         // (GetComponents는 이미 붙어 있는 것만 본다). 섬영·드루이드 키트가 생기면 위에 같이 붙일 것.
         go.AddComponent<PlayerRig>();
@@ -252,6 +251,13 @@ public static class BuildPartAScene
     {
         var go = new GameObject("RunController");
         go.AddComponent<RunController>();
+
+        // 화면(로비/HUD/결과)은 전부 이 오브젝트에 같이 붙인다. 각자 `GameState`를 보고 자기 차례에만
+        // 그리므로 켜고 끌 필요가 없다 — 원본도 div 셋을 `hidden` 클래스로 토글할 뿐이다.
+        var ui = new GameObject("UI");
+        ui.AddComponent<LobbyScreen>();
+        ui.AddComponent<GameHud>();
+        ui.AddComponent<ResultScreen>();
     }
 
     static void BuildEnemySpawner()
