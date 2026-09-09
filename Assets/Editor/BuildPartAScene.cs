@@ -218,8 +218,13 @@ public static class BuildPartAScene
 
         go.AddComponent<CharacterMover2D>();
         go.AddComponent<PlayerHealth>(); // 스프린트 2 — 체력 100, 무적 0.9초(원본 CONFIG.player)
+        // --- 캐릭터 키트 (PlayerRig가 선택된 하나만 켠다) ---
         var mage = go.AddComponent<MageAttack>();
         mage.boltSprite = circleSprite; // 런타임 AssetDatabase 호출(빌드에서 못 씀) 없이 미리 꽂아줌
+
+        var gunner = go.AddComponent<GunnerAttack>();
+        gunner.bulletSprite = circleSprite;
+        // 섬영·드루이드 키트(팀원 작업)가 생기면 여기에 같이 붙일 것 — PlayerRig가 자동으로 찾는다.
 
         go.AddComponent<PlayerDeathHandler>();   // ⚠️ 삭제 예정(원본에 없는 R키 부활) — 런 사이클 때 제거
         go.AddComponent<PlayerDebugController>(); // ⚠️ 삭제 예정(원본은 로비 탭) — 로비 UI 때 제거
