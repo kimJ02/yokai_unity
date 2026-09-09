@@ -25,9 +25,9 @@ namespace YokaiFront.UI
     [DisallowMultipleComponent]
     public class LobbyScreen : MonoBehaviour
     {
-        enum Tab { Character, Stage, Upgrade, Spec, Rebirth, Gacha }
+        enum Tab { Character, Stage, Upgrade, Spec, Rebirth, Gacha, Achieve }
 
-        static readonly string[] TabNames = { "캐릭터 선택", "스테이지", "강화", "전문화", "윤회 ☸", "기원 🎴" };
+        static readonly string[] TabNames = { "캐릭터 선택", "스테이지", "강화", "전문화", "윤회 ☸", "기원 🎴", "업적 🏆" };
 
         Tab tab = Tab.Character;
         RunController run;
@@ -71,6 +71,7 @@ namespace YokaiFront.UI
                 case Tab.Spec: DrawSpecTab(profile); break;
                 case Tab.Rebirth: DrawRebirthTab(profile); break;
                 case Tab.Gacha: DrawGachaTab(profile); break;
+                case Tab.Achieve: DrawAchieveTab(profile); break;
             }
             GUILayout.EndScrollView();
 
@@ -500,6 +501,34 @@ namespace YokaiFront.UI
         }
 
         System.Collections.Generic.List<ItemDef> lastPulls = new System.Collections.Generic.List<ItemDef>();
+
+        // ────────────────────────── 업적 ──────────────────────────
+
+        /// <summary>
+        /// 원본 업적 탭(project_test.html:6888). 보상은 없고 **어디까지 왔는지를 보여주는 지표**다 —
+        /// 원본 주석 그대로 "현재 캐릭터/윤회/강화 루프에 맞춘 진행 목표".
+        /// </summary>
+        void DrawAchieveTab(PlayerProfile profile)
+        {
+            int done = Achievements.Count(profile);
+            GUILayout.Label($"달성   {done} / {Achievements.All.Length}");
+            GUILayout.Space(4f);
+            GUILayout.Label($"누적 처치 {profile.stats.totalKills}   최고 콤보 {profile.stats.maxCombo}   " +
+                            $"엘리트 {profile.stats.elites}   성소 {profile.stats.shrines}   보스 {profile.stats.bosses}");
+            GUILayout.Label($"누적 골드 {profile.stats.goldEarned}   누적 윤회 포인트 {profile.stats.rpEarned}   " +
+                            $"뽑기 {profile.stats.pulls}회");
+            GUILayout.Space(8f);
+
+            foreach (var a in Achievements.All)
+            {
+                bool got = profile.achieved.Contains(a.id);
+                GUILayout.Label($"{(got ? "🏆" : "▫")} {a.name}  —  {a.description}");
+            }
+
+            GUILayout.Space(10f);
+            GUILayout.Label("메카닉·섬영 빌드 5층 업적은 그 스킬트리가 아직 없어서 목록에서 뺐다 — " +
+                            "항상 달성 불가인 줄이 섞여 있으면 버그인지 미구현인지 구분이 안 된다.");
+        }
 
         // ────────────────────────── 잡동사니 ──────────────────────────
 

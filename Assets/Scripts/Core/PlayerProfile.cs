@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace YokaiFront.Core
@@ -47,6 +48,12 @@ namespace YokaiFront.Core
         /// 보유 아이템. 원본 `meta.items`(`:1146`) — **윤회해도 사라지지 않는 유일한 성장 축**이다.
         /// </summary>
         public ItemInventory items = new ItemInventory();
+
+        /// <summary>누적 통계. **윤회해도 안 지워진다** — 업적이 "이번 생"이 아니라 "지금까지"를 본다.</summary>
+        public PlayerStats stats = new PlayerStats();
+
+        /// <summary>달성한 업적 id. 원본 `meta.achieved`(project_test.html:1150).</summary>
+        public List<string> achieved = new List<string>();
         /// <summary>지금까지 윤회한 횟수. 원본 `meta.rebirths` — 윤회 장벽 계산의 기준이다.</summary>
         public int rebirths = 0;
 
@@ -147,6 +154,7 @@ namespace YokaiFront.Core
 
             rp += gain;
             rebirths++;
+            stats.rpEarned += gain;
 
             level = 1;
             exp = 0;
@@ -186,7 +194,12 @@ namespace YokaiFront.Core
         public event System.Action LeveledUp;
 
         /// <summary>트랙 A(처치 보상)가 호출. 즉시 누적만 하면 됨(레벨 개념 없음).</summary>
-        public void AddGold(int amount) => gold += amount;
+        public void AddGold(int amount)
+        {
+            gold += amount;
+            // 누적 획득 골드는 쓴 만큼 줄지 않는다(업적 '축재'의 기준). 원본 `meta.stats.goldEarned`.
+            if (amount > 0) stats.goldEarned += amount;
+        }
 
         /// <summary>
         /// 트랙 A(처치 보상)가 호출. 원본 `gainExpMeta()`(project_test.html:1440) 그대로 —

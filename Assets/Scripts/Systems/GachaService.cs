@@ -102,8 +102,10 @@ namespace YokaiFront.Systems
                 inv.Add(def.id);
                 // 천장은 **영웅 이상이 나오면 초기화**된다(원본 `:6583`).
                 inv.pity = (def.grade == ItemGrade.Epic || def.grade == ItemGrade.Legend) ? 0 : inv.pity + 1;
+                profile.stats.pulls++;
                 got.Add(def);
             }
+            if (got.Count > 0) Achievements.CheckNew(profile);
             return got;
         }
     }

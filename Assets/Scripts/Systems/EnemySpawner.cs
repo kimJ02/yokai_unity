@@ -294,7 +294,9 @@ public class EnemySpawner : MonoBehaviour
         RunState.RegisterReward(gold, exp);
         RunState.RegisterKill(isBoss: true);
 
+        ProfileService.Current.stats.bosses++;
         ProfileService.Current.MarkBossCleared(region); // 다음 지역이 열린다
+        Achievements.CheckNew(ProfileService.Current);
     }
 
     /// <summary>기본 웨이브(일반 사냥). 이름을 나눠 둔 건 테스트가 리플렉션으로 이 메서드를 찾기 때문 —
@@ -587,6 +589,12 @@ public class EnemySpawner : MonoBehaviour
         if (enemy.GetComponent<Shrine>() != null) return;
         if (enemy.GetComponent<Boss>() != null) return;
 
+        bool elite = enemy.GetComponent<EnemyElite>() != null;
+
+        var stats = ProfileService.Current.stats;
+        stats.totalKills++;
+        if (elite) stats.elites++;
+
         RunProgress.RegisterKill();
         // 결과 화면·HUD가 읽는 이번 런 집계. 원본도 `run.kills`와 누적 통계를 따로 센다(:1857).
         RunState.RegisterKill(isBoss: false);
@@ -596,10 +604,9 @@ public class EnemySpawner : MonoBehaviour
         EnemyData data = null;
         if (enemy != null) spawnedData.TryGetValue(enemy.gameObject, out data);
 
-        int enemyLevel = enemy != null ? enemy.Level : 1;
+        int enemyLevel = enemy.Level;
         float sc = DifficultyScalingConfig.RewardMultiplier(RunProgress.RegionLv);
         // 원본 `eliteMult = e.elite ? CONFIG.elite.rewardMult : 1`(project_test.html:1810).
-        bool elite = enemy != null && enemy.GetComponent<EnemyElite>() != null;
         if (elite) sc *= DifficultyScalingConfig.EliteRewardMult;
 
         float baseExp = data != null ? data.exp : 8f;
@@ -630,6 +637,8 @@ public class EnemySpawner : MonoBehaviour
 
         // 원본 `run.goldEarned += g; run.expEarned += exp`(:1816·:1820) — 결과 화면에 쓴다.
         RunState.RegisterReward(goldGained, expGained);
+
+        Achievements.CheckNew(ProfileService.Current);
 
         // 경험치 구슬 — 원본 `if (run.kills % CONFIG.orb.every === 0)`(:1860).
         // **이번 런 처치 수 기준**이라(누적이 아니다) 런마다 50마리째부터 다시 센다.

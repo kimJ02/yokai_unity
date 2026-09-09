@@ -64,6 +64,7 @@ namespace YokaiFront.Enemies
         /// </summary>
         void HandleDestroyed(EnemyHealth _)
         {
+            ProfileService.Current.stats.shrines++;
             ProfileService.Current.AddExp(RewardExp);
             ProfileService.Current.AddGold(RewardGold);
             RunState.RegisterReward(RewardGold, RewardExp);

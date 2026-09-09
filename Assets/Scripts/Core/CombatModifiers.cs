@@ -162,6 +162,9 @@ namespace YokaiFront.Core
             Combo++;
             ComboTimeLeft = ComboWindow;
             if (Combo > MaxCombo) MaxCombo = Combo;
+            // 업적('연격의 미학')이 보는 건 세션이 아니라 **영구 기록**이라 프로필에도 남긴다.
+            var stats = ProfileService.Current.stats;
+            if (Combo > stats.maxCombo) stats.maxCombo = Combo;
         }
 
         /// <summary>원본 `updateCombo(dt)`(project_test.html:1630) + 연쇄 처치 창 감소.</summary>
