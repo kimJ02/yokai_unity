@@ -106,8 +106,11 @@ namespace YokaiFront.Core
         /// 같은 숫자를 두 군데 들고 있지 않으려는 것이다.
         /// </summary>
         public static float DamageMultiplier =>
-            (1f + Combo * ComboDamagePer)
+            // 원본 `1 + combo.n * comboMult.dmg * (1 + itemPow('combo'))`(:1297) — '연격의 부적'은
+            // 콤보 **배수 자체**를 키운다(콤보 수가 아니라).
+            (1f + Combo * ComboDamagePer * (1f + ProfileService.Current.items.Pow("combo")))
             * (1f + RunState.Fury * FuryDamagePer)
+            * ProfileService.Current.items.Mul(ItemStat.Dmg)   // '전생의 투지'
             * (ShrineBuffLeft > 0f ? ShrineDamageMult : 1f)
             * RebirthWallPlayerDamage;
 
@@ -120,7 +123,11 @@ namespace YokaiFront.Core
             RebirthConfig.WallPlayerDamage(RunState.Region, ProfileService.Current.rebirths);
 
         /// <summary>원본 `goldMultAll()`(project_test.html:1304) — 콤보만(아이템 항은 아직 없다).</summary>
-        public static float GoldMultiplier => 1f + Combo * ComboMoneyPer;
+        public static float GoldMultiplier =>
+            (1f + Combo * ComboMoneyPer) * ProfileService.Current.items.Mul(ItemStat.Gold);
+
+        /// <summary>원본 `expMultAll() = itemMul('exp')`(project_test.html:1305).</summary>
+        public static float ExpMultiplier => ProfileService.Current.items.Mul(ItemStat.Exp);
 
         /// <summary>
         /// 원본 `statAs()`에 곱해지는 살기 항(`CONFIG.fury.asPer`, `:702`).
@@ -195,7 +202,9 @@ namespace YokaiFront.Core
 
         /// <summary>성소를 부쉈을 때. 원본 `player.shrineBuffT = CONFIG.shrine.buffDur`(project_test.html:1798).</summary>
         public static void GrantShrineBuff(float duration) =>
-            ShrineBuffLeft = Mathf.Max(ShrineBuffLeft, duration);
+            // '성소의 은총'이 지속시간을 늘린다(원본 `buffDur * (1 + itemPow('shrineBless'))` :1798).
+            ShrineBuffLeft = Mathf.Max(ShrineBuffLeft,
+                duration * (1f + ProfileService.Current.items.Pow("shrineBless")));
 
         /// <summary>
         /// 새 런 시작 시. 원본 `startRun`이 `combo.n = 0`·`run.chainN = 0`으로 되돌린다(`:4307`·`:4319`).

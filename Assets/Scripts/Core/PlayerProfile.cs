@@ -42,6 +42,11 @@ namespace YokaiFront.Core
 
         /// <summary>윤회 포인트 — 가챠 재화. 원본 `meta.rp`(project_test.html:1147). **윤회해도 안 없어진다.**</summary>
         public int rp = 0;
+
+        /// <summary>
+        /// 보유 아이템. 원본 `meta.items`(`:1146`) — **윤회해도 사라지지 않는 유일한 성장 축**이다.
+        /// </summary>
+        public ItemInventory items = new ItemInventory();
         /// <summary>지금까지 윤회한 횟수. 원본 `meta.rebirths` — 윤회 장벽 계산의 기준이다.</summary>
         public int rebirths = 0;
 
@@ -135,6 +140,11 @@ namespace YokaiFront.Core
             int gain = RebirthPointPreview();
             if (gain < 1) return 0;
 
+            // '각인의 봉인'이 있으면 되돌려줄 값을 미리 잡아둔다(아래에서 복구).
+            var keptBranch = mageBranch;
+            int keptTier = mageTier;
+            int keptSpUsed = spUsed;
+
             rp += gain;
             rebirths++;
 
@@ -149,6 +159,21 @@ namespace YokaiFront.Core
             regionKills = new int[RegionConfig.Count];
             regionBossUnlocked = new bool[RegionConfig.Count];
             regionBossCleared = new bool[RegionConfig.Count];
+
+            // 시작의 유산 — 골드 강화를 맨바닥이 아니라 몇 레벨 쥐고 시작한다(원본 `headstart` :6524).
+            int head = Mathf.RoundToInt(items.Pow("headstart"));
+            if (head > 0)
+            {
+                upgrades.atk = upgrades.hp = upgrades.ms = upgrades.atkSpeed = upgrades.crit = head;
+            }
+
+            // 각인의 봉인 — 있으면 전문화가 유지된다(원본 `keepSpec` :6527).
+            if (items.Count("keepSpec") > 0)
+            {
+                mageBranch = keptBranch;
+                mageTier = keptTier;
+                spUsed = keptSpUsed;
+            }
 
             return gain;
         }

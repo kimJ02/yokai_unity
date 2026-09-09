@@ -165,9 +165,13 @@ public class EnemySpawner : MonoBehaviour
             // 보스전은 잡몹이 훨씬 드물게, 적게, 상한도 낮게 나온다(원본 `:4444`) —
             // 보스와 싸우는 게 본체라 잡몹이 화면을 채우면 안 된다.
             bool boss = RunState.Mode == RunMode.Boss;
-            waveTimer = boss ? minionInterval : waveInterval;
+            // 황천의 문 — 스폰 속도가 빨라진다(원본 `effWaveInterval() = waveInterval / (1 + itemAdd('rate'))` :3930).
+            waveTimer = (boss ? minionInterval : waveInterval)
+                        / (1f + ProfileService.Current.items.Add(ItemStat.Rate));
             if (boss) SpawnWaveOf(minionWave, maxMinions);
-            else SpawnWaveOf(maxSpawnPerWave, maxAliveTotal);
+            // 요기 응집 — 필드 최대 몹이 늘어난다(원본 `effMaxEnemies() = baseMax + itemAdd('mob')` :3929).
+            else SpawnWaveOf(maxSpawnPerWave,
+                             maxAliveTotal + Mathf.RoundToInt(ProfileService.Current.items.Add(ItemStat.Mob)));
         }
 
         UpdateShrine(Time.deltaTime);
@@ -425,7 +429,9 @@ public class EnemySpawner : MonoBehaviour
 
         // 원본 `elite = !opts.noElite && Math.random() < CONFIG.elite.chance`(project_test.html:3948).
         // 엘리트는 별도 종류가 아니라 **아무 몹에게나 붙는 승격**이라, 종류를 정한 뒤에 굴린다.
-        bool elite = allowElite && Random.value < EliteChance;
+        // 요괴 유인향 — 엘리트 출현률을 올린다(원본 `chance * (1 + itemPow('eliteLure'))` :3948).
+        bool elite = allowElite &&
+                     Random.value < EliteChance * (1f + ProfileService.Current.items.Pow("eliteLure"));
         if (elite) monster.AddComponent<EnemyElite>();
 
         var health = monster.GetComponent<EnemyHealth>();
@@ -600,7 +606,8 @@ public class EnemySpawner : MonoBehaviour
         int goldMin = data != null ? data.goldMin : 5;
         int goldMax = data != null ? data.goldMax : 10;
 
-        int expGained = Mathf.RoundToInt(baseExp * sc);
+        // 수행의 굴레 — 경험치 획득 배수(원본 `expMultAll()` :1305).
+        int expGained = Mathf.RoundToInt(baseExp * sc * CombatModifiers.ExpMultiplier);
         ProfileService.Current.AddExp(expGained);
         int goldGained = 0;
 

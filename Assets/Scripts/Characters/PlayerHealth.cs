@@ -72,6 +72,23 @@ namespace YokaiFront.Characters
         void Update()
         {
             if (InvulnRemaining > 0f) InvulnRemaining -= Time.deltaTime;
+            UpdateRegen(Time.deltaTime);
+        }
+
+        /// <summary>
+        /// 재생의 구슬 — 초당 최대 체력의 일정 비율을 회복한다(원본 `regen`, `updateItemBuffs` :4393).
+        /// 최대 체력일 때는 아무 일도 안 한다.
+        /// </summary>
+        void UpdateRegen(float dt)
+        {
+            float per = ProfileService.Current.items.Pow("regen");
+            if (per <= 0f || IsDead || CurrentHp >= maxHp) return;
+
+            regenTick += maxHp * per * dt;
+            if (regenTick < 1f) return; // 1 미만은 모아서 준다(정수 체력이라)
+            int heal = Mathf.FloorToInt(regenTick);
+            regenTick -= heal;
+            CurrentHp = Mathf.Min(maxHp, CurrentHp + heal);
         }
 
         /// <summary>
@@ -84,10 +101,27 @@ namespace YokaiFront.Characters
         /// </summary>
         public void ResetForRun()
         {
-            maxHp = PlayerStatCalculator.ComputeMaxHp(ProfileService.Current);
+            var profile = ProfileService.Current;
+            maxHp = PlayerStatCalculator.ComputeMaxHp(profile);
             CurrentHp = maxHp;
             InvulnRemaining = 0f; // 원본 `p.invuln = 0`
+
+            // 아이템에서 오는 **런 한정** 자원 — 원본 `startRun`이 매 런 다시 채운다(:4310).
+            guardLeft = Mathf.RoundToInt(profile.items.Pow("guard"));
+            reviveLeft = Mathf.RoundToInt(profile.items.Pow("revive"));
+            regenTick = 0f;
         }
+
+        /// <summary>원본 `p.hp = round(p.maxHp * 0.4)`(:1919).</summary>
+        public const float ReviveHpRatio = 0.4f;
+        /// <summary>원본 `p.invuln = max(p.invuln, 2.0)`(:1920).</summary>
+        public const float ReviveInvuln = 2f;
+
+        /// <summary>영혼의 그릇으로 무효화할 수 있는 남은 피격 횟수(런 한정).</summary>
+        public int guardLeft;
+        /// <summary>최후의 발악으로 남은 부활 횟수(런 한정).</summary>
+        public int reviveLeft;
+        float regenTick;
 
         /// <summary>
         /// 남은 무적시간을 최소 이 값까지 늘린다(줄이지는 않는다). 원본 `p.invuln = Math.max(p.invuln, 0.22)`
@@ -103,11 +137,23 @@ namespace YokaiFront.Characters
             // 없으므로(asmdef 같은 층) 우리 구조에선 이 검사 하나가 그 역할을 전부 맡는다 — 결과는 동일하다.
             if (IsDead || InvulnRemaining > 0f) return;
 
-            // 원본 `dmg = max(1, round(dmg * mult * drMult() * rand(0.9,1.1)))`(:1904)에서
-            // 아이템 피해감소(drMult)만 빠진 형태. 난수를 **여기서** 굴리는 게 원본 구조다(클래스 주석 참고).
-            int applied = Mathf.Max(1, Mathf.RoundToInt(amount * UnityEngine.Random.Range(0.9f, 1.1f)));
+            var profile = ProfileService.Current;
+
+            // 영혼의 그릇 — 남은 횟수만큼 피격을 통째로 무효화한다(원본 `guard` :1897).
+            if (guardLeft > 0)
+            {
+                guardLeft--;
+                InvulnRemaining = invulnTime + profile.items.Pow("iframe");
+                return;
+            }
+
+            // 원본 `dmg = max(1, round(dmg * mult * drMult() * rand(0.9,1.1)))`(:1904).
+            // `drMult()`가 '불괴의 갑주'다. 난수를 **여기서** 굴리는 게 원본 구조다(클래스 주석 참고).
+            float dr = PlayerStatCalculator.ComputeDamageTakenMultiplier(profile);
+            int applied = Mathf.Max(1, Mathf.RoundToInt(amount * dr * UnityEngine.Random.Range(0.9f, 1.1f)));
             CurrentHp -= applied;
-            InvulnRemaining = invulnTime;
+            // 불굴의 껍질 — 피격 후 무적시간 연장(원본 `invulnTime + itemPow('iframe')` :1907).
+            InvulnRemaining = invulnTime + profile.items.Pow("iframe");
 
             // 원본 `p.vx = sign(p.x - srcX) * 260; p.vy = min(p.vy, -220); p.onGround = false;`(:1908~1910)
             // 주의: 원본에서 이 수평 속도는 **다음 프레임에 이동 입력으로 통째로 덮어써진다**
@@ -127,6 +173,16 @@ namespace YokaiFront.Characters
 
             if (CurrentHp <= 0f)
             {
+                // 최후의 발악 — 쓰러지는 대신 체력 40%로 다시 일어난다(원본 `revive` :1917).
+                // **아이템이 있을 때만, 사냥당 정해진 횟수만** — 원본에 R키 같은 수동 부활은 없다.
+                if (reviveLeft > 0)
+                {
+                    reviveLeft--;
+                    CurrentHp = Mathf.Round(maxHp * ReviveHpRatio);
+                    InvulnRemaining = Mathf.Max(InvulnRemaining, ReviveInvuln);
+                    return;
+                }
+
                 CurrentHp = 0f;
                 Died?.Invoke();
                 // 원본은 체력이 0이 되는 그 자리에서 바로 런을 끝낸다(`endRun('dead')`, :1927).

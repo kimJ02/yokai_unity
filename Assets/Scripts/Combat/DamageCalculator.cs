@@ -28,7 +28,9 @@ namespace YokaiFront.Combat
         // 원본 CONFIG.player (`:605`) — 스탯 시스템(골드 강화·아이템)이 아직 없어 기본값 고정.
         // 스탯이 생기면 statCrit()/critMultOf()에 해당하는 값을 인자로 받도록 바꾼다.
         public const float BaseCritChance = 0.10f;   // 원본 baseCrit: 0.10
-        public const float CritMultiplier = 1.7f;    // 원본 critMult: 1.7
+        /// <summary>기준값은 `Core.PlayerStatCalculator`가 갖고 있다 — 아이템('처형인의 각인')이
+        /// 이 값을 올리는데, 그 계산이 Core에 있어서 상수도 그쪽이 원본 자리다.</summary>
+        public const float CritMultiplier = PlayerStatCalculator.BaseCritMultiplier;
 
         // 원본 `rand(0.9, 1.1)` (`:983`, `:1664`) — 같은 공격이라도 피해가 ±10% 흔들린다.
         public const float VarianceMin = 0.9f;

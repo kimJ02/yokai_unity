@@ -180,7 +180,8 @@ namespace YokaiFront.Enemies
             // **둘을 한 번에 곱하고 한 번만 반올림한다** — 따로 반올림하면 원본(곱셈을 다 모은 뒤
             // 한 번 반올림)과의 오차가 곱해진 만큼 커진다.
             float mult = 1f;
-            if (IsVulnerable) mult *= DamageCalculator.VulnerableMultiplier;
+            // 원본 `vulnMult = 1.2 + itemPow('vuln')`(:1663) — 각인을 가지면 취약이 더 아프다.
+            if (IsVulnerable) mult *= DamageCalculator.VulnerableMultiplier + ProfileService.Current.items.Pow("vuln");
             mult *= CombatModifiers.LevelFactor(ProfileService.Current.level, Level);
             if (!Mathf.Approximately(mult, 1f))
                 amount = Mathf.Max(1f, Mathf.Round(amount * mult));
@@ -193,9 +194,17 @@ namespace YokaiFront.Enemies
             CurrentHp -= amount;
             flash = 1f; // 원본 `e.flash = 1`(project_test.html:1666)
 
-            // 원본 `kbBase * (e.type === 'bigOni' ? 0.4 : 1)`(project_test.html:1678) — 종류별 저항.
+            // 원본 `kbBase * (1 + itemPow('knockback')) * (e.type === 'bigOni' ? 0.4 : 1)`(:1678).
             if (mover != null && knockbackSpeedOverride > 0f)
-                mover.ApplyKnockback(knockbackDirSign * knockbackSpeedOverride * knockbackMultiplier);
+            {
+                float kb = knockbackSpeedOverride * knockbackMultiplier
+                           * (1f + ProfileService.Current.items.Pow("knockback")); // 파쇄의 망치
+                mover.ApplyKnockback(knockbackDirSign * kb);
+            }
+
+            // 균열의 각인 — 때린 적을 취약 상태로 만든다(원본 `if (itemPow('vuln') > 0) e.vulnT = max(vulnT, 3)` :1677).
+            if (!inTickDamage && ProfileService.Current.items.Pow("vuln") > 0f)
+                ApplyVulnerable(MageSpecConfig.VulnerableDuration);
 
             if (CurrentHp <= 0f) Die();
         }

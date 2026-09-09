@@ -22,12 +22,13 @@ namespace YokaiFront.Core
         // 원본 statAtk/statMaxHp는 완성된 스탯 전체에 캐릭터 배수를 곱한다(`charStatMult()`, :1284~1285).
         // ms/as/crit(:1286~1288)엔 곱하지 않는다 — 원본 그대로이니 "일관성"을 이유로 바꾸지 말 것.
         public static float ComputeAtk(PlayerProfile p) =>
-            (BaseAtk + p.upgrades.atk * 3f) * CharacterStats.StatMultiplier(p.character);
+            (BaseAtk + p.upgrades.atk * 3f + p.items.Add(ItemStat.Atk)) * CharacterStats.StatMultiplier(p.character);
 
         public static float ComputeMaxHp(PlayerProfile p) =>
-            Mathf.Round((BaseMaxHp + p.upgrades.hp * 25f) * CharacterStats.StatMultiplier(p.character));
+            Mathf.Round((BaseMaxHp + p.upgrades.hp * 25f + p.items.Add(ItemStat.Hp)) * CharacterStats.StatMultiplier(p.character));
 
-        public static float ComputeMoveSpeedMultiplier(PlayerProfile p) => 1f + p.upgrades.ms * 0.04f;
+        public static float ComputeMoveSpeedMultiplier(PlayerProfile p) =>
+            1f + p.upgrades.ms * 0.04f + p.items.Add(ItemStat.Ms);
 
         /// <summary>
         /// 원본 `statAs()`(project_test.html:1287):
@@ -35,11 +36,31 @@ namespace YokaiFront.Core
         ///
         /// **살기(fury)가 스탯 자체에 들어 있다** — 키트가 따로 곱하는 게 아니다. 여기 두면
         /// 이미 `statAs`를 쓰는 모든 공격(마법사·메카닉, 앞으로 섬영·드루이드)이 자동으로 받는다.
-        /// 아이템 항(`itemAdd('as')`, `killRage`)은 그 시스템이 아직 없어 빠져 있다.
+        /// 아이템 항(`itemAdd('as')`)까지 들어 있다. `killRage`(처치 시 일시 공속)는 런 한정 버프라 아직 없다.
         /// </summary>
         public static float ComputeAttackSpeedMultiplier(PlayerProfile p) =>
-            (1f + p.upgrades.atkSpeed * 0.04f) * CombatModifiers.AttackSpeedMultiplier;
+            (1f + p.upgrades.atkSpeed * 0.04f + p.items.Add(ItemStat.AtkSpeed)) * CombatModifiers.AttackSpeedMultiplier;
 
-        public static float ComputeCritChance(PlayerProfile p) => BaseCritChance + p.upgrades.crit * 0.02f;
+        public static float ComputeCritChance(PlayerProfile p) =>
+            BaseCritChance + p.upgrades.crit * 0.02f + p.items.Add(ItemStat.Crit);
+
+        /// <summary>원본 `critMultOf() = CONFIG.player.critMult + itemAdd('critDmg')`(project_test.html:1289).</summary>
+        public static float ComputeCritMultiplier(PlayerProfile p) =>
+            BaseCritMultiplier + p.items.Add(ItemStat.CritDmg);
+
+        /// <summary>
+        /// 치명타 배수 기준값. 원본 `CONFIG.player.critMult = 1.7`(project_test.html:605).
+        /// **여기(Core)가 원본 자리다** — `Combat.DamageCalculator`가 이 값을 읽어 쓴다.
+        /// Core는 Combat을 참조할 수 없으므로 반대 방향이면 컴파일이 안 된다.
+        /// </summary>
+        public const float BaseCritMultiplier = 1.7f;
+
+        /// <summary>원본 `cdMult() = max(0.25, 1 - itemAdd('cd'))`(`:1290`) — 쿨타임 감소(하한 25%).</summary>
+        public static float ComputeCooldownMultiplier(PlayerProfile p) =>
+            Mathf.Max(0.25f, 1f - p.items.Add(ItemStat.Cd));
+
+        /// <summary>원본 `drMult() = max(0.2, 1 - itemAdd('dr'))`(`:1291`) — 받는 피해 감소(하한 20%).</summary>
+        public static float ComputeDamageTakenMultiplier(PlayerProfile p) =>
+            Mathf.Max(0.2f, 1f - p.items.Add(ItemStat.Dr));
     }
 }

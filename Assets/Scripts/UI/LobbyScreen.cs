@@ -25,9 +25,9 @@ namespace YokaiFront.UI
     [DisallowMultipleComponent]
     public class LobbyScreen : MonoBehaviour
     {
-        enum Tab { Character, Stage, Upgrade, Spec, Rebirth }
+        enum Tab { Character, Stage, Upgrade, Spec, Rebirth, Gacha }
 
-        static readonly string[] TabNames = { "캐릭터 선택", "스테이지", "강화", "전문화", "윤회 ☸" };
+        static readonly string[] TabNames = { "캐릭터 선택", "스테이지", "강화", "전문화", "윤회 ☸", "기원 🎴" };
 
         Tab tab = Tab.Character;
         RunController run;
@@ -70,6 +70,7 @@ namespace YokaiFront.UI
                 case Tab.Upgrade: DrawUpgradeTab(profile); break;
                 case Tab.Spec: DrawSpecTab(profile); break;
                 case Tab.Rebirth: DrawRebirthTab(profile); break;
+                case Tab.Gacha: DrawGachaTab(profile); break;
             }
             GUILayout.EndScrollView();
 
@@ -444,6 +445,61 @@ namespace YokaiFront.UI
                 GUILayout.Label(line);
             }
         }
+
+        // ────────────────────────── 기원(가챠) ──────────────────────────
+
+        /// <summary>
+        /// 원본 가챠 탭(project_test.html:6538~). 윤회 포인트로 아이템을 뽑는다 —
+        /// **아이템이 이 게임의 유일한 영구 성장 축**이라(원본 `:746`) 윤회 → 뽑기 → 더 깊은 지역이
+        /// 하나의 고리를 이룬다.
+        /// </summary>
+        void DrawGachaTab(PlayerProfile profile)
+        {
+            var inv = profile.items;
+            GUILayout.Label($"보유 윤회 포인트   ☸ {profile.rp}     1회 {GachaService.Cost}☸");
+            GUILayout.Label($"천장   {inv.pity} / {GachaService.PityAt}" +
+                            "   (이만큼 연속으로 영웅+가 안 나오면 다음은 영웅 이상 확정)");
+            GUILayout.Space(6f);
+
+            GUILayout.BeginHorizontal();
+            GUI.enabled = profile.rp >= GachaService.Cost;
+            if (GUILayout.Button("1회 기원", GUILayout.Height(30f), GUILayout.Width(120f))) Pull(profile, 1);
+            GUI.enabled = profile.rp >= GachaService.Cost * 10;
+            if (GUILayout.Button("10회 기원", GUILayout.Height(30f), GUILayout.Width(120f))) Pull(profile, 10);
+            GUI.enabled = true;
+            GUILayout.EndHorizontal();
+
+            if (lastPulls.Count > 0)
+            {
+                GUILayout.Space(6f);
+                GUILayout.Label("<b>이번 결과</b>", RichLabel());
+                foreach (var d in lastPulls)
+                    GUILayout.Label($"{d.icon} [{ItemDatabase.GradeName(d.grade)}] {d.name}  —  {d.description}");
+            }
+
+            GUILayout.Space(12f);
+            GUILayout.Label("<b>보유 아이템</b>  (등급이 높을수록 개당 효과가 크지만 중복 상한이 낮다)", RichLabel());
+            foreach (var def in ItemDatabase.All)
+            {
+                int n = inv.Count(def.id);
+                if (n <= 0) continue;
+                int cap = ItemDatabase.CapOf(def.id);
+                string full = n >= cap ? "  ★MAX" : "";
+                GUILayout.Label($"{def.icon} [{ItemDatabase.GradeName(def.grade)}] {def.name}  {n}/{cap}{full}" +
+                                $"   →  {def.description}");
+            }
+            if (inv.stacks.Count == 0) GUILayout.Label("아직 없다 — 윤회해서 포인트를 모으고 뽑아 보자.");
+        }
+
+        void Pull(PlayerProfile profile, int n)
+        {
+            lastPulls = GachaService.Pull(profile, n);
+            if (lastPulls.Count == 0) { ShowToast("뽑을 수 있는 게 없다"); return; }
+            ShowToast($"{lastPulls.Count}개 획득");
+            SaveService.Save();
+        }
+
+        System.Collections.Generic.List<ItemDef> lastPulls = new System.Collections.Generic.List<ItemDef>();
 
         // ────────────────────────── 잡동사니 ──────────────────────────
 
