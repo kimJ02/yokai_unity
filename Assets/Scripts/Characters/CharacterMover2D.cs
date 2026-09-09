@@ -28,7 +28,7 @@ namespace YokaiFront.Characters
 /// </summary>
 [RequireComponent(typeof(Rigidbody2D))]
 [RequireComponent(typeof(Collider2D))]
-public class CharacterMover2D : MonoBehaviour
+public class CharacterMover2D : MonoBehaviour, Core.IRunResettable
 {
     public float moveSpeed = 2.7f;
     public float jumpSpeed = 9.6f;
@@ -219,6 +219,23 @@ public class CharacterMover2D : MonoBehaviour
     /// 캐릭터를 바꿀 때 이동 상태를 초기화한다(<see cref="PlayerRig"/>가 호출).
     /// 관성 속도가 남아 있으면 다른 캐릭터로 바꾼 직후에도 그 속도로 미끄러진다.
     /// </summary>
+    /// <summary>
+    /// 새 사냥 시작 시 — 원본 `resetPlayerForRun()`의 이동 부분
+    /// (`p.x = 220; p.y = groundY; p.vx = 0; p.vy = 0; p.facing = 1; p.runDir = 1`, project_test.html:1513).
+    /// **시작 위치 2.2유닛은 원본 220px 그대로다**(100px=1유닛).
+    /// </summary>
+    public void ResetForRun()
+    {
+        ResetMotion();
+        Facing = 1;
+        Teleport(new Vector3(RunStartX, Core.FieldBounds.GroundY + StartHeightAboveGround, 0f));
+    }
+
+    /// <summary>원본 `p.x = 220`(project_test.html:1513) ÷100.</summary>
+    public const float RunStartX = 2.2f;
+    /// <summary>바닥에 발을 붙이고 시작하기 위한 여유(콜라이더 반높이). 원본은 y=groundY에 바로 놓는다.</summary>
+    public const float StartHeightAboveGround = 0.5f;
+
     public void ResetMotion()
     {
         inertialVx = 0f;
