@@ -6,6 +6,20 @@ namespace YokaiFront.Core
     public enum RunMode { Normal, Boss }
 
     /// <summary>
+    /// 런이 끝난 이유. 원본 `endRun(reason)`(project_test.html:4354)이 받는 문자열 3종 그대로.
+    /// 결과 화면 제목이 이걸로 갈린다.
+    /// </summary>
+    public enum RunEndReason
+    {
+        /// <summary>쓰러졌다. 원본 `endRun('dead')`(:1927).</summary>
+        Dead,
+        /// <summary>제한시간 종료. 원본 `endRun('timeout')`(:4413).</summary>
+        Timeout,
+        /// <summary>보스 격파. 원본 `endRun('bossdead')`(:4289) — 보스가 아직 없어 미사용.</summary>
+        BossDead,
+    }
+
+    /// <summary>
     /// 지금 진행 중인 한 판(런)의 상태. 원본 전역 `run` 오브젝트(project_test.html:1470)에서
     /// **런 사이클에 필요한 부분만** 옮긴 것이다.
     ///

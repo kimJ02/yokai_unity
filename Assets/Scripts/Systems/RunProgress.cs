@@ -19,8 +19,15 @@ namespace YokaiFront.Systems
     {
         public static int TotalKills { get; private set; }
 
-        /// <summary>1부터 시작(원본 지역은 1지역부터). 100마리째 처치 직후 2로 올라간다.</summary>
-        public static int RegionLv => 1 + TotalKills / DifficultyScalingConfig.KillsPerRegionLevel;
+        /// <summary>
+        /// 난이도에 쓰이는 지역 번호. **이제 진짜 지역(<see cref="RunState.Region"/>)을 그대로 돌려준다** —
+        /// 런 사이클이 생기기 전엔 "누적 처치 100 = 가상 지역 레벨"로 대신했었다(그때 이 클래스가 생긴 이유).
+        ///
+        /// 이 프로퍼티를 없애지 않고 위임으로 바꾼 건 `EnemySpawner`가 스폰·보상 양쪽에서 참조하고 있어서다 —
+        /// 호출부를 건드리지 않고 기준만 진짜 지역으로 바꾸는 게 이번 변경의 요점이다.
+        /// <see cref="TotalKills"/>는 계속 세지만 이제 난이도를 정하지는 않는다(결과 화면·업적용).
+        /// </summary>
+        public static int RegionLv => RunState.Region;
 
         /// <summary>몹 1마리 처치 시 호출(`EnemySpawner.HandleEnemyDied` 참고).</summary>
         public static void RegisterKill() => TotalKills++;

@@ -80,6 +80,8 @@ namespace YokaiFront.Combat
             }
 
             var go = new GameObject("GravityWellZone");
+            // 런이 끝나거나 새로 시작하면 사라져야 한다(원본 `projectiles = []`/`zones = []`, :4318).
+            go.AddComponent<RunTransient>();
             go.transform.position = pos;
             var zone = go.AddComponent<GravityWellZone>();
             zone.Tier = tier;

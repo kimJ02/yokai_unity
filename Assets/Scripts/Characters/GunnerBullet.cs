@@ -34,6 +34,8 @@ namespace YokaiFront.Characters
             float sizeMul, Sprite sprite, Color color)
         {
             var go = new GameObject("GunnerBullet");
+            // 런이 끝나거나 새로 시작하면 사라져야 한다(원본 `projectiles = []`/`zones = []`, :4318).
+            go.AddComponent<RunTransient>();
             go.transform.position = pos;
 
             // 판정과 비주얼을 분리해서 스케일이 이중으로 곱해지는 걸 막는다(MageProjectile과 같은 이유).

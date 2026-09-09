@@ -17,6 +17,8 @@ namespace YokaiFront.Combat
         public static FireTrailZone Spawn(Vector2 pos, int tier, float power)
         {
             var go = new GameObject("FireTrailZone");
+            // 런이 끝나거나 새로 시작하면 사라져야 한다(원본 `projectiles = []`/`zones = []`, :4318).
+            go.AddComponent<RunTransient>();
             go.transform.position = pos;
             var z = go.AddComponent<FireTrailZone>();
             z.radius = MageSpecConfig.FlameTrailRadius(tier);

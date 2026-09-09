@@ -239,6 +239,9 @@ public class EnemySpawner : MonoBehaviour
     /// </summary>
     void ApplyEnemyData(GameObject monster, EnemyData data, bool allowElite)
     {
+        // 로비로 나가면 필드가 비워져야 한다(원본 `enemies = []`, project_test.html:4318).
+        RunTransient.Mark(monster);
+
         int regionLv = RunProgress.RegionLv;
 
         // 원본 `elite = !opts.noElite && Math.random() < CONFIG.elite.chance`(project_test.html:3948).

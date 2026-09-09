@@ -32,6 +32,10 @@ public class RunProgressAndRewardsTests
     public void ResetStatics()
     {
         RunProgress.Reset();
+        // 난이도 기준이 RunState.Region으로 바뀌어서, 앞 테스트가 올려둔 지역이 남으면
+        // 뒤 테스트의 몹 체력이 배로 뛴다(정적 상태 오염 — 이 프로젝트 단골 함정).
+        RunState.Reset();
+        RunTransient.Reset();
         ProfileService.Current = new PlayerProfile();
     }
 
@@ -43,6 +47,8 @@ public class RunProgressAndRewardsTests
             if (go == null) continue;
             if (go.name.StartsWith("Test")) Object.DestroyImmediate(go);
         }
+        RunState.Reset();
+        RunTransient.Reset();
     }
 
     /// <summary>스폰용 프리팹 템플릿 — EnemyHealth/EnemyMove가 실제로 붙어 있어야
@@ -99,23 +105,27 @@ public class RunProgressAndRewardsTests
         enemy.GetComponent<Rigidbody2D>().gravityScale = 0f; // 테스트끼리 물리 간섭 방지(이 프로젝트 단골 함정)
     }
 
-    /// <summary>원본 regionKillTarget(project_test.html:699, `DifficultyScalingConfig.KillsPerRegionLevel`)
-    /// 마리마다 지역 레벨이 1 오른다. 상수를 직접 참조해서 나중에 Config 값이 바뀌어도 테스트가 안 깨지게 한다.</summary>
+    /// <summary>
+    /// 난이도 기준이 **진짜 지역**(`RunState.Region`)이다.
+    ///
+    /// 런 사이클이 없던 시절엔 `RunProgress`가 "누적 처치 100마리 = 가상 지역 레벨 1 상승"으로
+    /// 지역을 대신했는데(그때 이 클래스가 생긴 이유), 이제 로비에서 지역을 골라 입장하므로
+    /// 처치 수는 난이도를 바꾸지 않는다 — **한 스테이지 안에서는 몹이 안 세진다**는 원본 주석
+    /// (project_test.html:3925 "몬스터 레벨은 지역에만 의존")과 이제야 맞는다.
+    /// </summary>
     [Test]
-    public void RegionLv_IncrementsEveryKillsPerRegionLevel()
+    public void RegionLv_FollowsRunRegion_NotKillCount()
     {
-        int perLevel = DifficultyScalingConfig.KillsPerRegionLevel;
-        Assert.AreEqual(1, RunProgress.RegionLv, "초기 지역 레벨은 1이어야 한다");
+        Assert.AreEqual(1, RunProgress.RegionLv, "초기 지역은 1이어야 한다");
 
-        for (int i = 0; i < perLevel - 1; i++) RunProgress.RegisterKill();
-        Assert.AreEqual(1, RunProgress.RegionLv, $"{perLevel - 1}마리째엔 아직 1지역이어야 한다");
+        for (int i = 0; i < DifficultyScalingConfig.KillsPerRegionLevel * 3; i++) RunProgress.RegisterKill();
+        Assert.AreEqual(1, RunProgress.RegionLv,
+            "같은 스테이지 안에서는 아무리 잡아도 지역이 오르면 안 된다(원본 :3925)");
+        Assert.AreEqual(DifficultyScalingConfig.KillsPerRegionLevel * 3, RunProgress.TotalKills,
+            "난이도와 무관해졌을 뿐 처치 수 집계는 계속돼야 한다");
 
-        RunProgress.RegisterKill(); // perLevel 마리째
-        Assert.AreEqual(2, RunProgress.RegionLv, $"{perLevel}마리째에 2지역으로 올라가야 한다");
-
-        int more = perLevel * 3 / 2; // 총 perLevel × 2.5마리가 되도록
-        for (int i = 0; i < more; i++) RunProgress.RegisterKill();
-        Assert.AreEqual(3, RunProgress.RegionLv, "perLevel×2.5마리째엔 3지역이어야 한다");
+        RunState.Begin(4, RunMode.Normal);
+        Assert.AreEqual(4, RunProgress.RegionLv, "4지역에 입장했으면 난이도 기준도 4여야 한다");
     }
 
     /// <summary>
@@ -125,7 +135,7 @@ public class RunProgressAndRewardsTests
     [UnityTest]
     public IEnumerator SpawnWave_ScalesEnemyStatsByRegionLevel()
     {
-        for (int i = 0; i < DifficultyScalingConfig.KillsPerRegionLevel * 2; i++) RunProgress.RegisterKill(); // RegionLv = 3
+        RunState.Begin(3, RunMode.Normal); // 3지역에 입장한 상태로 스폰시킨다
         Assert.AreEqual(3, RunProgress.RegionLv);
 
         var prefab = NewMonsterPrefab();

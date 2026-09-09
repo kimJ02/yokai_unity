@@ -47,6 +47,8 @@ public class MageProjectile : MonoBehaviour
         bool gravityOrb, float gravityCharge, int tier, Vector2 casterPos, int casterFacing)
     {
         var go = new GameObject("MageBolt");
+        // 런이 끝나거나 새로 시작하면 사라져야 한다(원본 `projectiles = []`/`zones = []`, :4318).
+        go.AddComponent<RunTransient>();
         go.transform.position = pos;
 
         var visual = new GameObject("Visual");

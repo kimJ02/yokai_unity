@@ -16,7 +16,7 @@ namespace YokaiFront.Characters
 ///
 /// PlayerAttack(범용 근접 판정)을 대체한다 — 이 캐릭터를 쓰는 동안은 씬에 둘 다 안 붙인다.
 /// </summary>
-public class MageAttack : MonoBehaviour, ICharacterKit
+public class MageAttack : MonoBehaviour, ICharacterKit, IRunResettable
 {
     public CharacterId Character => CharacterId.Mage;
     /// <summary>마법사는 원본 `updatePlayerCommon`의 즉시-속도 이동을 쓴다(관성은 섬영 전용).</summary>
@@ -32,6 +32,13 @@ public class MageAttack : MonoBehaviour, ICharacterKit
 
     /// <summary>다른 캐릭터로 바뀔 때 — 진행 중이던 차지와 감속·표시물을 정리한다.</summary>
     public void OnDeselected() => CancelCharge();
+
+    /// <summary>
+    /// 새 사냥 시작 시 — 원본 `resetPlayerForRun()`의 `p.atkCds`·`p.ultCd`·`p.charging` 초기화
+    /// (project_test.html:1516·:1526·:1534)와 같은 일이라 캐릭터 전환 초기화를 그대로 재사용한다.
+    /// 쿨다운이 남은 채로 런에 들어가면 입장 직후 잠깐 공격이 안 나간다.
+    /// </summary>
+    public void ResetForRun() => OnSelected();
 
     void CancelCharge()
     {
