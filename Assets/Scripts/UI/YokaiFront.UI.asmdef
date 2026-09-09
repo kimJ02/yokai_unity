@@ -1,0 +1,21 @@
+{
+    "name": "YokaiFront.UI",
+    "rootNamespace": "",
+    "references": [
+        "YokaiFront.Core",
+        "YokaiFront.World",
+        "YokaiFront.Combat",
+        "YokaiFront.Characters",
+        "YokaiFront.Enemies",
+        "YokaiFront.Systems"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
