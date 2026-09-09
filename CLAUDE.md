@@ -190,9 +190,26 @@ Unity 씬(`.unity`)·프리팹(`.prefab`) 파일은 내부적으로 GUID/fileID�
 - **`main`에 병합하기 전에 전체 테스트를 돌려 통과를 확인한다.** 자기가 추가한 테스트만 보고 병합하지 말 것 — 다른 도메인 테스트가 깨졌는지는 전체 실행으로만 알 수 있다.
 - 실행: `Unity.exe -batchmode -nographics -projectPath <경로> -runTests -testPlatform PlayMode -testResults <경로>\test_results.xml -logFile <경로>\test.log` (결과 xml/로그 파일명은 `.gitignore`에 걸리는 패턴을 쓸 것)
 
-### 문서 구조
-- `HANDOFF.md`는 스프린트가 늘어나면 `docs/sprints/01-combat-core.md`처럼 스프린트별 파일로 분리한다(다음 스프린트 시작 시점에 실행 — 지금 당장 옮기지 않음, 진행 중인 작업의 파일 경로를 바꾸지 않기 위해).
-- **`docs/ROADMAP.md`** — 원본 전수 분석 + 현재 구현과의 갭 + 의존성 기반 권장 스프린트 순서(2026-08-29 작성). **"무엇을 만들지 검토하는" 참고 자료이지 확정 스펙이 아니다** — 확정된 스프린트 범위는 언제나 `HANDOFF.md`가 소유한다. 스프린트가 확정되면 그 내용을 `HANDOFF.md`로 옮기고 ROADMAP엔 "확정됨" 표시만 남긴다.
+### 문서 구조 (2026-09-09 재편)
+
+**문서마다 소유하는 것이 딱 하나씩이다. 같은 내용을 두 문서에 쓰지 않는다** — 실제로 `HANDOFF.md`와
+`docs/ROADMAP.md`가 겹쳐서 "어느 쪽이 최신인지 모르는" 상태가 됐고, 완료된 스프린트 스펙이 루트에
+남아 폐기된 결정을 현행으로 오해하게 만든 사고가 있었다(2026-09-09 정리).
+
+| 문서 | 소유하는 것 | 갱신 시점 |
+|---|---|---|
+| `CLAUDE.md` | 작업 규칙 · 프로젝트 상태 요약 | 규칙이 바뀌거나 스프린트가 전환될 때 |
+| `PROGRESS.md` | 지금 상태 · 바로 다음 할 일 · 작업 재개 방법 · 로그 | **매 커밋** |
+| `HANDOFF.md` | **지금 스프린트 하나**의 범위·수치·완료 기준 | 스프린트가 바뀔 때 통째로 교체 |
+| `docs/worksplit.md` | 남은 전체 작업의 분업(단일 living 문서) | 분업을 정할 때마다 |
+| `docs/original-parity.md` | 원본↔Unity 전수 대조 + 원본 위치 색인 | 원본을 다시 훑을 때 |
+| `docs/sprints/NN-*.md` | **완료된** 스프린트 기록(아카이브) | 추가만, 수정 안 함 |
+
+- **스프린트가 끝나면 `HANDOFF.md`를 `docs/sprints/NN-<이름>.md`로 옮기고**(`git mv`) 새 스프린트 스펙으로
+  교체한다. 옮긴 파일 맨 위에는 **"⚠️ 완료된 기록, 현재 스펙 아님" 배너**를 달고, 그 스프린트에서 정했다가
+  **나중에 뒤집힌 결정이 있으면 표로 명시**한다 — 아카이브를 읽은 세션이 폐기된 결정을 되살리는 걸 막는다.
+- 코드 주석에서 스펙을 인용할 땐 **그 스프린트의 아카이브 경로**를 쓴다. `HANDOFF.md`는 내용이 통째로
+  바뀌므로 "HANDOFF.md 2번" 같은 참조는 다음 스프린트에 곧바로 오독이 된다(실제로 12개 파일에서 발생).
 - 원본과의 의도적 편차는 항상 `> **의도적 편차 —`로 시작하는 콜아웃으로 통일해서 문서 전체에서 grep 가능하게 남긴다.
 
 ### 월드 스케일 — 원본 수치를 가져올 때 (실제 버그 발생 지점)
@@ -208,10 +225,17 @@ Unity 씬(`.unity`)·프리팹(`.prefab`) 파일은 내부적으로 GUID/fileID�
 
 ## 지금 프로젝트 상태
 
-- Unity: 2D (URP) 템플릿
-- 진행 단계: **1단계 전투 코어 프로토타입 완료 + 대규모 리팩터링 완료(2026-08-26).** Part A(필드/카메라/플레이어/공격) + Part B(몬스터/스폰) 전부 `main`에 병합·검증·`origin` push 완료. HANDOFF.md "개발 순서 제안" 1~5번 전부 체크 완료 — "핵심 루프"가 돌아가는 상태. 이어서 **"코딩/파일 정리 규칙"의 폴더/네임스페이스/asmdef 분리 + `Monster`→`Enemy` 리네임을 실제 코드에 적용 완료** — 더 이상 "규칙만 있고 코드는 평평한" 상태가 아니다. `Assets/Scripts/`는 `Core/World/Combat/Characters/Enemies/Systems` 여섯 폴더 = 여섯 네임스페이스(`YokaiFront.*`) = 여섯 asmdef로 실제 분리돼 있고, 계층 참조 규칙(하위 asmdef가 상위를 모름)도 강제된다. 클래스명은 `EnemyMove`/`EnemySpawner`, 프리팹은 `Enemy_Oni.prefab`. 자세한 건 `PROGRESS.md` 참조.
-- **배치모드 `-executeMethod`는 이제 전체 네임스페이스 경로가 필요하다**: `YokaiFront.Editor.BuildPartAScene.Build` (리팩터 전엔 `BuildPartAScene.Build`였음 — 네임스페이스 없는 옛 명령어를 쓰면 "class could not be found"로 실패한다).
-- **진행 단계 갱신(2026-09-08)**: 스프린트 2(체력·피해 → 레벨/골드강화/난이도 스케일링)와 **마법사 스킬트리 전체(폭발·중력 5티어)**까지 `main` 병합 완료, PlayMode 54/54. 다음은 **런 사이클**(씬 상태머신·런 타이머·결과·로비)이다.
-- **남은 작업의 전체 그림과 분업은 [`docs/worksplit.md`](docs/worksplit.md)가 소유한다** — 새 세션은 `PROGRESS.md` 다음으로 이걸 본다. 원본과 현재 구현의 전수 대조는 [`docs/original-parity.md`](docs/original-parity.md).
-- ⚠️ **지금 코드에 있는 "R키 부활"(`Characters/PlayerDeathHandler`)과 "숫자키 1~7 강화/빌드 선택"(`Characters/PlayerDebugController`)은 원본에 없는 임시방편이다.** 원본은 죽으면 결과 화면→로비(`project_test.html:1927`), 강화는 로비 탭(`:6974`)이다. 런 사이클·로비 UI가 생기면 **삭제**할 것 — 원본에 있는 기능인 줄 알고 유지하지 말 것.
+- Unity: 2D (URP) 템플릿. `Assets/Scripts/`는 `Core / World / Combat / Characters / Enemies / Systems`
+  여섯 폴더 = 여섯 네임스페이스(`YokaiFront.*`) = 여섯 asmdef로 분리돼 있고, 계층 참조 규칙이 컴파일러로 강제된다.
+- **진행 단계(2026-09-09)**: 전투 코어 → 체력·피해 → 성장곡선(레벨·골드강화·난이도 스케일링) →
+  **마법사 스킬트리 전체(폭발·중력 5티어)**까지 `main` 병합 완료. **PlayMode 61/61.** 미병합 브랜치 없음.
+  **다음은 런 사이클**(씬 상태머신·런 타이머·결과·ESC) — 스펙은 `HANDOFF.md`.
+- **새 세션이 읽는 순서**: 이 파일 → `PROGRESS.md`(지금 상태·다음 할 일·배치 검증 명령) →
+  `HANDOFF.md`(지금 스프린트) → `docs/worksplit.md`(분업). 원본 대조는 `docs/original-parity.md`.
+- **배치모드 `-executeMethod`는 전체 네임스페이스 경로가 필요하다**: `YokaiFront.Editor.BuildPartAScene.Build`
+  (짧은 이름을 쓰면 "class could not be found"로 실패한다).
+- ⚠️ **지금 코드에 있는 "R키 부활"(`Characters/PlayerDeathHandler`)과 "숫자키 1~7 강화/빌드 선택"
+  (`Characters/PlayerDebugController`)은 원본에 없는 임시방편이다.** 원본은 죽으면 결과 화면→로비
+  (`project_test.html:1927`), 강화는 로비 탭(`:6974`)이다. **런 사이클에서 전자를, 로비 UI에서 후자를 삭제**할 것
+  — 원본에 있는 기능인 줄 알고 유지하지 말 것(두 파일 주석 맨 위에도 같은 경고를 달아뒀다).
 - 게임 로직 검증은 항상 PlayMode 테스트로 한다(`Assets/Tests/PlayMode/`, 도메인별 하위 폴더로 분리됨). Edit Mode 배치 실행에서 Physics2D 쿼리를 신뢰하지 말 것 — 이유는 `PROGRESS.md` 로그 참고.

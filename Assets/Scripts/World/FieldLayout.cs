@@ -16,7 +16,7 @@ namespace YokaiFront.World
     // 확인됨 — 중심이 아니다. 100px=1유닛, groundY=620 기준 centerX=(x+w/2)/100 로 환산.
     //
     // Y(층 간격)는 원본 그대로(y=505/395/285/185, 층간 1.0~1.1유닛)가 아니라 사용자 요청으로
-    // 층간 1.35유닛으로 넓혔다 — 의도적 편차(원본으로 되돌리지 말 것, HANDOFF.md 1번 참고).
+    // 층간 1.35유닛으로 넓혔다 — 의도적 편차(원본으로 되돌리지 말 것, docs/sprints/01-combat-core.md 1번 참고).
     public static readonly float[,] Platforms =
     {
         // centerX, centerY, width  (전부 유닛)

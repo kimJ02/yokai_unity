@@ -12,7 +12,7 @@
 - **참여**: 나(사용자 세션) / 팀원(다른 클로드 세션). 밸런스 수치 조정은 기획자 상윤이 나중에 담당 — **우리는 원본 수치 그대로 이식만 한다.**
 - **원칙**: 축을 둘로 갈라 파일이 안 겹치게 한다. **나 = 게임 구조·플레이어·메타 진행 / 팀원 = 적·월드·나머지 캐릭터.**
 
-이전 분업안 `docs/sprint2-handoff-split.md`(스프린트 2 트랙 A/B)는 **완료됐다** — 참고용으로만 남긴다.
+이전 분업안(스프린트 3 트랙 A/B)은 **완료돼 `docs/sprints/03-growth-curve-worksplit.md`로 아카이브됐다** — 현행 아님.
 
 ---
 
@@ -45,9 +45,11 @@ namespace YokaiFront.Core
     }
 }
 ```
-⚠️ **팀원 필수 대응**: `EnemySpawner`/`EnemyMove`/`EnemyHealth`/새 몹·보스·성소 전부 `Update()` 첫 줄에
-`if (!GameState.IsRunning) return;`을 넣는다. 원본도 `frame()`에서 `state.scene !== 'run'`이면 `dt=0`으로
-모든 갱신을 멈춘다(`:7169`).
+✅ **팀원 대응 불필요로 변경됨(2026-09-09)** — 원래 "적·스폰 전부 `Update()` 첫 줄에
+`if (!GameState.IsRunning) return;`을 넣어달라"고 요청했지만, **런이 아닐 때 `Time.timeScale = 0`으로
+멈추는 방식으로 확정**해서 팀원이 `Enemies/`를 손볼 필요가 없어졌다. 원본도 `frame()`에서
+`state.scene !== 'run'`이면 `dt=0`으로 모든 갱신을 멈추므로(`:7169`) 오히려 이쪽이 원본에 가깝다.
+`GameState.IsRunning`은 그대로 두되 **읽고 싶을 때만 읽으면 된다**(예: 스폰을 런 중에만 하고 싶을 때).
 
 ### `Core/RunState.cs` — 내가 소유, 팀원은 **읽기만**
 ```csharp

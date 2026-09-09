@@ -3,10 +3,15 @@ using UnityEngine;
 namespace YokaiFront.Characters
 {
     /// <summary>
-    /// 스프린트 2 임시 사망 처리 — "정지 + R키로 그 자리에서 재시작"(`docs/sprint2-handoff-split.md`
-    /// 확정 사항). 원본은 죽으면 런 종료+결과화면(project_test.html:1927 `endRun('dead')`)인데,
-    /// 그 런 사이클 자체가 스프린트 3 범위라 아직 없다. 죽을 때마다 에디터를 재시작해야 하면
-    /// "5지역쯤 체감 벽" 검증이라는 이번 스프린트의 목적 자체가 방해받아서 최소한만 만든다.
+    /// ⚠️ **삭제 예정 — 원본에 없는 임시방편이다.** 런 사이클(현재 스프린트, `HANDOFF.md` 7번)을
+    /// 구현하면서 이 파일을 지우고, 사망은 `endRun('dead')` → 결과 화면 → 로비로 처리한다.
+    /// **"원본에 있는 기능"으로 오해해서 유지하지 말 것.**
+    ///
+    /// 원본은 죽으면 런이 끝난다(project_test.html:1927 `endRun('dead')`). 부활은 아이템
+    /// '최후의 발악'을 가졌을 때 체력 40%로 **자동** 발동하는 것뿐이고(`:1917`), R키 같은 수동 부활은 없다.
+    /// 이 클래스는 런 사이클이 없던 시절(성장곡선 검증 스프린트, `docs/sprints/03-growth-curve-worksplit.md`)
+    /// "죽을 때마다 에디터를 재시작해야 하면 체감 벽 검증이 불가능하다"는 이유로 넣은 것이다 —
+    /// 2026-09-08 사용자 지적으로 폐기 확정.
     /// </summary>
     [RequireComponent(typeof(PlayerHealth))]
     public class PlayerDeathHandler : MonoBehaviour

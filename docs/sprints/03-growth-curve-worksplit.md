@@ -1,7 +1,13 @@
-# 스프린트 2 분업 — 성장곡선 검증 (`HANDOFF_sprint2_draft.md` 기반)
+# [아카이브] 스프린트 3 분업 — 성장곡선 검증 ✅ 완료(2026-09-08)
 
-> 초안(`HANDOFF_sprint2_draft.md`) 채택 확정. 아래는 팀원(트랙 A)과 나(트랙 B)의 작업 분리 계약이다.
-> 두 사람 다 **0단계가 끝난 뒤** 시작할 것 — 안 그러면 병합 때 충돌난다.
+> ## ⚠️ 완료된 분업의 기록이다. **현재 분업은 `docs/worksplit.md`가 소유한다.**
+> 여기 적힌 트랙 A/B는 둘 다 구현·검증·`main` 병합이 끝났고, 아래 "공유 계약" 코드 블록은
+> 전부 실제 코드가 됐다(`Core/PlayerProfile`, `Core/DifficultyScalingConfig`, `Systems/RunProgress` 등).
+> 또한 아래 "확정된 세부 결정"의 **R키 부활·숫자키 강화는 이후 폐기됐다** —
+> `docs/sprints/03-growth-curve.md` 상단 표 참고.
+>
+> 근거였던 초안 `HANDOFF_sprint2_draft.md`는 당시 `HANDOFF.md`로 승격됐고, 지금은
+> `docs/sprints/03-growth-curve.md`로 아카이브돼 있다(같은 문서).
 
 ## 0단계 (선행 작업 — 내가 처리, 팀원은 대기)
 

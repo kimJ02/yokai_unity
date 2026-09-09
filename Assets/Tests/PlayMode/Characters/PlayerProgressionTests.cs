@@ -10,7 +10,7 @@ namespace YokaiFront.Tests.PlayMode
 {
 
 /// <summary>
-/// 스프린트 2 트랙 B(레벨업 + 골드 강화 + 스탯 적용) 검증. `docs/sprint2-handoff-split.md`의
+/// 스프린트 2 트랙 B(레벨업 + 골드 강화 + 스탯 적용) 검증. `docs/sprints/03-growth-curve-worksplit.md`의
 /// 확정 공식·원본 인용을 그대로 대상으로 삼는다.
 ///
 /// `Core.ProfileService.Current`는 정적 싱글턴이라 테스트끼리 공유되면 오염된다(이 프로젝트에서

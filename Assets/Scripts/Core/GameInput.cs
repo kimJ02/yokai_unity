@@ -9,7 +9,7 @@ namespace YokaiFront.Core
     /// `PlayerAttack` 세 곳이 직접 호출 중이었음) 여기로 전부 모았다.
     ///
     /// 원본 KEYMAP은 점프에 KeyC와 Space 둘 다 매핑하지만, 이 프로젝트는 **의도적으로 C만 쓴다**
-    /// (HANDOFF.md/CLAUDE.md에 이미 명시된 의도적 편차 — 되돌리지 말 것).
+    /// (`docs/sprints/01-combat-core.md`·`CLAUDE.md`에 명시된 의도적 편차 — 되돌리지 말 것).
     ///
     /// Unity의 `Input.GetKey`/`GetKeyDown` 자체가 이미 "누르고 있음/방금 눌림"을 프레임 단위로
     /// 구분해주므로, 원본처럼 별도 Set 기반 상태 관리를 재구현할 필요는 없다 — 여기서는 키 이름만

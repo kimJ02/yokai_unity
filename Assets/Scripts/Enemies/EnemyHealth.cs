@@ -10,9 +10,9 @@ namespace YokaiFront.Enemies
     /// 피해량 계산(치명타·난수 변동) 자체는 공격 쪽(`Combat.DamageCalculator`)이 담당한다 — 원본도
     /// `dealDamage` 안에서 공격자 스탯으로 먼저 계산한 뒤 대상 체력을 깎는 순서다.
     ///
-    /// v0에서 빠진 것(HANDOFF.md "범위 밖"): 콤보 적립, 원소(화상/출혈), 처형, 분열귀 분열,
+    /// 아직 빠진 것(`docs/original-parity.md` 참고): 콤보 적립, 출혈·처형, 분열귀 분열,
     /// 데미지 숫자 팝업·파티클·hitstop. 사망 시 골드·경험치 지급은 <see cref="Died"/> 이벤트로
-    /// 트랙 A(`Systems`)가 구독해서 처리한다(`docs/sprint2-handoff-split.md` 참고) — 이 클래스 자체는
+    /// 트랙 A(`Systems`)가 구독해서 처리한다(`docs/sprints/03-growth-curve-worksplit.md` 참고) — 이 클래스 자체는
     /// 보상을 계산하지 않는다(Enemies 도메인이 Core.ProfileService 이상을 몰라야 하므로).
     /// </summary>
     [DisallowMultipleComponent]

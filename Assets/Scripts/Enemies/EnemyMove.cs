@@ -5,7 +5,7 @@ using YokaiFront.World;
 namespace YokaiFront.Enemies
 {
 /// <summary>
-/// Part B (feature/monster-combat) - 몬스터 이동 AI. HANDOFF.md 2번 스탯 범위(몹 1종=오니 기준)를
+/// Part B (feature/monster-combat) - 몬스터 이동 AI. docs/sprints/01-combat-core.md 2번 스탯 범위(몹 1종=오니 기준)를
 /// 원본 updateEnemies()의 "오니·분열귀·새끼" 분기(기본 보행 AI)를 그대로 이식해서 구현한다 —
 /// 이건 프로토타입이 아니라 실제 구현이므로 세부 동작까지 원본과 동일하게 맞춘다. 아래 각 동작은
 /// 전부 원본 코드의 특정 줄에 대응한다(주석에 표시).
@@ -22,7 +22,7 @@ namespace YokaiFront.Enemies
 ///   모든 피해 판정 함수가 대상을 건너뛴다. `IsSpawnProtected`로 노출, 공격 스크립트가 확인한다.
 /// - **접촉 데미지**: 원본은 매 프레임 `rectsOverlap` 판정 후 `damagePlayer()` 호출 — 별도
 ///   쿨다운 없이 겹치는 동안 계속 불린다(실제 반복 피해 방지는 플레이어 쪽 무적시간이 담당).
-///   플레이어 Health가 아직 없어(HANDOFF.md 범위 밖) `TryAttack()`은 자리만 만들어둔 상태 유지.
+///   `TryAttack()`이 `Core.IDamageable`로 실제 피해를 준다(스프린트 2에서 스텁 → 실구현으로 전환됨).
 /// - **낙하 종단속도 15유닛/s**(원본 `e.vy`엔 명시적 상한이 없지만 플레이어와 같은 `updateEnemies`
 ///   중력 루프를 쓰고 원본 전체가 이 상한을 공유함 — `CharacterMover2D` 참고).
 /// - **필드 X 경계 여백 0.3유닛**(원본 `e.x = clamp(e.x, 30, mapW-30)`, 매 프레임). 이전엔 배회
@@ -33,7 +33,7 @@ namespace YokaiFront.Enemies
 [RequireComponent(typeof(CircleCollider2D))]
 public class EnemyMove : MonoBehaviour, ISpawnProtectable, IGravityAffectable
 {
-    [Header("스탯 (HANDOFF.md 2번 - 오니 기준 시작값, 원본 76px/s를 100px=1유닛로 축척)")]
+    [Header("스탯 (docs/sprints/01-combat-core.md 2번 - 오니 기준 시작값, 원본 76px/s를 100px=1유닛로 축척)")]
     public float moveSpeed = 0.76f;
     public float attackPower = 13f;
 

@@ -14,7 +14,7 @@ namespace YokaiFront.Tests.PlayMode
 /// <summary>
 /// 스프린트 2(성장곡선 검증) 트랙 A — 가상 지역 레벨(<see cref="RunProgress"/>)과
 /// 처치 보상(<see cref="EnemySpawner"/>.HandleEnemyDied)이 실제로 맞물려 도는지 검증한다.
-/// 공식 자체는 `docs/sprint2-handoff-split.md`(원본 CONFIG.scale, project_test.html:727) 그대로.
+/// 공식 자체는 `docs/sprints/03-growth-curve-worksplit.md`(원본 CONFIG.scale, project_test.html:727) 그대로.
 ///
 /// `RunProgress`/`ProfileService.Current`는 둘 다 정적 상태라 테스트끼리 서로 오염시키므로
 /// 매 테스트 시작 전 반드시 초기화한다.

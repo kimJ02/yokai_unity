@@ -7,7 +7,7 @@ namespace YokaiFront.Core
     /// **세이브 데이터다, SO가 아니다**(CLAUDE.md "세이브 데이터 vs 설정 데이터" 절 참고) — 플레이어마다
     /// 다르고 런타임에 계속 바뀌므로 순수 직렬화 가능 클래스로 둔다.
     ///
-    /// 스프린트 2("성장곡선 검증", `docs/sprint2-handoff-split.md`)의 트랙 A/B 공유 계약 — 필드
+    /// 스프린트 2("성장곡선 검증", `docs/sprints/03-growth-curve-worksplit.md`)의 트랙 A/B 공유 계약 — 필드
     /// 이름·타입을 임의로 바꾸면 두 트랙이 동시에 깨진다. 트랙 A(처치 보상)는 <see cref="AddGold"/>/
     /// <see cref="AddExp"/>만 호출하고 `gold`/`exp` 필드를 직접 증가시키지 않는다.
     /// </summary>

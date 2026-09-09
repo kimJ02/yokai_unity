@@ -7,7 +7,7 @@ using YokaiFront.World;
 namespace YokaiFront.Systems
 {
 /// <summary>
-/// Part B (feature/monster-combat) - 몬스터 스폰 알고리즘 (HANDOFF.md 2번).
+/// Part B (feature/monster-combat) - 몬스터 스폰 알고리즘 (docs/sprints/01-combat-core.md 2번).
 ///
 ///   매 waveInterval(3.6초)마다 웨이브 발생:
 ///     maxSpawnPerWave(7)마리까지 스폰 시도
@@ -27,7 +27,7 @@ namespace YokaiFront.Systems
 /// 몹은 이제 Rigidbody2D로 실제 중력을 받으므로(EnemyMove 참고) 발판 위에 스폰하면 물리로
 /// 그 위에 서 있는다. FieldLayout이 발판/바닥그리드 좌표의 단일 출처다.
 ///
-/// 스프린트 2(성장곡선 검증, `docs/sprint2-handoff-split.md` 트랙 A) — 스폰 직후 "가상 지역
+/// 스프린트 2(성장곡선 검증, `docs/sprints/03-growth-curve-worksplit.md` 트랙 A) — 스폰 직후 "가상 지역
 /// 레벨"(<see cref="RunProgress"/>)에 따라 몹 체력/공격력을 스케일링하고, 그 몹이 죽으면
 /// 처치 보상(골드+EXP)을 지급한다. 둘 다 이 스포너가 몹 프리팹을 다루는 유일한 지점이라
 /// 자연스럽게 여기서 담당한다(트랙 A/B 경계 — `Core/PlayerProfile.cs`·`Characters/` 전체는
@@ -41,7 +41,7 @@ public class EnemySpawner : MonoBehaviour
     [Header("몬스터 프리팹")]
     public GameObject monsterPrefab;
 
-    [Header("웨이브 설정 (HANDOFF.md 2번)")]
+    [Header("웨이브 설정 (docs/sprints/01-combat-core.md 2번)")]
     public float waveInterval = 3.6f;
     public int maxSpawnPerWave = 7;
     public int maxAliveTotal = 22;
@@ -171,7 +171,7 @@ public class EnemySpawner : MonoBehaviour
 
     /// <summary>
     /// 난이도 스케일링(가상 지역 레벨) 적용 + 처치 보상 연결. 스폰 직후 한 번만 호출한다
-    /// (`docs/sprint2-handoff-split.md` 트랙 A 2번). 실제 공식/수치는 전부
+    /// (`docs/sprints/03-growth-curve-worksplit.md` 트랙 A 2번). 실제 공식/수치는 전부
     /// <see cref="DifficultyScalingConfig"/>에 있다 — 여기선 호출만 한다.
     /// </summary>
     void ApplyRegionScaling(GameObject monster)
@@ -193,7 +193,7 @@ public class EnemySpawner : MonoBehaviour
     /// <summary>
     /// 처치 보상(원본 killEnemy(), project_test.html:1793) — EXP는 항상 지급, 골드는 확률 드랍.
     /// 엘리트 배수·연쇄처치·살기(fury) 보너스는 범위 밖 — "몹 1마리 = 고정 공식" 루프만 구현한다
-    /// (`docs/sprint2-handoff-split.md` 트랙 A "확정된 세부 결정" 참고). 실제 공식/수치는 전부
+    /// (`docs/sprints/03-growth-curve-worksplit.md` 트랙 A "확정된 세부 결정" 참고). 실제 공식/수치는 전부
     /// <see cref="DifficultyScalingConfig"/>에 있다 — 여기선 호출만 한다.
     /// </summary>
     void HandleEnemyDied(EnemyHealth enemy)

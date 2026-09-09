@@ -11,7 +11,7 @@ namespace YokaiFront.Characters
     /// 플레이어에게는 피격자 쪽(`damagePlayer` :1904)에서 적용한다. 그 구조를 그대로 따랐다 —
     /// 그래서 여기서 `amount`를 받은 뒤 다시 난수를 굴린다(적을 때릴 때처럼 공격자가 미리 굴려 오지 않는다).
     ///
-    /// v0에서 빠진 것(HANDOFF.md "범위 밖"): 아이템 관련 전부(피해감소 `drMult`, 피격무효 `guard`,
+    /// 아직 빠진 것(`docs/original-parity.md` 참고): 아이템 관련 전부(피해감소 `drMult`, 피격무효 `guard`,
     /// 부활 `revive`, 무적연장 `iframe`), 섬영 전용 회피, 화면 붉은 플래시·흔들림·사운드.
     /// </summary>
     [DisallowMultipleComponent]
@@ -38,8 +38,9 @@ namespace YokaiFront.Characters
         public float InvulnRemaining { get; private set; }
 
         /// <summary>
-        /// 사망 시 1회 발생. **지금은 아무도 구독하지 않는다** — 런 종료 처리는 스프린트 3(런 사이클) 범위라
-        /// 신호만 노출해둔다(HANDOFF.md "범위 밖" 참고). 원본은 여기서 `endRun('dead')`를 부른다(:1927).
+        /// 사망 시 1회 발생. 지금 구독자는 `PlayerDeathHandler`(⚠️ 삭제 예정 — 원본에 없는 R키 부활)뿐이다.
+        /// 런 사이클(현재 스프린트, `HANDOFF.md` 4번)에서 이 신호가 `endRun('dead')` → 결과 화면으로
+        /// 이어져야 한다 — 원본도 여기서 `endRun('dead')`를 부른다(project_test.html:1927).
         /// </summary>
         public event Action Died;
 
@@ -74,9 +75,10 @@ namespace YokaiFront.Characters
         }
 
         /// <summary>
-        /// 스프린트 2 임시 사망 처리(`docs/sprint2-handoff-split.md` 확정: "정지 + R키 재시작").
-        /// 원본은 런 종료+결과화면(:1927 `endRun('dead')`)이지만 런 사이클이 스프린트 3 범위라
-        /// 그때까지 테스트가 끊기지 않게 최소한만 만든다 — `PlayerDeathHandler`가 R키 입력 시 호출한다.
+        /// ⚠️ **삭제 예정** — 원본에 없는 R키 부활(`PlayerDeathHandler`)이 부르는 메서드다.
+        /// 런 사이클(`HANDOFF.md` 7번)에서 `PlayerDeathHandler`와 함께 정리한다.
+        /// 대신 런 시작 시 초기화는 `Core.IRunResettable.ResetForRun()`으로 구현할 것
+        /// (원본 `resetPlayerForRun()`, project_test.html:1511).
         /// </summary>
         public void Revive()
         {

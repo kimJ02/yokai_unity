@@ -11,7 +11,7 @@ namespace YokaiFront.Combat
     ///                 × rebirthWallPlayerDmgMult() × rand(0.9,1.1) × (crit ? critMultOf() : 1) ))
     ///
     /// 지금 구현한 항: `statAtk × mult`(= 인자로 받는 baseDamage) · `rand(0.9,1.1)` · 치명타 · `max(1, round())`
-    /// 빠진 항(전부 해당 시스템이 아직 없어서 — HANDOFF.md "범위 밖" 참고):
+    /// 빠진 항(전부 해당 시스템이 아직 없어서 — `docs/original-parity.md` 4절 "전투 배수 체인" 참고):
     ///   `dmgMultAll()`(콤보·살기·아이템·성소) · `vulnMult`(균열의 각인) · `lvF`(레벨 페널티)
     ///   · `itemDmgVs`(상황부 아이템) · `rebirthWallPlayerDmgMult`(윤회 벽)
     /// 나중에 그 시스템들이 생기면 **여기 한 곳만** 고치면 되도록 계산을 이 클래스로 모았다.

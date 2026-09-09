@@ -2,125 +2,87 @@
 
 > 새 세션은 이 파일부터 읽고 이어서 작업할 것. 작업할 때마다 여기를 갱신한다.
 
-## 지금 상태
 
-**2026-09-08 기준 — 전투 코어 + 스프린트 2(성장곡선) + 마법사 스킬트리까지 전부 `main` 병합 완료. PlayMode 54/54.**
-다음 단계는 **런 사이클**(게임의 뼈대)이고, 그 전에 전체 분업안을 문서로 확정했다.
+## 지금 상태 (2026-09-09)
 
-- 📄 **[`docs/worksplit.md`](docs/worksplit.md) — 남은 전체 작업 분업안. 새 세션은 반드시 여기부터 볼 것.**
-- 📄 [`docs/original-parity.md`](docs/original-parity.md) — 원본↔Unity 전수 대조표(뭐가 되고 뭐가 없는지 전부)
+**전투 코어 + 체력/피해 + 성장곡선(레벨·골드강화·난이도 스케일링) + 마법사 스킬트리 전체가 `main`에 병합·검증 완료.**
+`main`이 유일한 최신 브랜치이고, 미병합 작업은 없다. **PlayMode 61/61 통과.**
 
-**되어 있는 것**: 이동·점프·발판·카메라 / 마법사 Z차지샷 + 폭발·중력 스킬트리 5티어 / 체력·피해·넉백·화상·스폰무적 /
-레벨·경험치·골드강화 5종·파생스탯 / 웨이브 스폰(오니 1종) / 처치 보상 + 가상 지역 레벨.
+지금 게임은 이렇게 동작한다: `Assets/Scenes/CombatCore.unity`를 열면 플레이어(파란 원)가 ←/→ 이동,
+**C**로 점프(원본은 C+Space지만 **의도적 편차로 C만**), **Z** 길게 눌러 차지 후 발사한다. 원본 발판 15개
+(원웨이, 층간 1.35유닛 — 의도적 편차)를 실제 Physics2D 중력으로 오르내리고, 몹(오니)은 3.6초마다
+웨이브 스폰돼 추적/배회하며 접촉 데미지를 준다. 처치하면 골드·경험치가 들어오고 레벨이 오른다.
+**6/7** 키로 마법사 빌드(폭발/중력)를 배우면 Z 공격이 바뀌고 **X** 스킬이 열린다.
 
-**없는 것(큰 덩어리)**: 런 사이클·로비·HUD·세이브 / 지역 9종 / 몹 6종·엘리트·성소·보스 / 전투 배수 체인·레벨 페널티 /
-경험치 구슬 / 아이템·가챠·윤회 / 캐릭터 3종. 자세한 건 위 대조표.
+### 다음 할 일 — 런 사이클
 
-> ⚠️ **지금 게임에 있는 "R키 부활"과 "숫자키 1~7 강화/빌드 선택"은 원본에 없는 임시방편이다.**
-> 원본은 죽으면 결과 화면 → 로비이고(`:1927`), 강화는 로비에서 한다. 런 사이클·로비 UI가 생기면 **삭제 대상**.
+**스펙: [`HANDOFF.md`](HANDOFF.md) / 전체 분업: [`docs/worksplit.md`](docs/worksplit.md) / 원본 대조: [`docs/original-parity.md`](docs/original-parity.md)**
 
-`Assets/Scenes/CombatCore.unity`를 열면 플레이어(파란 원)가 원본과 동일한 조작(←/→ 이동, **C만** 점프, Z 길게 눌러 차지 후 발사)으로 실제 Physics2D 중력을 받으며 원본 발판 15개(원웨이, 층간 1.35유닛)를 오르내리고, 마법탄(사거리 8.8~11.4유닛, 원본 크기의 판정 박스)으로 Enemy 태그 대상을 관통 공격 가능. 몬스터도 3.6초마다 웨이브 스폰돼 원본처럼 발판/바닥그리드 스폰 포인트(균등 랜덤 아님) 중 하나의 **실제 높이**에서 나타나 물리로 그 위에 서고, 스폰 직후 2초 무적, 추적범위(3유닛) 안이면 플레이어를 쫓고 밖이면 배회하며, 발판 위에서는 가장자리에서 되돌아가 걸어서 떨어지지 않음. **카메라도 원본 캔버스(1280×720px) 비율로 재계산**해서 화면에 맵의 약 절반만 보이는 스크롤 체감까지 원본과 맞춤. 점프엔 코요테 타임/입력 버퍼, 차지 중엔 이동속도 50% 감소, 낙하엔 종단속도 상한, 필드 경계엔 원본과 같은 여백까지 반영. PlayMode 테스트 **20/20 통과**.
+착수 전제(`Core/GameState`·`RunState`·`CombatEvents`·`IRunResettable`)는 **이미 `main`에 있다.**
+바로 `Systems/RunController`부터 만들면 된다. 구체적인 순서·완료 기준은 `HANDOFF.md`.
 
-Part B 병합 직후 컴파일 에러 포함 5건 + 사용자가 직접 플레이해보고 지적한 스폰/이동/공격판정/카메라 불일치까지 전부 수정하고 `origin/main`에 push 완료(2026-08-26).
+1. `Core/GameInput`에 `PauseDown`(ESC) 추가
+2. `Systems/RunController` 신설 — 상태 전이, 90초 타이머, `Time.timeScale` 정지, 필드 정리, 플레이어 리셋
+3. `PlayerHealth`·`CharacterMover2D`·`MageAttack`이 `Core/IRunResettable` 구현
+4. `Core/CombatEvents`에 `PlayerDied` 추가 → 사망 시 결과 화면
+5. **`Characters/PlayerDeathHandler` 삭제**(R키 부활 — 원본에 없음) + `BuildPartAScene`·테스트 정리
+6. `Systems/RunProgress`를 `RunState.Region` 위임으로 교체(팀원 파일 `EnemySpawner`는 안 건드림)
 
-## 과거 분업 기록 (2026-08-25, 1단계) — 현행 분업은 [`docs/worksplit.md`](docs/worksplit.md)
+**팀원 쪽**: `docs/worksplit.md`의 A~I. 착수 전제가 `main`에 올라가 있으므로 **지금 바로 시작 가능**하고,
+A(몹 6종)는 착수 전제와 무관해서 언제든 시작할 수 있다.
 
-1단계(HANDOFF.md) 4개 항목을 두 세션이 절반씩 맡는다. **씬 파일 동시 편집을 피하려고, "플레이어 쪽"과 "몬스터 쪽"으로 나눴다** — 서로 새 파일만 만들면 되고 겹치는 파일이 최소화되도록 설계.
+## 작업 재개 방법 (인수인계)
 
-### Part A — 플레이어 & 필드 ✅ 완료, `main` 병합됨
-- 브랜치: `feature/player-field` (병합 완료, 이제 새로 안 건드림)
-- 범위: HANDOFF.md 1번(필드 경계+카메라, 이후 실제 Physics2D+발판 15개로 확장) + 2번(캐릭터 컨트롤러, 원형 스프라이트+아군색) + 3번(공격 판정, 이후 마법사 차지샷으로 구체화)
-- 만든 파일: 아래 "로그" 참고
+```bash
+git clone https://github.com/kimJ02/yokai_unity && cd yokai_unity
+git checkout main            # 미병합 브랜치 없음 — main만 보면 된다
+```
 
-### Part B — 몬스터 & 스폰 ✅ 완료, `main`에 병합·수정·검증 끝(로컬)
-- 브랜치: `feature/monster-combat` (`ffbf18d`까지 병합 — 이후 이 브랜치는 안 씀)
-- 범위: HANDOFF.md 2번(몬스터 스폰 알고리즘) — 몬스터는 원형+적군색 프리팹, 스폰 로직 + 단순 이동
-- 완료: 스폰/이동 스크립트, 프리팹, 병합 후 남은 수정 5건, PlayMode 테스트(`MonsterSpawnAndMoveTests.cs`) 전부 완료, `origin` push까지 끝(아래 로그 참고)
+읽는 순서: `CLAUDE.md`(작업 규칙) → 이 파일 → `HANDOFF.md`(지금 스프린트) → `docs/worksplit.md`(분업).
 
-### 둘을 잇는 인터페이스 계약 (임의로 바꾸지 말 것)
-- 플레이어 오브젝트 Tag = `"Player"` (씬에 이미 있음, Unity 기본 제공 태그라 TagManager에 별도 등록 불필요)
-- 몬스터 프리팹 Tag = `"Enemy"` (TagManager에 등록 완료)
-- **필드 경계(2026-08-25 개정): `FieldBounds.MinX=0, MaxX=26`, 횡스크롤 플랫포머로 구조 자체가 바뀜.** 원본 mapW(2600px) 그대로 100px=1유닛 축척. `FieldBounds.RandomX()` 헬퍼로 새 범위가 자동 반영되니 그대로 쓸 것.
-- **Y축은 고정 바닥 하나가 아니라 실제 Physics2D**(원본 발판 15개, `Ground` 물리 레이어)다. **몬스터도 실제 중력을 받아 발판/바닥 위에 선다**(2026-08-26 개정 — 이전엔 "GroundY에서만 X로"였는데, 스폰 포인트가 발판 높이를 쓰게 되면서 물리도 같이 필요해짐). 발판 위 몹은 원본처럼 가장자리에서 되돌아가고(걸어서 안 떨어짐), 플레이어 추적범위(3유닛) 밖이면 배회한다 — `MonsterMove.cs` 참고.
-- 전투는 v0 기준 **몬스터 체력 개념 없이 즉시 `Destroy()`** — 근접형 `PlayerAttack`과 마법사 차지샷(`MageProjectile`) 둘 다 동일 정책(HANDOFF.md 3번 참고). `Health` 컴포넌트는 이번 판엔 안 만든다.
-- **검증은 가능하면 PlayMode 테스트로.** Part A에서 Edit Mode 배치 실행으로는 `Physics2D`/지연 `Destroy()`가 못 미덥다는 걸 실제로 확인함(아래 로그 참고) — Part B도 여유가 되면 `Assets/Tests/PlayMode/`에 스폰/이동 테스트를 추가하는 걸 권장(필수는 아님, 지금은 수동 Play 테스트로 대체).
+**배치 검증 명령** (Unity 에디터를 반드시 닫고 실행 — 열려 있으면 프로젝트가 잠겨 크래시한다):
 
-### 병합 순서
-1. ~~Part A 먼저 `main`에 병합~~ ✅ 완료 (커밋 `17b081e`)
-2. Part B는 `main`을 받아(`git merge origin/main`) 자기 브랜치에 반영 — ✅ 충돌 해결 + 코드 수정 진행 중, 그 다음 **메인 씬에 스포너 오브젝트 하나만 추가**하는 작은 커밋으로 마무리 후 병합
-3. 병합 후 플레이 테스트: 필드 안에 몬스터가 스폰되고, 공격 버튼으로 죽는지 확인
+```bash
+# 컴파일 + 씬 재생성
+"/c/Program Files/Unity/Hub/Editor/6000.0.75f1/Editor/Unity.exe" -batchmode -quit -nographics \
+  -projectPath "C:\dev\yokai_unity" -executeMethod YokaiFront.Editor.BuildPartAScene.Build \
+  -logFile "C:\dev\yokai_unity\build.log"
+```
 
-## 다음 할 일
+```bash
+# PlayMode 테스트 전체
+"/c/Program Files/Unity/Hub/Editor/6000.0.75f1/Editor/Unity.exe" -batchmode -nographics \
+  -projectPath "C:\dev\yokai_unity" -runTests -testPlatform PlayMode \
+  -testResults "C:\dev\yokai_unity\test_results.xml" -logFile "C:\dev\yokai_unity\test.log"
+```
 
-**→ 전체 분업과 순서는 [`docs/worksplit.md`](docs/worksplit.md)가 소유한다. 아래는 그중 지금 착수하는 것만.**
-
-1. **[나] 착수 전제 커밋** — `Core/GameState.cs`(씬 상태 4종) + `Core/RunState.cs`(지역·남은시간·처치수·살기) +
-   `Core/CombatEvents.cs`(처치 알림·성소 버프 신호)를 `main`에 올리고 **팀원에게 연락**.
-   팀원 항목 대부분이 `GameState.IsRunning`/`RunState.Region`을 읽어야 시작 가능하다(계약은 worksplit 3절).
-2. **[나] 런 사이클(내 1번)** — 씬 상태머신, 런 타이머(일반 90초), `startRun`/`endRun`/`toLobby`, ESC 일시정지,
-   **R키 부활 삭제**, `RunProgress`(가상 지역) → 진짜 지역으로 교체. 원본 `:1466`/`:4293`/`:4354`/`:4409`.
-3. **[팀원] A 몹 6종 + EnemyData SO 전환** — 착수 전제와 무관하게 먼저 시작 가능(worksplit 4절 표 참고).
-
-### 지난 스프린트 기록 (완료)
-
-1. **사용자가 에디터에서 직접 플레이해서 확인** — 이동/점프 디테일 + 리팩터링(물리 밀어내기는 팀원이 수정 완료, 2026-08-29 로그) + **스프린트 2(체력·데미지)**: 적이 한 방에 안 죽고 여러 번 때려야 죽는지, 맞을 때 흰색으로 번쩍이며 뒤로 밀리는지, 적과 부딪히면 플레이어가 밀려나며 체력이 깎이는지(체력바는 아직 없어 눈으로 안 보임 — 트랙 B 디버그 표시로 보완 예정), 0.9초 무적 덕에 겹쳐 있어도 즉사하지 않는지. 배치 컴파일 + PlayMode 30/30은 통과, 에디터 직접 플레이는 아직.
-2. **✅ 0단계 완료(2026-09-08): `feature/health-damage` → `main` 병합 + `Core/PlayerProfile` 스캐폴딩 + 문서 구조 정리.** 팀원 초안(`HANDOFF_sprint2_draft.md`, "성장곡선 검증") 채택에 따른 선행 작업 — 이제 트랙 A/B 둘 다 착수 가능한 상태.
-   - `Core/PlayerProfile`(`level/exp/gold/spUsed/upgrades{atk,hp,ms,atkSpeed,crit}`) + `Core/ProfileService.Current` 신설. `Enemies/EnemyHealth`에 `SetMaxHp()`(트랙 A 난이도 스케일링용) + `Died` 이벤트(트랙 A 처치 보상용) 추가. 배치 컴파일 + PlayMode 30/30 재검증 완료.
-   - `HANDOFF.md`(구 "체력&데미지" 단독 스펙)를 `docs/sprints/02-health-damage.md`로, `HANDOFF_sprint2_draft.md`를 새 `HANDOFF.md`로 승격 — CLAUDE.md "문서 구조" 규칙대로.
-   - **트랙 분업**: 트랙 A(팀원) = 처치 보상(골드+EXP) + 난이도 스케일링("가상 지역 레벨"), 트랙 B(나) = 레벨업(`expCurve`) + 골드 강화 5종 + 파생 스탯 적용. 상세는 `docs/sprint2-handoff-split.md`.
-   - **팀원(트랙 A)에게 전달 완료 — 트랙 A 구현까지 끝냄(아래 로그, `feature/kill-rewards` 브랜치, 아직 `main` 미병합).**
-   - **팀원(트랙 A)이 참고할 것(트랙 B가 남김)**: `Core.ProfileService.Current.AddGold()`/`AddExp()`가 이제 실제로 동작한다(레벨업 판정 포함) — 트랙 A는 그대로 호출만 하면 됨, 추가로 할 일 없음. `Enemies/EnemyHealth.SetMaxHp()`/`Died`는 0단계에서 이미 준비돼 있음.
-3. **✅ 트랙 B 완료(2026-09-08): 레벨업 + 골드 강화 5종 + 파생 스탯 적용 — `main`에 이미 병합 완료.** `feature/level-gold-upgrades` 브랜치, PlayMode 40/40(신규 10건). 상세는 아래 로그.
-4. **트랙 A(처치 보상 + 난이도 스케일링) 구현 완료(2026-09-08) — `feature/kill-rewards` 브랜치, `main`(트랙 B 포함)은 병합 받아둔 상태, 이 브랜치 자체는 아직 `main` 미병합.** `Core/DifficultyScalingConfig.cs`(스케일링/보상 상수+계산 함수) + `Systems/RunProgress.cs`(가상 지역 레벨) 신설, `Systems/EnemySpawner.cs`에 스폰 시 스탯 스케일링·처치 보상 훅 추가, PlayMode 테스트 4건 신규(아래 로그 참고). **배치 컴파일·PlayMode 실행은 이 세션이 이 컴퓨터에서 직접 할 수 없어(git/셸 실행 불가, 파일 입출력만 가능) 사용자 확인 필요 — 확인되면 `main`에 병합.**
-5. **스프린트 2 이후 순서(변경 없음)**: SO 전환 → 적 종류 확대 → 지역·보스·윤회·가챠·캐릭터(`docs/ROADMAP.md` 참고). 이번 스프린트(성장곡선 검증)가 런 사이클/HUD보다 먼저 끼어든 것 — 원래 계획의 "②런 사이클·보상 ③세이브·로비·골드강화"를 좀 더 작은 단위(가상 지역레벨로 대체)로 앞당겨 검증하는 셈이라 큰 순서는 안 바뀜.
-
-## 체크리스트 (HANDOFF.md 개발 순서)
-
-- [x] 필드 경계 + 카메라 (처음엔 고정이었으나 발판 추가로 X축 스크롤로 개정, 아래 로그 참고)
-- [x] 캐릭터 컨트롤러 임포트 → 원형 스프라이트 + 색 적용 (에셋스토어 패키지 대신 자체 구현, 아래 로그 참고)
-- [x] 실제 Physics2D 중력/충돌 + 원본 발판 15개 (범위 확장, 아래 로그 참고)
-- [x] 몬스터 스폰 로직 (HANDOFF.md 2번) — 병합·수정·PlayMode 테스트까지 완료
-- [x] 공격 판정 — 마법사 차지샷으로 구체화(HANDOFF.md 3번)
-- [x] 위 항목 다 붙어서 핵심 루프 한 번 플레이 가능 — 배치모드로 검증(PlayMode 20/20). 스폰/이동/공격판정 로직은 사용자가 직접 플레이해서 원본과 다른 점을 네 차례 지적 → 재수정함(위 로그 참고), **이 수정에 대한 재확인은 아직**(위 "다음 할 일" 참고)
-- [x] 대규모 리팩터링(폴더/네임스페이스/asmdef 분리 + Monster→Enemy 리네임) — CLAUDE.md "대규모 리팩터링 절차"대로 단일 커밋으로 완료, 배치 컴파일+PlayMode 20/20 재검증 완료
-
-## 체크리스트 (스프린트 2-1 — 체력 & 데미지, `docs/sprints/02-health-damage.md`)
-
-- [x] `Core/IDamageable` 인터페이스
-- [x] `Enemies/EnemyHealth` — 체력 38, 피격 플래시, 넉백(별도 성분 + 지수 감쇠), 사망
-- [x] `Characters/PlayerHealth` — 체력 100, 무적 0.9초, 피격 반동, 사망 이벤트(구독자는 스프린트 3)
-- [x] `Combat/DamageCalculator` — 치명타 10%/1.7배, ±10% 난수, 최소 피해 1
-- [x] 공격 스크립트 `Destroy()` → `TakeDamage()` 전환(`MageProjectile`, `PlayerAttack`)
-- [x] 접촉 데미지(`EnemyMove.TryAttack()`) + 스폰 보호 중 상호 무적 수정
-- [x] PlayMode 테스트 30/30 통과(신규 10 + 기존 20 갱신)
-- [ ] **사용자 에디터 직접 플레이 확인** — 아직
-
-## 체크리스트 (스프린트 2 — 성장곡선 검증, 트랙 B 부분)
-
-- [x] `Core/PlayerProfile.AddExp` — 원본 `gainExpMeta`(`:1440`) 그대로, 이월 + 다중 레벨업 + `LeveledUp` 이벤트
-- [x] `Core/GoldUpgrade.cs` — 강화 5종 비용표(원본 `:731`, `:1268`) + `PlayerProfile.TryBuyUpgrade`
-- [x] `Core/PlayerStatCalculator.cs` — 파생 스탯 5종(원본 `:1284~1288`)
-- [x] `Combat/DamageCalculator` — 치명타 확률을 외부에서 받는 오버로드 추가(하위호환 유지)
-- [x] `Characters/MageAttack` — `baseDamage`/`cooldown`을 매 프레임 프로필에서 재계산(공격력·공격속도 강화 반영)
-- [x] `Characters/MageProjectile` — 치명타 확률을 `PlayerStatCalculator`에서 읽도록 연결
-- [x] `Characters/CharacterMover2D` — 이동속도 강화 배율 연결
-- [x] `Characters/PlayerHealth` — 레벨업 시에만 최대체력 재계산+풀피(원본 `:1850`, 강화 구매 즉시반영 아님을 그대로 재현)
-- [x] `Characters/PlayerDeathHandler` — HP0 시 정지, `Revive()`로 재시작(확정 사항)
-- [x] `Characters/PlayerDebugController` — 숫자키 1~5 강화구매 + `OnGUI` 디버그 표시(확정 사항)
-- [x] PlayMode 테스트 40/40 통과(신규 10 + 기존 30 무손상)
-- [ ] 사용자 에디터 직접 플레이 확인 — 아직
-- [ ] 트랙 A(팀원) 완료 대기 — 구현 자체는 끝남(`feature/kill-rewards`), `Core/DifficultyScalingConfig.cs` 분리 반영 + 사용자 검증 + `main` 병합 남음. 끝나면 합쳐서 "5지역쯤 체감 벽" 최종 검증
+`-executeMethod`는 **네임스페이스 전체 경로**가 필요하다(`YokaiFront.Editor.BuildPartAScene.Build`).
+결과 파일명은 `.gitignore`에 걸리는 패턴(`*.log`, `*results*.xml`)을 쓸 것.
 
 ## 확인 필요 / 막힌 것
 
-- **캐릭터 컨트롤러**: HANDOFF.md는 "이미 구현된 컨트롤러 재사용"을 전제했지만, 배치 자동화 환경(Unity Editor GUI 없이 명령줄로만 작업)에서는 에셋스토어 패키지를 인증 없이 받아올 수 없었다. 대신 `CharacterMover2D.cs`를 최소 구현으로 직접 짬. 나중에 실제 컨트롤러 에셋을 쓰기로 하면 이 파일 하나만 교체하면 되도록 다른 스크립트와 결합을 안 시켜뒀다. 문제 되면 여기 갱신할 것.
-- **몬스터의 "접촉 시 공격"은 실제 데미지 미구현** — HANDOFF.md 2번엔 "접촉 시 공격"이라고만 나와 있고, 플레이어 Health(체력) 시스템 자체가 이번 스프린트 범위 밖이라 `MonsterMove.TryAttack()`에 자리만 만들어두고 실제 데미지 적용은 비워뒀다. 이후 스프린트에서 플레이어 Health가 생기면 연결.
-- **몬스터 스프라이트는 Unity 기본 내장 Circle을 그대로 씀** (`Assets/Sprites/Circle.png`로 통일하진 않음) — HANDOFF.md 4번 스펙("유니티 기본 Circle 스프라이트로 충분")은 만족하지만, 플레이어 쪽과 완전히 같은 텍스처 에셋으로 맞추고 싶으면 나중에 `Circle.png`로 교체 가능. 기능상 문제는 없음.
-- **이번 세션 전체 수정은 아직 에디터로 직접 플레이 확인 전** — 배치 컴파일 + PlayMode 20/20만 통과 확인. 스폰 위치, 발판 스폰 높이, 공격 판정 크기, 카메라 크기까지 사용자가 직접 플레이해보고 지적해서 발견된 게 이미 네 번이니, 이번 이동/점프 디테일 보강분도 실제로 플레이해서 확인 필요.
-  - **(2026-08-29 갱신) 실제로 플레이 확인 진행 중 — 다섯 번째로 플레이어·몬스터 물리 밀어내기 발견, 수정·재확인 완료(아래 로그 참고).** 이동/점프 디테일 자체(코요테 타임·차지 감속·종단속도 등)에 대한 명시적 이상 리포트는 아직 없음 — 계속 플레이하며 확인 예정, 끝난 게 아니니 이 항목 섣불리 지우지 말 것.
-- **작업 방침(2026-08-26, 사용자 명시)**: 이 프로젝트는 프로토타입이 아니라 실제 구현이다. "일단 단순하게 만들고 나중에 다듬는다"는 식으로 임의로 단순화하지 않는다 — 원본 메커니즘은 세부 동작까지 원본과 동일하게 구현하는 게 기본값이고, 의도적으로 다르게 갈 부분은 사용자가 명시적으로 지시한다. `CLAUDE.md`에도 반영할 것.
+- **사용자 에디터 직접 플레이 확인이 밀려 있다.** 스프린트 2(체력·데미지)·성장곡선·마법사 스킬트리 전부
+  배치 컴파일 + PlayMode는 통과했지만, 실제로 플레이해본 것은 그 이전 단계까지다. 지금까지 원본과 다른 점은
+  **전부 사용자가 직접 플레이해보고 발견**했다(스폰 위치·이동/점프 디테일·공격 판정·카메라·물리 밀어내기·
+  체력 표시·R키 부활). 자동 테스트로는 못 잡는 종류이니 이 항목을 섣불리 지우지 말 것.
+- **원격에 stale 브랜치가 남아 있다** — `origin/feature/kill-rewards`, `origin/feature/monster-combat`,
+  `origin/feature/player-field`, `origin/feature/run-cycle`. 전부 `main`에 병합돼 고유 커밋이 0개다.
+  로컬 브랜치는 2026-09-09에 정리했지만, **원격은 팀원이 쓰고 있을 수 있어 임의로 지우지 않았다** —
+  팀원 확인 후 `git push origin --delete <브랜치>`로 정리할 것.
+- **캐릭터 컨트롤러는 자체 구현이다.** 초기 스펙은 에셋스토어 컨트롤러 재사용을 전제했지만 배치 환경에서
+  인증 없이 받을 수 없어 `Characters/CharacterMover2D.cs`를 직접 짰다. 나중에 실제 에셋으로 바꾸기로 하면
+  이 파일 하나만 교체하면 되도록 다른 스크립트와 결합시키지 않았다.
 
 ## 로그 (최신이 위)
+
+- **2026-09-09** — **레포 전체 정리 — 낡은 문서·브랜치·죽은 참조 제거 + 인수인계 정비.** 사용자 지시("구버전 내용 싹 없애고, 인수인계 받은 쪽이 바로 재개할 수 있게"). 문서가 9개로 늘면서 **어느 게 최신인지 알 수 없는 상태**가 핵심 문제였다 — 특히 완료된 스프린트 스펙이 루트 `HANDOFF.md`에 그대로 남아 있어서, 새 세션이 읽으면 **이미 폐기된 결정(R키 부활·숫자키 강화)을 현행 스펙으로 오해**하게 돼 있었다.
+  - **아카이브**: 완료된 `HANDOFF.md`(성장곡선 검증) → `docs/sprints/03-growth-curve.md`, `docs/sprint2-handoff-split.md` → `docs/sprints/03-growth-curve-worksplit.md`. 아카이브 4개 전부 상단에 "⚠️ 완료된 기록, 현재 스펙 아님" 배너를 달고, **뒤집힌 결정 2건은 표로 명시**(R키 부활·숫자키 강화 → 폐기).
+  - **`HANDOFF.md` 신규 작성** — 현재 스프린트(런 사이클) 스펙. 원본 줄 인용·완료 기준(DoD)·범위 밖·이미 만들어진 계약 목록까지.
+  - **`docs/ROADMAP.md` 삭제** — `docs/original-parity.md`와 내용이 겹쳐 어느 쪽이 최신인지 헷갈렸고, 2절(현재 구현 상태)·4절(스프린트 순서)은 이미 사실과 달랐다. 고유하게 쓸모 있던 "원본 위치 색인"만 `original-parity.md` 부록으로 옮김.
+  - **죽은 참조 제거**: 존재하지 않는 `HANDOFF_sprint2_draft.md`를 가리키던 코드 주석, 이동된 `docs/sprint2-handoff-split.md`를 가리키던 코드/테스트 주석을 전부 현행 경로로 교체.
+  - **`.gitignore` 구멍 수정**: `*_results*.xml`만 있어서 실제로 쓰던 `testresults_*.xml` 파일명이 안 걸렸다(매번 수동으로 지우고 있었음). `*results*.xml`로 확장.
+  - **브랜치 정리**: `main`에 전부 병합된 로컬 브랜치 5개 삭제. `feature/run-cycle`의 WIP(`Core/IRunResettable`)는 계약 성격이라 `main`에 병합. 원격 stale 브랜치 4개는 팀원이 쓸 수 있어 손대지 않고 "확인 필요"에 남김.
+  - **`PROGRESS.md` 재작성**: 완료된 체크리스트 3개·과거 분업 기록·이미 틀린 "확인 필요" 항목(예: "접촉 데미지 미구현" — 실제로는 구현됨)을 걷어내고 **작업 재개 방법(클론→읽는 순서→배치 검증 명령)** 섹션을 추가. 로그는 날짜 기록이라 전부 보존.
 
 - **2026-09-08** — **원본 전수 대조 + 전체 분업안 문서화.** 사용자가 "원본이랑 똑같이 만들어달라고 했는데 지금 게임은 다르다"고 지적 — 확인해보니 맞았다: (a) **R키 부활은 원본에 없다**(죽으면 `endRun('dead')`→결과→로비, `:1927`. 부활은 아이템 '최후의 발악' 보유 시 자동 발동뿐, `:1917`), (b) **강화는 로비에서 하는 것**(ESC는 일시정지 `:1026`, 강화/전문화는 로비 탭 `:6974`)인데 우리는 인게임 숫자키로 대체해뒀다. 둘 다 스프린트 2에서 "런 사이클이 아직 없으니 테스트가 끊기지 않게" 넣은 임시방편이었는데, 그 임시방편이 원본과의 차이로 쌓이고 있었다.
   - **근본 원인**: 원본은 로비↔사냥(90초)↔결과를 오가는 게임인데 우리는 끝없는 전투 씬 하나뿐 — `state.scene`(`:1466`)·런 타이머·결과 정산·세이브가 통째로 없어서 위 두 문제가 파생됐다.
@@ -159,7 +121,7 @@ Part B 병합 직후 컴파일 에러 포함 5건 + 사용자가 직접 플레�
   - **공유 계약**: `Core.PlayerProfile`(`level, exp, gold, spUsed, upgrades{atk,hp,ms,atkSpeed,crit}`, `as`는 C# 예약어라 `atkSpeed`로 대체) + `Core.ProfileService.Current` 정적 접근자. 트랙 A는 `AddGold()`/`AddExp()` 메서드만 호출(필드 직접 증가 금지 — 레벨업 판정은 트랙 B 소유). `EnemyHealth`에 스탯 배율 setter(`SetMaxHp` 등) 필요 — `Awake()`가 이미 돈 뒤 `maxHp` 필드만 바꾸면 `CurrentHp`엔 반영 안 되는 이 프로젝트 단골 함정 주의(RequireComponent 자동보충·AddComponent Awake타이밍과 같은 종류).
   - 이어서 0단계(`feature/health-damage` 병합)를 바로 진행 — 아래 이 로그 항목 참고.
 - **2026-09-03** — **원본 전수 분석 → 포팅 로드맵 작성 + 스프린트 2(체력&데미지) 확정·구현.** 사용자가 "프로토타입 전체적으로 분석하고 어떻게 업데이트할지 문서로 작성"을 요청.
-  - `docs/ROADMAP.md` 신설 — 원본 7199줄을 전 구간 훑어 시스템 전수 목록화(씬 4상태 머신 / 런 루프 / 전투 코어 / 캐릭터 4종 / 적 7종+보스 / 성장 3계층 / 윤회·가챠 / 세이브), 현재 Unity 구현과의 갭, 의존성 기반 권장 스프린트 순서를 정리.
+  - `docs/ROADMAP.md` 신설 — 원본 7199줄을 전 구간 훑어 시스템 전수 목록화(씬 4상태 머신 / 런 루프 / 전투 코어 / 캐릭터 4종 / 적 7종+보스 / 성장 3계층 / 윤회·가챠 / 세이브), 현재 Unity 구현과의 갭, 의존성 기반 권장 스프린트 순서를 정리. *(→ 2026-09-09에 `docs/original-parity.md`로 통합되고 삭제됨)*
   - **검증**: 문서에 쓴 원본 인용 68개를 전부 실제 파일과 재대조해 일치 확인. 2절(현재 구현 상태) 주장도 코드로 검증(스크립트 10개, `UI` 폴더 없음, `Destroy()` 직접 호출 2곳, `IDamageable`/`GameInput`/`PlayerProfile` 미구현, `PlayerAttack` 씬 미사용, 보스 코드 전무). 작성 중 오류 1건 발견·수정(아이템 개수를 26종으로 잘못 적었으나 실제 35종 — 등급별 9/14/8/4).
   - **핵심 결론**: 거의 모든 시스템(보상·런 종료·원소·엘리트/보스 hp배수·아이템 스탯)이 체력에 의존 → 순서가 사실상 강제됨. 체력/데미지 → 런 사이클 → 세이브/로비까지 해야 "게임 루프"가 처음 성립.
   - 사용자가 이 순서를 승인하고 1번부터 착수 지시 → **스프린트 2(체력 & 데미지) 확정 후 구현.** 신설: `Core/IDamageable`(피격 인터페이스) · `Combat/DamageCalculator`(치명타 10%·배수 1.7·±10% 난수·최소 1) · `Enemies/EnemyHealth`(체력 38·넉백·피격 플래시) · `Characters/PlayerHealth`(체력 100·무적 0.9초·피격 반동). 공격 스크립트를 `Destroy()` 직접 호출 → `IDamageable.TakeDamage()`로 전환, `EnemyMove.TryAttack()` 빈 스텁 → 실제 접촉 데미지.

@@ -6,7 +6,7 @@ namespace YokaiFront.Combat
     /// <summary>
     /// 반경 R 안의 Enemy 태그 대상에게 즉시 피해를 주는 범용 근접 공격.
     /// **현재 씬에서는 쓰지 않는다** — 마법사는 `MageAttack`(차지샷)을 쓴다. 나중에 근접 캐릭터
-    /// (섬영 등)를 붙일 때 참고하려고 남겨둔 코드다(HANDOFF.md 스프린트 1 3번 참고).
+    /// (섬영 등)를 붙일 때 참고하려고 남겨둔 코드다(docs/sprints/01-combat-core.md 3번 참고).
     ///
     /// 스프린트 2에서 `Destroy()` 직접 호출을 `IDamageable.TakeDamage()`로 교체했다 —
     /// 예고한 대로 실제로 바뀐 건 호출 한 줄뿐이다.
@@ -19,7 +19,7 @@ namespace YokaiFront.Combat
     public float damage = 9f;
     public LayerMask enemyMask = ~0; // 기본값: 전체 레이어. Enemy 전용 레이어를 쓰기 전까지는 태그로 한 번 더 거른다.
 
-    // 공격이 눈에 보이게 하는 최소한의 표시. HANDOFF.md는 "연출 없음"이었지만,
+    // 공격이 눈에 보이게 하는 최소한의 표시. 스프린트 1 스펙(docs/sprints/01-combat-core.md)은 "연출 없음"이었지만,
     // 아예 아무 표시가 없으면 Z를 눌렀을 때 뭐가 됐는지 알 길이 없어서(사용자 피드백) 추가.
     // 정식 이펙트가 아니라 판정 반경을 잠깐 보여주는 링 하나뿐이다.
     public float flashDuration = 0.12f;

@@ -110,7 +110,7 @@ public static class BuildPartAScene
         // 바닥 아래 여백 1유닛을 그대로 가져온다(viewBottom=-1.0). 다만 세로 상단은 원본 값(6.2,
         // 발판이 y=185=4.35유닛까지였을 때 기준)을 그대로 쓰면 발판 층간 간격을 넓힌 우리 필드에선
         // 최상단 발판(5.40유닛) 위에 선 캐릭터 머리가 화면 위로 살짝 잘린다(발판 간격을 넓힌 건
-        // 사용자가 명시적으로 요청한 편차라 되돌리지 않음 — HANDOFF.md 1번 참고). 그래서 상단만
+        // 사용자가 명시적으로 요청한 편차라 되돌리지 않음 — docs/sprints/01-combat-core.md 1번 참고). 그래서 상단만
         // 우리 발판 높이 기준으로 다시 계산: 최상단 발판 위 캐릭터 전체(중심+반지름) + 여유 0.2.
         cam.orthographicSize = 3.84f;
         cam.transform.position = new Vector3(playerTransform.position.x, 2.84f, -10f);
@@ -230,7 +230,7 @@ public static class BuildPartAScene
     const string MonsterPrefabPath = "Assets/Prefabs/Enemy_Oni.prefab";
 
     /// <summary>
-    /// Part B(HANDOFF.md 2번) 웨이브 스포너를 씬에 등록. 프리팹은 Part B가 만든
+    /// Part B(docs/sprints/01-combat-core.md 2번) 웨이브 스포너를 씬에 등록. 프리팹은 Part B가 만든
     /// Assets/Prefabs/Enemy_Oni.prefab(구 Monster.prefab)을 그대로 참조한다 — 여기서 새로 만들지 않는다.
     /// </summary>
     static void BuildEnemySpawner()
