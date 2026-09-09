@@ -218,8 +218,13 @@ public static class BuildPartAScene
 
         go.AddComponent<CharacterMover2D>();
         go.AddComponent<PlayerHealth>(); // 스프린트 2 — 체력 100, 무적 0.9초(원본 CONFIG.player)
+        // --- 캐릭터 키트 (PlayerRig가 선택된 하나만 켠다) ---
         var mage = go.AddComponent<MageAttack>();
         mage.boltSprite = circleSprite; // 런타임 AssetDatabase 호출(빌드에서 못 씀) 없이 미리 꽂아줌
+
+        var gunner = go.AddComponent<GunnerAttack>();
+        gunner.bulletSprite = circleSprite;
+        // 섬영·드루이드 키트(팀원 작업)가 생기면 여기에 같이 붙일 것 — PlayerRig가 자동으로 찾는다.
 
         go.AddComponent<PlayerDeathHandler>();   // ⚠️ 삭제 예정(원본에 없는 R키 부활) — 런 사이클 때 제거
         go.AddComponent<PlayerDebugController>(); // ⚠️ 삭제 예정(원본은 로비 탭) — 로비 UI 때 제거
@@ -249,6 +254,15 @@ public static class BuildPartAScene
         var go = new GameObject("EnemySpawner");
         var spawner = go.AddComponent<EnemySpawner>();
         spawner.monsterPrefab = monsterPrefab;
+
+        // 몹 종류별 수치는 EnemyData(SO)에서 온다. 에셋이 없으면 여기서 만들어 둔다.
+        BuildEnemyData.Build();
+
+        // ⚠️ **지금은 오니만 등록한다.** 다른 6종의 데이터 에셋은 이미 만들어져 있지만, 행동 스크립트
+        // (wisp 비행 / charger 돌진 / shooter 사격 / splitter 분열)가 아직 없어서 지금 등록하면
+        // 전부 "오니처럼 걷는" 잘못된 몹이 나온다. 종류별 행동을 붙일 때(HANDOFF.md 4번) 같이 등록할 것.
+        var oni = AssetDatabase.LoadAssetAtPath<EnemyData>("Assets/Data/Enemies/Oni.asset");
+        spawner.enemyTypes = oni != null ? new[] { oni } : new EnemyData[0];
     }
 
     /// <summary>

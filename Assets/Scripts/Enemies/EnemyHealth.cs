@@ -26,6 +26,8 @@ namespace YokaiFront.Enemies
         [Header("피격 반응 (원본 그대로)")]
         [Tooltip("기본 넉백 속도(무기별 kb 지정이 없을 때). 원본 kbBase 240px/s ÷100(project_test.html:1678).")]
         public float knockbackSpeed = 2.4f;
+        [Tooltip("종류별 넉백 배율. 원본 :1678 — 대오니 0.4, 나머지 1. 스폰 시 EnemyData에서 주입된다.")]
+        public float knockbackMultiplier = 1f;
         [Tooltip("피격 플래시 감쇠 속도. 원본 `e.flash -= dt*6`(project_test.html:4020) — 1에서 0까지 약 0.167초.")]
         public float flashDecay = 6f;
         [Tooltip("플래시 최대 강도. 원본은 흰색을 alpha `flash*0.75`로 덧그린다(project_test.html:4799).")]
@@ -127,8 +129,9 @@ namespace YokaiFront.Enemies
             CurrentHp -= amount;
             flash = 1f; // 원본 `e.flash = 1`(project_test.html:1666)
 
+            // 원본 `kbBase * (e.type === 'bigOni' ? 0.4 : 1)`(project_test.html:1678) — 종류별 저항.
             if (mover != null && knockbackSpeedOverride > 0f)
-                mover.ApplyKnockback(knockbackDirSign * knockbackSpeedOverride);
+                mover.ApplyKnockback(knockbackDirSign * knockbackSpeedOverride * knockbackMultiplier);
 
             if (CurrentHp <= 0f) Die();
         }

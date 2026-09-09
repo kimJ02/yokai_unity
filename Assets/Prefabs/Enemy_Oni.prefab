@@ -191,6 +191,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   maxHp: 38
   knockbackSpeed: 2.4
+  knockbackMultiplier: 1
   flashDecay: 6
   flashStrength: 0.75
   maxBurnStacks: 10

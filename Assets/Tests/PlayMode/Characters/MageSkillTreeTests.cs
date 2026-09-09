@@ -184,7 +184,14 @@ public class MageSkillTreeTests
 
         Assert.AreEqual(1, bursts, "중력점 1개가 있는데 폭발 지점 수가 다름");
         Assert.GreaterOrEqual(count, 1, "대붕괴가 적을 못 맞힘");
-        Assert.Less(enemy.GetComponent<EnemyHealth>().CurrentHp, enemy.GetComponent<EnemyHealth>().MaxHp);
+        // 3중첩 대붕괴는 오니(38)를 한 방에 죽일 수도 있다(치명타가 뜨면 피해가 38을 넘는다) —
+        // 죽으면 오브젝트가 파괴되므로 "죽었거나, 살아있다면 체력이 깎였거나" 둘 다 통과로 본다.
+        // (이 전제를 안 두면 난수에 따라 가끔 깨지는 플래키 테스트가 된다 — 실제로 그렇게 깨졌다.)
+        if (enemy != null)
+        {
+            var h = enemy.GetComponent<EnemyHealth>();
+            Assert.Less(h.CurrentHp, h.MaxHp, "대붕괴 범위 안인데 피해가 안 들어갔다");
+        }
         Assert.AreEqual(0, GravityWellZone.Active.Count, "터뜨린 중력점이 안 사라짐");
     }
 

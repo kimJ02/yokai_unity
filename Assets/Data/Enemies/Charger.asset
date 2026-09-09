@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f74473604c977114aaf37a57370f89cb, type: 3}
+  m_Name: Charger
+  m_EditorClassIdentifier: 
+  type: 3
+  displayName: "\uB3CC\uC9C4\uADC0"
+  maxHp: 50
+  attackPower: 15
+  moveSpeed: 0.58
+  exp: 11
+  goldMin: 6
+  goldMax: 12
+  knockbackMultiplier: 1
+  colliderRadius: 0.5217391
+  color: {r: 1, g: 0.55, b: 0.25, a: 1}
+  originalWidthPx: 46
+  originalHeightPx: 48
