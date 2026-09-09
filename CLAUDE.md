@@ -203,7 +203,7 @@ Unity 씬(`.unity`)·프리팹(`.prefab`) 파일은 내부적으로 GUID/fileID�
 | `HANDOFF.md` | **지금 스프린트 하나**의 범위·수치·완료 기준 | 스프린트가 바뀔 때 통째로 교체 |
 | `docs/worksplit.md` | 남은 전체 작업의 분업(단일 living 문서) | 분업을 정할 때마다 |
 | `docs/original-parity.md` | 원본↔Unity 전수 대조 + 원본 위치 색인 | 원본을 다시 훑을 때 |
-| `docs/sprints/NN-*.md` | **완료된** 스프린트 기록(아카이브) | 추가만, 수정 안 함 |
+| `docs/sprints/NN-*.md` | **완료됐거나 보류된** 스프린트 스펙(아카이브) | 추가만, 수정 안 함 |
 
 - **스프린트가 끝나면 `HANDOFF.md`를 `docs/sprints/NN-<이름>.md`로 옮기고**(`git mv`) 새 스프린트 스펙으로
   교체한다. 옮긴 파일 맨 위에는 **"⚠️ 완료된 기록, 현재 스펙 아님" 배너**를 달고, 그 스프린트에서 정했다가
@@ -229,7 +229,9 @@ Unity 씬(`.unity`)·프리팹(`.prefab`) 파일은 내부적으로 GUID/fileID�
   여섯 폴더 = 여섯 네임스페이스(`YokaiFront.*`) = 여섯 asmdef로 분리돼 있고, 계층 참조 규칙이 컴파일러로 강제된다.
 - **진행 단계(2026-09-09)**: 전투 코어 → 체력·피해 → 성장곡선(레벨·골드강화·난이도 스케일링) →
   **마법사 스킬트리 전체(폭발·중력 5티어)**까지 `main` 병합 완료. **PlayMode 61/61.** 미병합 브랜치 없음.
-  **다음은 런 사이클**(씬 상태머신·런 타이머·결과·ESC) — 스펙은 `HANDOFF.md`.
+  **다음은 단계 1: 모든 캐릭터 0차(= 기본공격만) + 모든 몬스터** — 스펙은 `HANDOFF.md`.
+  (2026-09-09 회의로 순서 재편: 캐릭터·몬스터 폭을 먼저 채우고 캐릭터 단위로 깊게 판 뒤 밸런스.
+  런 사이클은 폐기가 아니라 보류 — 스펙은 `docs/sprints/04-run-cycle.md`, 계약 4종은 이미 `main`에 있다.)
 - **새 세션이 읽는 순서**: 이 파일 → `PROGRESS.md`(지금 상태·다음 할 일·배치 검증 명령) →
   `HANDOFF.md`(지금 스프린트) → `docs/worksplit.md`(분업). 원본 대조는 `docs/original-parity.md`.
 - **배치모드 `-executeMethod`는 전체 네임스페이스 경로가 필요하다**: `YokaiFront.Editor.BuildPartAScene.Build`

@@ -14,22 +14,26 @@
 웨이브 스폰돼 추적/배회하며 접촉 데미지를 준다. 처치하면 골드·경험치가 들어오고 레벨이 오른다.
 **6/7** 키로 마법사 빌드(폭발/중력)를 배우면 Z 공격이 바뀌고 **X** 스킬이 열린다.
 
-### 다음 할 일 — 런 사이클
+### 다음 할 일 — 단계 1: 모든 캐릭터 0차 + 모든 몬스터
 
-**스펙: [`HANDOFF.md`](HANDOFF.md) / 전체 분업: [`docs/worksplit.md`](docs/worksplit.md) / 원본 대조: [`docs/original-parity.md`](docs/original-parity.md)**
+**스펙: [`HANDOFF.md`](HANDOFF.md) / 분업: [`docs/worksplit.md`](docs/worksplit.md) / 원본 대조: [`docs/original-parity.md`](docs/original-parity.md)**
 
-착수 전제(`Core/GameState`·`RunState`·`CombatEvents`·`IRunResettable`)는 **이미 `main`에 있다.**
-바로 `Systems/RunController`부터 만들면 된다. 구체적인 순서·완료 기준은 `HANDOFF.md`.
+**2026-09-09 회의로 순서가 바뀌었다**: 메타 시스템(런사이클→UI→세이브…)을 먼저 쌓던 계획에서,
+**캐릭터·몬스터를 전부 세운 뒤 캐릭터 단위로 깊게 파는** 방식으로. 폐기가 아니라 순서만 밀린 것이다.
 
-1. `Core/GameInput`에 `PauseDown`(ESC) 추가
-2. `Systems/RunController` 신설 — 상태 전이, 90초 타이머, `Time.timeScale` 정지, 필드 정리, 플레이어 리셋
-3. `PlayerHealth`·`CharacterMover2D`·`MageAttack`이 `Core/IRunResettable` 구현
-4. `Core/CombatEvents`에 `PlayerDied` 추가 → 사망 시 결과 화면
-5. **`Characters/PlayerDeathHandler` 삭제**(R키 부활 — 원본에 없음) + `BuildPartAScene`·테스트 정리
-6. `Systems/RunProgress`를 `RunState.Region` 위임으로 교체(팀원 파일 `EnemySpawner`는 안 건드림)
+```
+단계 1  모든 캐릭터 "0차"(= 기본공격만) + 모든 몬스터   ← 지금
+단계 2  캐릭터 하나씩 5차까지 (마법사는 이미 완료)
+단계 3  완성된 캐릭터부터 밸런스 (기획자 상윤) ← 런 사이클은 이 직전에
+```
 
-**팀원 쪽**: `docs/worksplit.md`의 A~I. 착수 전제가 `main`에 올라가 있으므로 **지금 바로 시작 가능**하고,
-A(몹 6종)는 착수 전제와 무관해서 언제든 시작할 수 있다.
+1. **[나] 착수 전제** — `Core/CharacterId`(+캐릭터 스탯배수), `CharacterMover2D` 관성 이동 모드,
+   `Characters/PlayerRig`+`ICharacterKit`, 캐릭터 전환 디버그 키. **팀원이 이걸 기다린다 — 올리면 연락.**
+2. **[나] 메카닉 0차** → **`EnemyData` SO 전환**(몹 추가보다 먼저) → **몹 6종** → **엘리트** → **지역 스폰표**
+3. **[팀원] 섬영 0차 → 드루이드 0차** (착수 전제가 `main`에 올라간 뒤)
+
+런 사이클 스펙은 폐기하지 않고 [`docs/sprints/04-run-cycle.md`](docs/sprints/04-run-cycle.md)에 보존해뒀다
+— 계약(`GameState`/`RunState`/`CombatEvents`/`IRunResettable`)은 이미 `main`에 있으니 그때 구현만 하면 된다.
 
 ## 작업 재개 방법 (인수인계)
 
@@ -74,6 +78,15 @@ git checkout main            # 미병합 브랜치 없음 — main만 보면 된
   이 파일 하나만 교체하면 되도록 다른 스크립트와 결합시키지 않았다.
 
 ## 로그 (최신이 위)
+
+- **2026-09-09** — **회의 결과로 진행 순서 전면 재편 — "캐릭터·몬스터 폭 먼저, 깊이는 나중".** 기존 계획은 메타 시스템(런사이클→로비UI→세이브→배수체인→아이템)을 먼저 쌓는 순서였는데, 회의에서 **① 모든 캐릭터를 0차(=기본공격만)까지 + 모든 몬스터를 프로토타입 그대로 → ② 캐릭터 하나씩 5차까지 심화 → ③ 완성된 캐릭터부터 밸런스**로 바꿨다. 밸런스를 잡으려면 비교 대상이 다 있어야 하기 때문(캐릭터 하나만 깊게 파 놓으면 "캐릭터가 센 건지 몹이 약한 건지"를 못 가른다).
+  - **"0차" 정의 확정**(사용자 확인): 각 캐릭터의 **기본공격만 있는 상태**. 원본이 `tier < 1`이면 X 스킬을 막는 그 상태다(`:2169`/`:2741`/`:3385`). 기본공격이 채우는 자원(메카닉 스택·드루이드 마나)은 기본공격의 일부라 같이 이식하되 소비처가 전부 X 스킬이라 0차엔 쌓이기만 한다.
+  - **마법사는 이미 5차까지 끝나 있어 되돌리지 않는다** — 단계 2의 첫 번째 심화 캐릭터가 이미 마법사인 셈.
+  - **분업 재배치**: 팀원이 캐릭터 2종(섬영·드루이드)을 맡으므로 균형상 **몹 7종·엘리트를 내가 가져왔다.** 도메인이 갈려서(나=`Enemies/`+`Characters/Gunner*`·뼈대, 팀원=`Characters/Blade*`·`Druid*` 신규 파일) 오히려 충돌이 없다.
+  - **착수 전제 재정의**: 캐릭터를 4종으로 늘리려면 플레이어 뼈대가 먼저다 — `Core/CharacterId`(+원본 `CHAR_STAT_MULT` `:1282`, 섬영만 1.5이고 statAtk·statMaxHp에만 곱함), `CharacterMover2D` **관성 이동 모드**(원본 `bladeMove` `:2454` — 방향 전환이 감속이 아니라 "속도 유지한 채 즉시 반전"인 게 핵심), `PlayerRig`+`ICharacterKit`.
+  - **원본 조사에서 확인한 것**: `CONFIG.blade.brake`(2200)는 정의만 있고 `bladeMove`가 실제로 안 쓰는 **죽은 설정값**이다(`CONFIG.souls`와 같은 종류) — 이식하지 말 것.
+  - **캐릭터별 레벨/SP 분리(원본 `charProgress` `:1249`)는 단계 2로 미룸** — 0차 검증엔 지장이 없고, 지금 가르면 기존 코드·테스트가 광범위하게 바뀐다. `branch`/`tier` 일반화와 같이 처리한다.
+  - **런 사이클은 폐기가 아니라 보류** — `HANDOFF.md`에 있던 스펙을 `docs/sprints/04-run-cycle.md`로 옮기고 "⏸️ 착수 전 보류, 단계 3 직전 실행" 배너를 달았다. 계약 4종은 이미 `main`에 있다.
 
 - **2026-09-09** — **레포 전체 정리 — 낡은 문서·브랜치·죽은 참조 제거 + 인수인계 정비.** 사용자 지시("구버전 내용 싹 없애고, 인수인계 받은 쪽이 바로 재개할 수 있게"). 문서가 9개로 늘면서 **어느 게 최신인지 알 수 없는 상태**가 핵심 문제였다 — 특히 완료된 스프린트 스펙이 루트 `HANDOFF.md`에 그대로 남아 있어서, 새 세션이 읽으면 **이미 폐기된 결정(R키 부활·숫자키 강화)을 현행 스펙으로 오해**하게 돼 있었다.
   - **아카이브**: 완료된 `HANDOFF.md`(성장곡선 검증) → `docs/sprints/03-growth-curve.md`, `docs/sprint2-handoff-split.md` → `docs/sprints/03-growth-curve-worksplit.md`. 아카이브 4개 전부 상단에 "⚠️ 완료된 기록, 현재 스펙 아님" 배너를 달고, **뒤집힌 결정 2건은 표로 명시**(R키 부활·숫자키 강화 → 폐기).
