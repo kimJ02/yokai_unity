@@ -51,7 +51,7 @@ namespace YokaiFront.Combat
                     if (target != null && !target.IsDead)
                     {
                         int dmg = DamageCalculator.Roll(atk * damageMult * power, 0f, out _); // 원본 noCrit(isBurnTick)
-                        target.TakeDamageWithKnockback(dmg, null, 1f, 0f); // 원본 kb:0
+                        target.TakeTickDamage(dmg); // 원본 kb:0 + isBurnTick(히트스톱 없음)
                     }
                 }
             }

@@ -36,6 +36,8 @@ public class RunProgressAndRewardsTests
         // 뒤 테스트의 몹 체력이 배로 뛴다(정적 상태 오염 — 이 프로젝트 단골 함정).
         RunState.Reset();
         RunTransient.Reset();
+        // 콤보·연쇄는 정적 상태다 — 안 지우면 앞 테스트의 콤보가 뒤 테스트의 골드를 부풀린다.
+        CombatModifiers.Reset();
         ProfileService.Current = new PlayerProfile();
     }
 
@@ -220,7 +222,7 @@ public class RunProgressAndRewardsTests
         RemoveSpawnProtection(enemyGO);
         var health = enemyGO.GetComponent<EnemyHealth>();
 
-        health.TakeDamage(health.MaxHp + 1f, attacker); // 확실히 즉사시킬 만큼
+        health.TakeDamage(health.MaxHp * 10f, attacker); // 확실히 즉사시킬 만큼(레벨 페널티가 깎아도 남게)
         yield return null;
 
         Assert.AreEqual(1, RunProgress.TotalKills, "죽였는데 누적 처치 수가 안 올랐다");
@@ -251,7 +253,7 @@ public class RunProgressAndRewardsTests
             var enemyGO = GetAlive(spawner)[GetAlive(spawner).Count - 1].gameObject;
             RemoveSpawnProtection(enemyGO);
             var health = enemyGO.GetComponent<EnemyHealth>();
-            health.TakeDamage(health.MaxHp + 1f, attacker);
+            health.TakeDamage(health.MaxHp * 10f, attacker);
             yield return null;
         }
 
@@ -284,7 +286,7 @@ public class RunProgressAndRewardsTests
         var enemyGO = GetAlive(spawner)[0].gameObject;
         RemoveSpawnProtection(enemyGO);
         var health = enemyGO.GetComponent<EnemyHealth>();
-        health.TakeDamage(health.MaxHp + 1f, attacker);
+        health.TakeDamage(health.MaxHp * 10f, attacker);
         yield return null;
 
         Assert.AreEqual(1, RunState.Kills, "몹을 잡았는데 이번 런 처치수가 안 올랐다");
@@ -361,7 +363,7 @@ public class RunProgressAndRewardsTests
             var enemyGO = GetAlive(spawner)[GetAlive(spawner).Count - 1].gameObject;
             RemoveSpawnProtection(enemyGO);
             var h = enemyGO.GetComponent<EnemyHealth>();
-            h.TakeDamage(h.MaxHp + 1f, attacker);
+            h.TakeDamage(h.MaxHp * 10f, attacker);
             yield return null;
         }
 

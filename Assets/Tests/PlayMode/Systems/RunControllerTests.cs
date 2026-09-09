@@ -39,6 +39,7 @@ public class RunControllerTests
         RunState.Reset();
         CombatEvents.Reset();
         RunTransient.Reset();
+        CombatModifiers.Reset();
         ProfileService.Reset();
     }
 

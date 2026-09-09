@@ -40,7 +40,14 @@ namespace YokaiFront.Core
         /// </summary>
         public static event System.Action PlayerDied;
 
+        /// <summary>
+        /// 적이 **직접 타격**을 받았을 때(지속 피해 틱 제외). 히트스톱이 이걸 구독한다 —
+        /// 원본도 히트스톱만 틱을 빼고 콤보 등 나머지는 틱에도 적용한다(:1686).
+        /// </summary>
+        public static event System.Action<GameObject> EnemyDamaged;
+
         public static void RaiseEnemyKilled(GameObject enemy) => EnemyKilled?.Invoke(enemy);
+        public static void RaiseEnemyDamaged(GameObject enemy) => EnemyDamaged?.Invoke(enemy);
         public static void RaisePlayerDied() => PlayerDied?.Invoke();
         public static void RaiseShrineBuffGranted(float duration) => ShrineBuffGranted?.Invoke(duration);
         public static void RaiseRewardGranted(int gold, int exp) => RewardGranted?.Invoke(gold, exp);
@@ -52,6 +59,7 @@ namespace YokaiFront.Core
         public static void Reset()
         {
             EnemyKilled = null;
+            EnemyDamaged = null;
             PlayerDied = null;
             ShrineBuffGranted = null;
             RewardGranted = null;

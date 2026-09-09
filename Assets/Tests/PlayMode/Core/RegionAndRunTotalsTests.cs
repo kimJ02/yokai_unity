@@ -30,6 +30,7 @@ public class RegionAndRunTotalsTests
         RunState.Reset();
         RunProgress.Reset();
         RunTransient.Reset();
+        CombatModifiers.Reset();
         ProfileService.Current = new PlayerProfile();
     }
 

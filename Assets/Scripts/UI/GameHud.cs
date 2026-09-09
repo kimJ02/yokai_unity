@@ -30,7 +30,7 @@ namespace YokaiFront.UI
             if (health == null) FindPlayer();
 
             var profile = ProfileService.Current;
-            GUILayout.BeginArea(new Rect(16f, 12f, 460f, 130f));
+            GUILayout.BeginArea(new Rect(16f, 12f, 460f, 180f));
 
             if (health != null)
                 GUILayout.Label($"체력  {Mathf.CeilToInt(health.CurrentHp)} / {Mathf.CeilToInt(health.MaxHp)}");
@@ -38,6 +38,13 @@ namespace YokaiFront.UI
             GUILayout.Label($"{RunState.Region}지역 · {RegionConfig.NameOf(RunState.Region)}" +
                             $"    남은 시간 {Mathf.CeilToInt(RunState.TimeLeft)}초");
             GUILayout.Label($"처치 {RunState.Kills}    골드 {profile.gold} G    Lv.{profile.level}");
+
+            // 전투 배수 체인이 지금 얼마나 붙어 있는지 — 안 보이면 콤보를 쌓을 이유를 알 수 없다.
+            GUILayout.Label($"콤보 {CombatModifiers.Combo}    살기 {RunState.Fury}" +
+                            $"    피해 ×{CombatModifiers.DamageMultiplier:0.00}");
+            if (CombatModifiers.ChainKills >= CombatModifiers.ChainKillMin)
+                GUILayout.Label($"연쇄 ×{CombatModifiers.ChainKills}");
+
             GUILayout.Label("ESC — 일시정지 / 로비로 나가기");
 
             GUILayout.EndArea();

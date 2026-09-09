@@ -46,6 +46,15 @@ public class EnemyHealthTests
     /// <summary>
     /// 테스트가 중간에 assert로 중단돼도 오브젝트가 남지 않게 한다 — 남으면 다음 테스트의 물리에 끼어든다.
     /// </summary>
+    [SetUp]
+    public void ResetStatics()
+    {
+        // 콤보가 쌓이면 피해 배수가 올라가 "몇 방에 죽는가" 기대값이 어긋난다(정적 상태 오염).
+        CombatModifiers.Reset();
+        CombatEvents.Reset();
+        RunState.Reset();
+    }
+
     [TearDown]
     public void Cleanup()
     {

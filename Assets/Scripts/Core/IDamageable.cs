@@ -42,5 +42,15 @@ namespace YokaiFront.Core
         /// <param name="knockbackSpeed">넉백 속도. 0을 넘기면 넉백이 없다(원본 `kb: 0` — 화상 틱·중력 틱 등).</param>
         void TakeDamageWithKnockback(float amount, GameObject source, float knockbackDirSign, float knockbackSpeed)
             => TakeDamage(amount, source);
+
+        /// <summary>
+        /// **지속 피해 틱**(화상, 불길 장판, 중력점). 넉백이 없고 **히트스톱도 걸리지 않는다** —
+        /// 원본이 `dealDamage`에서 `!opts.isBurnTick`일 때만 히트스톱을 걸기 때문이다(project_test.html:1686).
+        /// 콤보는 틱에서도 쌓인다(원본 `addCombo()`는 조건 없이 불린다).
+        ///
+        /// 틱마다 0.045초씩 화면이 멈추면 장판 위에 적이 여럿일 때 게임이 사실상 정지한다 —
+        /// 원본이 굳이 구분해 둔 이유가 그것이고, 일반 피해 경로로 보내면 그 상태가 재현된다.
+        /// </summary>
+        void TakeTickDamage(float amount) => TakeDamage(amount, null);
     }
 }

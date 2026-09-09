@@ -258,6 +258,9 @@ public class EnemySpawner : MonoBehaviour
             // 필드만 바꾸면 이미 실행된 Awake가 세팅한 CurrentHp엔 반영 안 되는 이 프로젝트 단골
             // 함정이 있어(EnemyHealth 참고) 반드시 SetMaxHp()를 통해서 바꾼다.
             health.SetMaxHp(hp);
+            // 원본 `enemyLv()`(project_test.html:3924) — 지역 기준 레벨 ±1, 1~40으로 제한.
+            // 난이도가 아니라 **레벨 페널티 전용**이다(체력·피해는 위 지역 배율이 이미 정했다).
+            health.SetLevel(Mathf.Clamp(RegionConfig.RecommendedLevel(regionLv) + Random.Range(0, 2), 1, 40));
             if (data != null) health.knockbackMultiplier = data.knockbackMultiplier;
             health.Died += HandleEnemyDied;
         }
@@ -364,6 +367,7 @@ public class EnemySpawner : MonoBehaviour
         EnemyData data = null;
         if (enemy != null) spawnedData.TryGetValue(enemy.gameObject, out data);
 
+        int enemyLevel = enemy != null ? enemy.Level : 1;
         float sc = DifficultyScalingConfig.RewardMultiplier(RunProgress.RegionLv);
         // 원본 `eliteMult = e.elite ? CONFIG.elite.rewardMult : 1`(project_test.html:1810).
         bool elite = enemy != null && enemy.GetComponent<EnemyElite>() != null;
@@ -381,8 +385,17 @@ public class EnemySpawner : MonoBehaviour
         if (elite || Random.value < DifficultyScalingConfig.GoldDropChance)
         {
             int rolled = Random.Range(goldMin, goldMax + 1); // Random.Range(int)는 상한이 배타적이라 +1
-            goldGained = Mathf.RoundToInt(rolled * sc);
+            // 원본 `goldMultAll()`(:1304) — 콤보가 재화도 늘린다.
+            goldGained = Mathf.RoundToInt(rolled * sc * CombatModifiers.GoldMultiplier);
             ProfileService.Current.AddGold(goldGained);
+        }
+
+        // 연쇄 처치 — 0.8초 안에 3마리째부터 골드 보너스(원본 `killEnemy`의 연쇄 분기, :1828).
+        int chainBonus = CombatModifiers.RegisterKillForChain(enemyLevel, isBoss: false);
+        if (chainBonus > 0)
+        {
+            ProfileService.Current.AddGold(chainBonus);
+            goldGained += chainBonus;
         }
 
         // 원본 `run.goldEarned += g; run.expEarned += exp`(:1816·:1820) — 결과 화면에 쓴다.

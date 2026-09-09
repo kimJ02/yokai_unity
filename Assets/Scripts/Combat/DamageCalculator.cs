@@ -1,4 +1,5 @@
 using UnityEngine;
+using YokaiFront.Core;
 
 namespace YokaiFront.Combat
 {
@@ -10,11 +11,14 @@ namespace YokaiFront.Combat
     ///   max(1, round( statAtk() × dmgMultAll() × mult × vulnMult × lvF × itemDmgVs(e)
     ///                 × rebirthWallPlayerDmgMult() × rand(0.9,1.1) × (crit ? critMultOf() : 1) ))
     ///
-    /// 지금 구현한 항: `statAtk × mult`(= 인자로 받는 baseDamage) · `rand(0.9,1.1)` · 치명타 · `max(1, round())`
-    /// 빠진 항(전부 해당 시스템이 아직 없어서 — `docs/original-parity.md` 4절 "전투 배수 체인" 참고):
-    ///   `dmgMultAll()`(콤보·살기·아이템·성소) · `vulnMult`(균열의 각인) · `lvF`(레벨 페널티)
-    ///   · `itemDmgVs`(상황부 아이템) · `rebirthWallPlayerDmgMult`(윤회 벽)
-    /// 나중에 그 시스템들이 생기면 **여기 한 곳만** 고치면 되도록 계산을 이 클래스로 모았다.
+    /// 지금 구현한 항: `statAtk × mult`(= 인자로 받는 baseDamage) · `dmgMultAll()`(콤보·살기·성소,
+    /// <see cref="CombatModifiers"/>) · `rand(0.9,1.1)` · 치명타 · `max(1, round())`.
+    ///
+    /// **대상에 달린 항은 여기가 아니라 맞는 쪽(`Enemies/EnemyHealth`)이 곱한다** — 이 클래스는 대상
+    /// 참조가 없는 순수 계산기라서다: `vulnMult`(취약) · `lvF`(레벨 페널티) 두 개가 그렇다.
+    ///
+    /// 아직 빠진 항(해당 시스템이 없어서): `itemMul('dmg')`·`itemDmgVs`(아이템) ·
+    /// `rebirthWallPlayerDmgMult`(윤회 장벽). 생기면 `CombatModifiers.DamageMultiplier`에 곱하면 된다.
     ///
     /// 이 클래스가 `Combat`에 있는 이유: 무기에 종속되지 않는 전투 공용 인프라(CLAUDE.md 폴더 구조 규칙의
     /// "피해 판정 헬퍼")이고, `Characters`(2층)가 `Combat`(1층)을 참조할 수 있어 마법사 무기에서도 쓸 수 있다.
@@ -52,7 +56,9 @@ namespace YokaiFront.Combat
         {
             isCrit = Random.value < critChance;
             float variance = Random.Range(VarianceMin, VarianceMax);
-            float raw = baseDamage * variance * (isCrit ? CritMultiplier : 1f);
+            // 원본 `dmgMultAll()`(project_test.html:1296) — 콤보 × 살기 × 성소.
+            // 대상과 무관한 항이라 여기서 곱한다(대상에 달린 취약·레벨 페널티는 EnemyHealth가 맡는다).
+            float raw = baseDamage * CombatModifiers.DamageMultiplier * variance * (isCrit ? CritMultiplier : 1f);
             return Mathf.Max(1, Mathf.RoundToInt(raw)); // 원본 max(1, round(...))
         }
 

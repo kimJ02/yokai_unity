@@ -60,6 +60,17 @@ namespace YokaiFront.Enemies
         float vulnRemaining;
         float gravityExpose;
 
+        /// <summary>
+        /// 몹 레벨 — 원본 `enemyLv()`(project_test.html:3924, `regionBaseLv(region) + randInt(0,1)`).
+        /// **난이도가 아니라 레벨 페널티 전용이다**(체력·피해 배율은 지역이 따로 정한다) —
+        /// 내 레벨이 이보다 낮으면 레벨당 5%씩 내 피해가 깎인다(`levelFactor` `:1651`).
+        /// 스포너가 스폰 시 넣어 준다. 안 넣으면 1로 남아 페널티가 없다.
+        /// </summary>
+        public int Level { get; private set; } = 1;
+
+        /// <summary>스폰 시 1회. `SetMaxHp`와 같은 이유로 필드 대입이 아니라 메서드로 받는다.</summary>
+        public void SetLevel(int level) => Level = Mathf.Max(1, level);
+
         void Awake()
         {
             CurrentHp = maxHp;
@@ -114,7 +125,7 @@ namespace YokaiFront.Enemies
                 float raw = atk * burnDamagePerStackPct * burnStacks;
                 // 화상 틱은 원본이 noCrit·noHitstop·kb:0으로 넘긴다 — 여기선 크리티컬 확률 0, 넉백 0.
                 int dmg = DamageCalculator.Roll(raw, 0f, out _);
-                TakeDamageWithKnockback(dmg, null, 1f, 0f);
+                TakeTickDamage(dmg);
             }
             if (burnRemaining <= 0f) burnStacks = 0; // 원본 `if (e.burnT <= 0) e.burnS = 0`
         }
@@ -141,6 +152,20 @@ namespace YokaiFront.Enemies
             TakeDamageWithKnockback(amount, source, dir, knockbackSpeed);
         }
 
+        // 지금 들어온 피해가 지속 피해 틱인지. 히트스톱만 이 값을 본다(위 주석 참고).
+        bool inTickDamage;
+
+        /// <summary>
+        /// 지속 피해 틱(화상·불길 장판·중력점). 넉백 0, 히트스톱 없음 — 원본 `dealDamage`의
+        /// `kb: 0` + `!opts.isBurnTick` 조합(project_test.html:1678·:1686)에 대응한다.
+        /// </summary>
+        public void TakeTickDamage(float amount)
+        {
+            inTickDamage = true;
+            try { TakeDamageWithKnockback(amount, null, 1f, 0f); }
+            finally { inTickDamage = false; } // 중간에 죽어서 예외가 나도 플래그가 남지 않게
+        }
+
         public void TakeDamageWithKnockback(float amount, GameObject source, float knockbackDirSign, float knockbackSpeedOverride)
         {
             if (IsDead) return;
@@ -149,10 +174,21 @@ namespace YokaiFront.Enemies
             // 역할이 다르다 — 여기 검사는 "어떤 경로로 들어온 피해든 무적이면 무효"를 보장한다.
             if (spawnProtect != null && spawnProtect.IsSpawnProtected) return;
 
-            // 원본 `vulnMult`(project_test.html:1663) — 취약한 적은 모든 경로의 피해를 1.2배로 받는다.
-            // 여기서 곱하는 이유와 반올림 편차는 `DamageCalculator.VulnerableMultiplier` 주석 참고.
-            if (IsVulnerable)
-                amount = Mathf.Max(1f, Mathf.Round(amount * DamageCalculator.VulnerableMultiplier));
+            // 대상에 달린 배수 두 개를 여기서 곱한다(`DamageCalculator`는 대상 참조가 없다).
+            //  - `vulnMult` — 취약한 적은 받는 피해 ×1.2 (원본 :1663)
+            //  - `lvF`      — 내 레벨이 몹보다 낮으면 레벨당 -5%, 하한 25% (원본 `levelFactor` :1651)
+            // **둘을 한 번에 곱하고 한 번만 반올림한다** — 따로 반올림하면 원본(곱셈을 다 모은 뒤
+            // 한 번 반올림)과의 오차가 곱해진 만큼 커진다.
+            float mult = 1f;
+            if (IsVulnerable) mult *= DamageCalculator.VulnerableMultiplier;
+            mult *= CombatModifiers.LevelFactor(ProfileService.Current.level, Level);
+            if (!Mathf.Approximately(mult, 1f))
+                amount = Mathf.Max(1f, Mathf.Round(amount * mult));
+
+            // 원본은 `dealDamage` 안에서 조건 없이 `addCombo()`를 부른다(:1682) — 화상 틱도 포함이다.
+            CombatModifiers.AddCombo();
+            // 히트스톱은 **직접 타격만** 건다(원본 `!opts.isBurnTick`, :1686).
+            if (!inTickDamage) CombatEvents.RaiseEnemyDamaged(gameObject);
 
             CurrentHp -= amount;
             flash = 1f; // 원본 `e.flash = 1`(project_test.html:1666)
@@ -167,6 +203,8 @@ namespace YokaiFront.Enemies
         void Die()
         {
             CurrentHp = 0f;
+            // 도메인을 가로지르는 알림(히트스톱 등). 처치 보상은 아래 `Died` 구독자가 따로 처리한다.
+            CombatEvents.RaiseEnemyKilled(gameObject);
             // 원본 killEnemy(project_test.html:1793)의 골드·경험치는 Died 구독자(트랙 A)가 처리.
             // 연쇄처치 보너스·분열귀 분열은 아직 범위 밖 — 나중 스프린트에서 붙인다.
             Died?.Invoke(this);

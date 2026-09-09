@@ -31,8 +31,29 @@ namespace YokaiFront.Systems
         /// <summary>마지막 런이 끝난 이유. 결과 화면이 제목을 고르는 데 쓴다(원본 `endRun(reason)`).</summary>
         public RunEndReason LastEndReason { get; private set; } = RunEndReason.Timeout;
 
-        void OnEnable() => CombatEvents.PlayerDied += HandlePlayerDied;
-        void OnDisable() => CombatEvents.PlayerDied -= HandlePlayerDied;
+        [Header("히트스톱 (원본 CONFIG.hitstop, project_test.html:743)")]
+        [Tooltip("일반 타격 시 멈추는 시간. 원본 hit 0.045.")]
+        public float hitstopOnHit = 0.045f;
+        [Tooltip("처치 시. 원본 kill 0.085.")]
+        public float hitstopOnKill = 0.085f;
+
+        float hitstopLeft;
+
+        void OnEnable()
+        {
+            CombatEvents.PlayerDied += HandlePlayerDied;
+            CombatEvents.EnemyKilled += HandleEnemyKilled;
+            CombatEvents.EnemyDamaged += HandleEnemyDamaged;
+            CombatEvents.ShrineBuffGranted += CombatModifiers.GrantShrineBuff;
+        }
+
+        void OnDisable()
+        {
+            CombatEvents.PlayerDied -= HandlePlayerDied;
+            CombatEvents.EnemyKilled -= HandleEnemyKilled;
+            CombatEvents.EnemyDamaged -= HandleEnemyDamaged;
+            CombatEvents.ShrineBuffGranted -= CombatModifiers.GrantShrineBuff;
+        }
 
         void Start()
         {
@@ -52,8 +73,20 @@ namespace YokaiFront.Systems
 
             if (GameState.Current != GameScene.Run) return;
 
+            // 히트스톱은 게임을 멈추는 것이므로 **멈춘 시간(unscaled)으로 재야 한다** —
+            // `Time.deltaTime`으로 재면 timeScale이 0인 동안 타이머가 안 줄어 영원히 안 풀린다.
+            if (hitstopLeft > 0f)
+            {
+                hitstopLeft -= Time.unscaledDeltaTime;
+                if (hitstopLeft <= 0f) Time.timeScale = 1f;
+                return; // 멈춘 동안엔 런 타이머도 안 간다(원본도 dt=0이라 같다)
+            }
+
             // 원본 `run.timeLeft -= dt; if (<= 0) endRun('timeout')`(:4412).
             if (RunState.Tick(Time.deltaTime)) EndRun(RunEndReason.Timeout);
+
+            // 콤보 창·연쇄 처치 창·성소 버프 감소(원본 `updateCombo` :1630 등).
+            CombatModifiers.Tick(Time.deltaTime);
         }
 
         /// <summary>원본 `startRun(region, mode)`(project_test.html:4293).</summary>
@@ -63,6 +96,8 @@ namespace YokaiFront.Systems
 
             // 원본 `enemies = []; projectiles = []; zones = []; ...`(:4318) — 지난 런의 잔해를 지운다.
             RunTransient.DestroyAll();
+            CombatModifiers.ResetForRun(); // 원본 `combo.n = 0; run.chainN = 0`(:4307·:4319)
+            hitstopLeft = 0f;
 
             ResetPlayer();
 
@@ -77,6 +112,7 @@ namespace YokaiFront.Systems
         public void Pause()
         {
             if (RunState.Over || GameState.Current != GameScene.Run) return;
+            hitstopLeft = 0f; // 히트스톱 중에 멈추면 그게 timeScale을 다시 1로 되돌려버린다
             GameState.Set(GameScene.Pause);
             Time.timeScale = 0f;
         }
@@ -87,6 +123,7 @@ namespace YokaiFront.Systems
             if (GameState.Current != GameScene.Pause) return;
             GameState.Set(GameScene.Run);
             Time.timeScale = 1f;
+            hitstopLeft = 0f;
         }
 
         /// <summary>원본 `endRun(reason)`(:4354). 이미 끝난 런은 두 번 끝나지 않는다(`if (run.over) return`).</summary>
@@ -95,6 +132,7 @@ namespace YokaiFront.Systems
             if (RunState.Over) return;
             RunState.MarkOver();
             LastEndReason = reason;
+            hitstopLeft = 0f; // 히트스톱 중에 멈추면 그게 timeScale을 다시 1로 되돌려버린다
             GameState.Set(GameScene.Result);
             Time.timeScale = 0f;
         }
@@ -121,5 +159,22 @@ namespace YokaiFront.Systems
         }
 
         void HandlePlayerDied() => EndRun(RunEndReason.Dead); // 원본 :1927
+
+        void HandleEnemyKilled(GameObject _) => Hitstop(hitstopOnKill);
+        void HandleEnemyDamaged(GameObject _) => Hitstop(hitstopOnHit);
+
+        /// <summary>
+        /// 타격감용 순간 정지 — 원본 `state.freeze = Math.max(state.freeze, ...)`(project_test.html:1685).
+        /// **`timeScale`을 만지는 유일한 주체가 이 컨트롤러**라서 여기 둔다. 다른 데서 `timeScale`을
+        /// 건드리면 일시정지·결과 화면과 서로 덮어써서 게임이 안 멈추거나 안 풀린다.
+        ///
+        /// 사냥 중이 아닐 땐 무시한다 — 로비/결과에서 걸리면 그 화면이 `timeScale = 1`로 풀려버린다.
+        /// </summary>
+        public void Hitstop(float duration)
+        {
+            if (GameState.Current != GameScene.Run || RunState.Over) return;
+            hitstopLeft = Mathf.Max(hitstopLeft, duration); // 원본도 max로 겹친다
+            Time.timeScale = 0f;
+        }
     }
 }

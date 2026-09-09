@@ -1,0 +1,187 @@
+using UnityEngine;
+
+namespace YokaiFront.Core
+{
+    /// <summary>
+    /// 전투 배수 체인 — 원본 `dmgMultAll()`(project_test.html:1296) · `goldMultAll()`(`:1304`) ·
+    /// `levelFactor()`(`:1651`) · `addCombo()`(`:1621`) · 연쇄 처치(`:1828`)를 한곳에 모은 것.
+    ///
+    /// 원본 최종 피해식(`dealDamage` `:1664`)은 이렇게 생겼다:
+    /// <code>
+    /// max(1, round( statAtk × dmgMultAll() × mult × vulnMult × lvF × itemDmgVs
+    ///               × rebirthWall × rand(0.9,1.1) × (crit ? critMult : 1) ))
+    /// </code>
+    /// 이 클래스가 맡는 건 **대상과 무관한 항**(`dmgMultAll`, 골드 배수)과 **레벨 페널티 계산식**이다.
+    /// 대상에 달린 항(`vulnMult`, 실제 `lvF` 적용)은 맞는 쪽인 `Enemies/EnemyHealth`가 곱한다 —
+    /// `DamageCalculator`가 대상 참조를 갖지 않는 순수 계산기라서 그렇다.
+    ///
+    /// **아직 없는 항**(해당 시스템이 없어서 전부 ×1로 빠져 있다): `itemMul('dmg')`·`itemDmgVs`(아이템),
+    /// `rebirthWallPlayerDmgMult`(윤회 장벽), `lastStand`/`airDmg`(아이템 조건부).
+    /// 이것들이 생기면 <see cref="DamageMultiplier"/> 한 곳에 곱하기만 하면 된다.
+    ///
+    /// ## 왜 정적 클래스인가
+    /// 콤보·살기는 "지금 이 런의 전역 상태"라 씬 어디서든 같은 값을 봐야 한다
+    /// (`GameState`/`RunState`/`FieldBounds`와 같은 이유). 정적 상태라 **테스트는 반드시
+    /// <see cref="Reset"/>을 부른다** — 안 그러면 앞 테스트의 콤보가 뒤 테스트의 피해를 부풀린다.
+    /// </summary>
+    public static class CombatModifiers
+    {
+        // ---- 원본 CONFIG 그대로 ----
+        /// <summary>콤보 유지 시간. 원본 `CONFIG.combo.window`(project_test.html:742).</summary>
+        public const float ComboWindow = 3.0f;
+        /// <summary>콤보당 피해 배수. 원본 `CONFIG.comboMult.dmg`(`:703`).</summary>
+        public const float ComboDamagePer = 0.012f;
+        /// <summary>콤보당 재화 배수. 원본 `CONFIG.comboMult.money`(`:703`).</summary>
+        public const float ComboMoneyPer = 0.008f;
+
+        /// <summary>살기(처치당) 피해 배수. 원본 `CONFIG.fury.dmgPer`(`:702`).</summary>
+        public const float FuryDamagePer = 0.008f;
+        /// <summary>살기(처치당) 공격속도 배수. 원본 `CONFIG.fury.asPer`(`:702`).</summary>
+        public const float FuryAttackSpeedPer = 0.004f;
+
+        /// <summary>레벨 1 차이당 피해 감소. 원본 `CONFIG.levelPen.per`(`:729`).</summary>
+        public const float LevelPenaltyPer = 0.05f;
+        /// <summary>레벨 페널티 하한. 원본 `CONFIG.levelPen.floor`(`:729`).</summary>
+        public const float LevelPenaltyFloor = 0.25f;
+        /// <summary>보스는 페널티를 절반만 받는다. 원본 `e.boss ? Math.max(0.5, levelFactor(e.lv)) : ...`(`:1662`).</summary>
+        public const float BossLevelPenaltyFloor = 0.5f;
+
+        /// <summary>연쇄 처치 판정 시간. 원본 `CONFIG.chain_kill.window`(`:704`).</summary>
+        public const float ChainKillWindow = 0.8f;
+        /// <summary>연쇄 처치 보너스가 시작되는 처치 수. 원본 `CONFIG.chain_kill.minN`(`:704`).</summary>
+        public const int ChainKillMin = 3;
+
+        /// <summary>성소 버프의 플레이어 피해 배수. 원본 `CONFIG.shrine.pDmg`(`:698`).</summary>
+        public const float ShrineDamageMult = 1.3f;
+        /// <summary>성소 버프의 플레이어 이동속도 배수. 원본 `CONFIG.shrine.pMs`(`:698`).</summary>
+        public const float ShrineMoveSpeedMult = 1.25f;
+
+        // ---- 상태 ----
+
+        /// <summary>현재 콤보 수. 원본 `combo.n`.</summary>
+        public static int Combo { get; private set; }
+        /// <summary>콤보가 끊기기까지 남은 시간. 원본 `combo.t`.</summary>
+        public static float ComboTimeLeft { get; private set; }
+        /// <summary>이번 런 최고 콤보(결과 화면·업적용). 원본 `meta.stats.maxCombo`(`:1623`).</summary>
+        public static int MaxCombo { get; private set; }
+
+        /// <summary>연쇄 처치 카운트. 원본 `run.chainN`.</summary>
+        public static int ChainKills { get; private set; }
+        static float chainTimeLeft;
+
+        /// <summary>성소 버프 남은 시간. 원본 `player.shrineBuffT`(`:1300`).</summary>
+        public static float ShrineBuffLeft { get; private set; }
+
+        // ---- 배수 ----
+
+        /// <summary>
+        /// 원본 `dmgMultAll()`(project_test.html:1296) — **콤보 × 살기 × 성소**.
+        /// 아이템 항은 아직 없다(클래스 주석 참고).
+        ///
+        /// 살기는 <see cref="RunState.Fury"/>를 읽는다 — 처치 집계는 이미 거기서 하고 있어서
+        /// 같은 숫자를 두 군데 들고 있지 않으려는 것이다.
+        /// </summary>
+        public static float DamageMultiplier =>
+            (1f + Combo * ComboDamagePer)
+            * (1f + RunState.Fury * FuryDamagePer)
+            * (ShrineBuffLeft > 0f ? ShrineDamageMult : 1f);
+
+        /// <summary>원본 `goldMultAll()`(project_test.html:1304) — 콤보만(아이템 항은 아직 없다).</summary>
+        public static float GoldMultiplier => 1f + Combo * ComboMoneyPer;
+
+        /// <summary>
+        /// 원본 `statAs()`에 곱해지는 살기 항(`CONFIG.fury.asPer`, `:702`).
+        /// 공격 쿨다운을 **나누는** 값이라 커질수록 빨라진다.
+        /// </summary>
+        public static float AttackSpeedMultiplier => 1f + RunState.Fury * FuryAttackSpeedPer;
+
+        /// <summary>원본 `player.shrineBuffT > 0 ? CONFIG.shrine.pMs : 1`.</summary>
+        public static float MoveSpeedMultiplier => ShrineBuffLeft > 0f ? ShrineMoveSpeedMult : 1f;
+
+        /// <summary>
+        /// 메이플식 레벨 차이 페널티 — 원본 `levelFactor(mobLv)`(project_test.html:1651).
+        /// **내 레벨이 몹보다 높아도 이득은 없다**(상한 1). 낮을 때만 레벨당 5%씩 깎이고 25%가 하한이다.
+        /// 이게 "오버강화해도 상위 지역은 여전히 도전"이 되게 만드는 장치라 완화하면 지역 압력이 사라진다.
+        /// </summary>
+        public static float LevelFactor(int myLevel, int mobLevel, bool isBoss = false)
+        {
+            if (myLevel >= mobLevel) return 1f;
+            float f = Mathf.Max(LevelPenaltyFloor, 1f - (mobLevel - myLevel) * LevelPenaltyPer);
+            // 원본은 보스에만 하한을 0.5로 올려 준다(`:1662`).
+            return isBoss ? Mathf.Max(BossLevelPenaltyFloor, f) : f;
+        }
+
+        // ---- 갱신 ----
+
+        /// <summary>
+        /// 원본 `addCombo()`(project_test.html:1621). **원본은 화상 틱을 포함한 모든 피해에서 부른다**
+        /// (`dealDamage` 안에 조건 없이 있다) — 임의로 "직접 타격만"으로 좁히지 말 것.
+        /// </summary>
+        public static void AddCombo()
+        {
+            Combo++;
+            ComboTimeLeft = ComboWindow;
+            if (Combo > MaxCombo) MaxCombo = Combo;
+        }
+
+        /// <summary>원본 `updateCombo(dt)`(project_test.html:1630) + 연쇄 처치 창 감소.</summary>
+        public static void Tick(float dt)
+        {
+            if (Combo > 0)
+            {
+                ComboTimeLeft -= dt;
+                if (ComboTimeLeft <= 0f) Combo = 0;
+            }
+
+            if (chainTimeLeft > 0f)
+            {
+                chainTimeLeft -= dt;
+                if (chainTimeLeft <= 0f) ChainKills = 0;
+            }
+
+            if (ShrineBuffLeft > 0f) ShrineBuffLeft = Mathf.Max(0f, ShrineBuffLeft - dt);
+        }
+
+        /// <summary>
+        /// 처치 1건을 연쇄 처치에 집계하고 **보너스 골드를 돌려준다**(0이면 보너스 없음).
+        /// 원본 `killEnemy`의 연쇄 분기(project_test.html:1828~1837):
+        /// <code>
+        /// run.chainN = run.chainT > 0 ? run.chainN + 1 : 1;
+        /// run.chainT = window;
+        /// if (chainN >= 3 && !boss) bonus = round(chainN * (4 + lv * 2) * goldMultAll())
+        /// </code>
+        /// </summary>
+        public static int RegisterKillForChain(int enemyLevel, bool isBoss)
+        {
+            ChainKills = chainTimeLeft > 0f ? ChainKills + 1 : 1;
+            chainTimeLeft = ChainKillWindow;
+
+            if (ChainKills < ChainKillMin || isBoss) return 0;
+            return Mathf.RoundToInt(ChainKills * (4f + enemyLevel * 2f) * GoldMultiplier);
+        }
+
+        /// <summary>성소를 부쉈을 때. 원본 `player.shrineBuffT = CONFIG.shrine.buffDur`(project_test.html:1798).</summary>
+        public static void GrantShrineBuff(float duration) =>
+            ShrineBuffLeft = Mathf.Max(ShrineBuffLeft, duration);
+
+        /// <summary>
+        /// 새 런 시작 시. 원본 `startRun`이 `combo.n = 0`·`run.chainN = 0`으로 되돌린다(`:4307`·`:4319`).
+        /// 살기는 <see cref="RunState.Begin"/>이 이미 0으로 만든다.
+        /// </summary>
+        public static void ResetForRun()
+        {
+            Combo = 0;
+            ComboTimeLeft = 0f;
+            ChainKills = 0;
+            chainTimeLeft = 0f;
+            ShrineBuffLeft = 0f;
+        }
+
+        /// <summary>테스트 격리용 — 최고 콤보까지 전부 지운다(정적 상태 오염 방지).</summary>
+        public static void Reset()
+        {
+            ResetForRun();
+            MaxCombo = 0;
+        }
+    }
+}
