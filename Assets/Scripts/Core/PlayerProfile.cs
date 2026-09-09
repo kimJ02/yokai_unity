@@ -18,6 +18,17 @@ namespace YokaiFront.Core
         public int gold = 0;
 
         /// <summary>
+        /// 지금 고른 캐릭터. 원본 `meta.character`(project_test.html:1134, 기본값 'mage').
+        /// 파생 스탯의 캐릭터 배수(<see cref="CharacterStats.StatMultiplier"/>)가 이 값을 본다.
+        ///
+        /// ⚠️ 원본은 레벨·경험치·SP를 **캐릭터별로** 따로 관리한다(`meta.charProgress`, `:1249`).
+        /// 우리는 아직 단일 `level`/`exp`/`spUsed`를 공유한다 — 0차 단계 검증엔 지장이 없어서
+        /// 미뤄둔 것이고, **단계 2(캐릭터별 5차 심화) 때 `branch`/`tier` 일반화와 같이 분리한다**
+        /// (`docs/worksplit.md` 7절 확정 사항).
+        /// </summary>
+        public CharacterId character = CharacterId.Mage;
+
+        /// <summary>
         /// 스킬트리(전문화)에 쓴 SP. 원본은 캐릭터별로 따로 관리한다(`charProg().spUsed`,
         /// project_test.html:1249) — 이 프로토타입엔 마법사 하나뿐이라 이 필드가 곧 마법사의 spUsed다.
         /// 캐릭터가 늘어나면 `PlayerProfile` 자체를 캐릭터별로 두거나 이 필드를 분리해야 한다.

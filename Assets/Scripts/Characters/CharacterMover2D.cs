@@ -41,17 +41,62 @@ public class CharacterMover2D : MonoBehaviour
     public float terminalFallSpeed = 15f; // 원본 1500px/s ÷100
     public float edgeMargin = 0.24f;      // 원본 clamp(nx, 24, mapW-24)의 24px ÷100
 
+    /// <summary>
+    /// 수평 이동 방식. 원본은 캐릭터마다 갱신 함수가 갈린다(`updatePlayer` :3509).
+    /// <c>Instant</c> = 마법사·메카닉(입력 즉시 목표 속도, `p.vx = mx * moveSpeed`),
+    /// <c>Inertial</c> = 섬영(관성 가속, `bladeMove` :2454).
+    /// </summary>
+    public enum MoveMode { Instant, Inertial }
+
+    [Header("이동 방식 (캐릭터별)")]
+    public MoveMode moveMode = MoveMode.Instant;
+
+    [Header("관성 모드 파라미터 (원본 CONFIG.blade :613, 100px=1유닛)")]
+    [Tooltip("입력 즉시 붙는 최저 속도. 원본 baseSpeed 300.")]
+    public float inertialBaseSpeed = 3.0f;
+    [Tooltip("최고 속도. 원본 maxSpeed 900.")]
+    public float inertialMaxSpeed = 9.0f;
+    [Tooltip("같은 방향 유지 시 초당 가속량. 원본 accel 520.")]
+    public float inertialAccel = 5.2f;
+    [Tooltip("무입력 시 초당 자연 감속. 원본 decel 900.")]
+    public float inertialDecel = 9.0f;
+
     /// <summary>마지막으로 이동한 좌우 방향(1 또는 -1). 조준 입력이 없을 때 MageAttack의 기본 발사 방향으로 쓰인다.</summary>
     public int Facing { get; private set; } = 1;
 
+    /// <summary>
+    /// 마지막으로 "달리던" 방향(원본 `p.runDir`). 관성 모드에서 가속(같은 방향 유지)과
+    /// 반전(방향 전환)을 가르는 기준이다. <see cref="Facing"/>과 달리 조준으로는 안 바뀐다.
+    /// </summary>
+    public int RunDir { get; private set; } = 1;
+
     /// <summary>다른 스크립트가 프레임마다 갱신하는 이동속도 배율(예: MageAttack의 차지 중 50% 감속). 기본 1.</summary>
     public float SpeedMultiplier = 1f;
+
+    /// <summary>
+    /// 관성 모드에서 이동 파라미터 전체(baseSpeed/maxSpeed/accel/decel)에 곱해지는 배율.
+    /// 섬영 키트가 매 프레임 `min(1, statMs)`를 넣는다 — 원본 `bladeMsK()`(:2426)는 이속 배수를
+    /// **100%에서 자르고**, 넘친 분(`bladeMsSurplus`)은 속도가 아니라 피해로 환산한다.
+    /// 그래서 관성 모드는 <see cref="SpeedMultiplier"/>(Instant 모드용, 상한 없음)를 쓰지 않는다.
+    /// </summary>
+    public float MoveScale = 1f;
+
+    /// <summary>
+    /// 관성 모드에서 **가속에만** 추가로 곱해지는 배율. 원본에서 집중(focus) 중 가속이 커지는 항
+    /// (`:2462` `accelMul`의 focus 부분)에 대응한다 — 0차엔 집중이 없으니 1로 두면 된다.
+    ///
+    /// 이속의 **제곱**으로 가속이 커지는 부분(`bladeAccelK()` :2434, 그래야 최고속 도달 '거리'가
+    /// 이속과 무관하게 일정해진다)은 <see cref="MoveScale"/>로부터 **내부에서 자동 적용**되므로
+    /// 여기에 다시 넣지 말 것. 원본은 감속에도 같은 제곱을 곱하지만 focus 배수는 안 곱한다(`:2464`).
+    /// </summary>
+    public float AccelMultiplier = 1f;
 
     Rigidbody2D rb;
     Collider2D col;
     bool grounded;
     float coyoteTimer;
     float jumpBufferTimer;
+    float inertialVx; // 관성 모드가 프레임을 넘겨 들고 가는 수평 속도(원본 p.vx)
 
     void Awake()
     {
@@ -84,13 +129,22 @@ public class CharacterMover2D : MonoBehaviour
         if (GameInput.Right) h += 1f;
         if (h != 0f) Facing = h > 0 ? 1 : -1;
 
-        // 원본 statMs()(project_test.html:1286) — 골드 강화(ms)가 반영된 배수. moveSpeed 필드 자체는
-        // 안 바꾸고 매 프레임 곱해서 적용(다른 배수들과 같은 자리에서, 누적 곱 버그 없이).
-        float vx = h * moveSpeed * SpeedMultiplier * PlayerStatCalculator.ComputeMoveSpeedMultiplier(ProfileService.Current);
+        float vx = moveMode == MoveMode.Inertial
+            ? ComputeInertialVx(h, Time.fixedDeltaTime)
+            // 원본 statMs()(project_test.html:1286) — 골드 강화(ms)가 반영된 배수. moveSpeed 필드 자체는
+            // 안 바꾸고 매 프레임 곱해서 적용(다른 배수들과 같은 자리에서, 누적 곱 버그 없이).
+            : h * moveSpeed * SpeedMultiplier * PlayerStatCalculator.ComputeMoveSpeedMultiplier(ProfileService.Current);
+
         float minX = FieldBounds.MinX + edgeMargin;
         float maxX = FieldBounds.MaxX - edgeMargin;
-        if (rb.position.x <= minX && vx < 0f) vx = 0f;
-        if (rb.position.x >= maxX && vx > 0f) vx = 0f;
+        if ((rb.position.x <= minX && vx < 0f) || (rb.position.x >= maxX && vx > 0f))
+        {
+            vx = 0f;
+            // 관성 모드는 속도를 프레임 너머로 들고 다니므로, 벽에 막혔으면 쌓인 속도도 같이 버린다
+            // — 원본 설계 주석 그대로 "같은 방향 유지 = 가속, 입력 해제 = 감속, **벽 = 정지**"(:612).
+            // 안 버리면 벽에 붙어 있는 동안 최고 속도가 유지돼서, 떨어지자마자 최고속으로 튀어나간다.
+            inertialVx = 0f;
+        }
 
         float vy = Mathf.Max(rb.linearVelocity.y, -terminalFallSpeed); // 원본 종단속도 상한
         rb.linearVelocity = new Vector2(vx, vy);
@@ -99,6 +153,53 @@ public class CharacterMover2D : MonoBehaviour
             rb.position = new Vector2(Mathf.Clamp(rb.position.x, minX, maxX), rb.position.y);
 
         grounded = CheckGrounded();
+    }
+
+    /// <summary>
+    /// 관성 이동. 원본 `bladeMove(dt, mx)`(project_test.html:2454) 그대로 옮겼다.
+    /// - **무입력**: `decel`만큼 감속하되 부호는 유지(0에서 멈춤)
+    /// - **같은 방향 유지**: `max(현재속도, baseSpeed)`에서 `accel`만큼 가속, `maxSpeed`에서 상한
+    /// - **방향 전환**: **감속이 아니라 즉시 반전** — 갖고 있던 속도를 그대로 반대로 돌린다(`:2469`~`:2474`).
+    ///   원본 주석 그대로 "baseS로 깎으면 순간이지만 여전히 감속으로 느껴지므로".
+    ///   ⚠️ `CONFIG.blade.brake`(2200)는 정의만 있고 `bladeMove`가 **실제로 안 쓰는 죽은 값**이다
+    ///   (`CONFIG.souls`와 같은 종류) — "브레이크 감속"을 만들어 넣지 말 것.
+    ///
+    /// 속도(base/max)에는 <see cref="MoveScale"/>을, 가속·감속에는 그 **제곱**을 곱한다
+    /// (원본 `bladeMsK()`와 `bladeAccelK()` :2426·:2434). 가속에만 <see cref="AccelMultiplier"/>가 더 곱해진다.
+    /// </summary>
+    float ComputeInertialVx(float h, float dt)
+    {
+        float k = Mathf.Max(0f, MoveScale);
+        float kSq = k * k;
+        float baseS = inertialBaseSpeed * k;
+        float maxS = inertialMaxSpeed * k;
+
+        if (h == 0f)
+        {
+            float s = Mathf.Max(0f, Mathf.Abs(inertialVx) - inertialDecel * kSq * dt);
+            inertialVx = Mathf.Sign(inertialVx) * s;
+        }
+        else
+        {
+            int mx = h > 0f ? 1 : -1;
+            // 원본 `mx === p.runDir && Math.sign(p.vx) === mx` — 둘 다 맞아야 "계속 달리는 중"이다.
+            //
+            // ⚠️ `Mathf.Sign`을 쓰면 안 된다: JS `Math.sign(0)`은 **0**인데 Unity `Mathf.Sign(0f)`은 **1**이다.
+            // 그 차이 때문에 정지 상태에서 첫 입력이 "이미 달리던 중"으로 오판돼 baseSpeed에 한 프레임
+            // 가속이 더 붙는다(원본은 정확히 baseSpeed에서 시작). 실제로 테스트가 이 차이를 잡아냈다.
+            int vxSign = inertialVx > 0f ? 1 : inertialVx < 0f ? -1 : 0;
+            if (mx == RunDir && vxSign == mx)
+            {
+                float s = Mathf.Max(Mathf.Abs(inertialVx), baseS);
+                inertialVx = mx * Mathf.Min(s + inertialAccel * kSq * AccelMultiplier * dt, maxS);
+            }
+            else
+            {
+                RunDir = mx;
+                inertialVx = mx * Mathf.Max(Mathf.Abs(inertialVx), baseS);
+            }
+        }
+        return inertialVx;
     }
 
     /// <summary>조준 방향으로 바라보게 한다(원본 `if (Math.abs(aimX) > 0.1) p.facing = sign(aimX)`,
@@ -111,6 +212,21 @@ public class CharacterMover2D : MonoBehaviour
     {
         rb.position = position;
         rb.linearVelocity = Vector2.zero;
+        inertialVx = 0f; // 원본도 vx를 0으로 만든다 — 관성 모드가 들고 있던 속도도 같이 버려야 한다
+    }
+
+    /// <summary>
+    /// 캐릭터를 바꿀 때 이동 상태를 초기화한다(<see cref="PlayerRig"/>가 호출).
+    /// 관성 속도가 남아 있으면 다른 캐릭터로 바꾼 직후에도 그 속도로 미끄러진다.
+    /// </summary>
+    public void ResetMotion()
+    {
+        inertialVx = 0f;
+        RunDir = 1;
+        SpeedMultiplier = 1f;
+        MoveScale = 1f;
+        AccelMultiplier = 1f;
+        if (rb != null) rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
     }
 
     bool CheckGrounded()

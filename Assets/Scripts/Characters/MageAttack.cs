@@ -16,8 +16,31 @@ namespace YokaiFront.Characters
 ///
 /// PlayerAttack(범용 근접 판정)을 대체한다 — 이 캐릭터를 쓰는 동안은 씬에 둘 다 안 붙인다.
 /// </summary>
-public class MageAttack : MonoBehaviour
+public class MageAttack : MonoBehaviour, ICharacterKit
 {
+    public CharacterId Character => CharacterId.Mage;
+    /// <summary>마법사는 원본 `updatePlayerCommon`의 즉시-속도 이동을 쓴다(관성은 섬영 전용).</summary>
+    public CharacterMover2D.MoveMode RequiredMoveMode => CharacterMover2D.MoveMode.Instant;
+
+    /// <summary>이 캐릭터로 전환됐을 때 — 쿨다운·차지를 초기화한다.</summary>
+    public void OnSelected()
+    {
+        cdTimer = 0f;
+        ultCdTimer = 0f;
+        CancelCharge();
+    }
+
+    /// <summary>다른 캐릭터로 바뀔 때 — 진행 중이던 차지와 감속·표시물을 정리한다.</summary>
+    public void OnDeselected() => CancelCharge();
+
+    void CancelCharge()
+    {
+        charging = false;
+        chargeT = 0f;
+        if (chargeIndicator != null) chargeIndicator.gameObject.SetActive(false);
+        if (mover != null) mover.SpeedMultiplier = 1f;
+    }
+
     [Header("원본 CONFIG.bow 그대로 (거리·속도는 100px=1유닛 축척)")]
     // cooldown/baseDamage는 매 프레임 Core.PlayerStatCalculator + MageSpecConfig에서 다시 계산되는
     // "표시용 현재값"이다 — 인스펙터에서 수정해도 다음 프레임에 덮어써진다(BaseCooldownConst만 진짜 기준값).

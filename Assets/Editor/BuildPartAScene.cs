@@ -221,8 +221,12 @@ public static class BuildPartAScene
         var mage = go.AddComponent<MageAttack>();
         mage.boltSprite = circleSprite; // 런타임 AssetDatabase 호출(빌드에서 못 씀) 없이 미리 꽂아줌
 
-        go.AddComponent<PlayerDeathHandler>();   // 스프린트 2 — HP0 시 정지 + R키 재시작
-        go.AddComponent<PlayerDebugController>(); // 스프린트 2 — 숫자키1~5 강화구매 + 디버그 표시
+        go.AddComponent<PlayerDeathHandler>();   // ⚠️ 삭제 예정(원본에 없는 R키 부활) — 런 사이클 때 제거
+        go.AddComponent<PlayerDebugController>(); // ⚠️ 삭제 예정(원본은 로비 탭) — 로비 UI 때 제거
+
+        // 캐릭터 키트 전환기. **키트를 전부 붙인 뒤 마지막에** 추가해야 Awake에서 전부 찾는다
+        // (GetComponents는 이미 붙어 있는 것만 본다). 섬영·드루이드 키트가 생기면 위에 같이 붙일 것.
+        go.AddComponent<PlayerRig>();
 
         return go;
     }
