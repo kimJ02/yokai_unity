@@ -180,9 +180,11 @@ public class EnemyMove : MonoBehaviour, ISpawnProtectable, IGravityAffectable
         // — 원본은 스폰 지점이 이미 착지 높이라 낙하가 없지만, 우리 쪽은 안전하게 물리에 맡겨 둔다.
         //
         // 종류 전용 이동 스크립트가 있으면 수평 속도를 그쪽이 정한다(원본 updateEnemies의 타입별 mvx).
+        // 성소가 살아 있는 동안 적은 더 빨라진다(원본 `e.speed * (buffed ? eMs : 1)`, :4040).
+        float buffedSpeed = moveSpeed * CombatModifiers.EnemyMoveSpeedMultiplier;
         float ownSpeed = motion != null
-            ? motion.GetHorizontalSpeed(Time.fixedDeltaTime, target, moveSpeed)
-            : dir * moveSpeed;
+            ? motion.GetHorizontalSpeed(Time.fixedDeltaTime, target, buffedSpeed)
+            : dir * buffedSpeed;
         float vx = IsSpawnProtected ? 0f : ownSpeed + knockbackX; // 원본 `e.vx + e.kbx`
 
         float minX = FieldBounds.MinX + edgeMargin;
@@ -318,6 +320,8 @@ public class EnemyMove : MonoBehaviour, ISpawnProtectable, IGravityAffectable
         if (damageable == null || damageable.IsDead) return;
         // 원본은 돌진귀가 질주 중일 때만 접촉 피해 ×1.4다(`chargeMul`, project_test.html:4147).
         float mul = contactDamageModifier != null ? contactDamageModifier.ContactDamageMultiplier : 1f;
+        // 성소가 살아 있으면 여기에 ×1.3이 더 붙는다(원본 `buffed ? eDmg : 1`, :4148).
+        mul *= CombatModifiers.EnemyDamageMultiplier;
         // 피해 난수(±10%)는 원본이 피격자 쪽(damagePlayer)에서 굴리므로 여기선 원본 스탯 그대로 넘긴다.
         damageable.TakeDamage(attackPower * mul, gameObject);
     }

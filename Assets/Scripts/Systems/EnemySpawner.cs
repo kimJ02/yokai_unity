@@ -59,6 +59,10 @@ public class EnemySpawner : MonoBehaviour
 
     float EliteChance => eliteChanceOverride >= 0f ? eliteChanceOverride : DifficultyScalingConfig.EliteChance;
 
+    [Header("성소 (원본 CONFIG.shrine, project_test.html:698)")]
+    [Tooltip("성소를 스폰할지. 끄면 아예 안 나온다(테스트·디버그용).")]
+    public bool spawnShrines = true;
+
     [Header("경험치 구슬")]
     [Tooltip("구슬 스프라이트. 씬 빌더가 꽂아준다. 비어 있어도 동작은 하고 안 보이기만 한다.")]
     public Sprite orbSprite;
@@ -79,8 +83,33 @@ public class EnemySpawner : MonoBehaviour
     /// <summary>원본 `spawnEnemyAt(..., { protect: 0.35 })`(project_test.html:1842).</summary>
     const float SplitSpawnProtect = 0.35f;
 
-    void OnEnable() => EnemySpawnRequestBus.Requested += HandleSpawnRequest;
-    void OnDisable() => EnemySpawnRequestBus.Requested -= HandleSpawnRequest;
+    float shrineTimer = Shrine.FirstAt;
+    Transform aliveShrine;
+
+    void OnEnable()
+    {
+        EnemySpawnRequestBus.Requested += HandleSpawnRequest;
+        GameState.Changed += HandleSceneChanged;
+    }
+
+    void OnDisable()
+    {
+        EnemySpawnRequestBus.Requested -= HandleSpawnRequest;
+        GameState.Changed -= HandleSceneChanged;
+    }
+
+    /// <summary>
+    /// 새 사냥이 시작되면 웨이브·성소 타이머를 처음으로 되돌린다. 원본 `startRun`이
+    /// `run.shrineTimer = CONFIG.shrine.firstAt`로 초기화하는 것(:4315)에 대응한다 —
+    /// 안 하면 두 번째 런에서 성소가 입장하자마자 튀어나온다.
+    /// </summary>
+    void HandleSceneChanged(GameScene scene)
+    {
+        if (scene != GameScene.Run) return;
+        waveTimer = waveInterval;
+        shrineTimer = Shrine.FirstAt;
+        aliveShrine = null;
+    }
 
     /// <summary>
     /// 원본 `spawnEnemyAt(x, y, 'splitlet', { noElite: true, protect: 0.35 })`(project_test.html:1842).
@@ -120,7 +149,66 @@ public class EnemySpawner : MonoBehaviour
             waveTimer = waveInterval;
             SpawnWave();
         }
+
+        UpdateShrine(Time.deltaTime);
     }
+
+    /// <summary>
+    /// 원본 `run.shrineTimer`(project_test.html:4315 초기화, `spawnShrine` `:3996`).
+    /// **동시에 하나만** 존재한다(`if (enemies.some(e => e.shrine)) return`, `:3997`) —
+    /// 여러 개가 겹치면 적 버프가 중첩되는 게 아니라 그냥 부수기만 번거로워진다.
+    /// </summary>
+    void UpdateShrine(float dt)
+    {
+        if (!spawnShrines || monsterPrefab == null) return;
+        if (aliveShrine != null) return; // 아직 안 부쉈으면 다음 성소는 안 나온다
+
+        shrineTimer -= dt;
+        if (shrineTimer > 0f) return;
+        shrineTimer = Shrine.Interval;
+        SpawnShrine();
+    }
+
+    /// <summary>원본 `spawnShrine()`(project_test.html:3996) — **바닥 스폰 지점 중 하나**에 세운다.</summary>
+    void SpawnShrine()
+    {
+        // 원본은 `spawnPoints.filter(pt => pt.y === groundY)` — 발판 위엔 안 세운다.
+        int groundCount = FieldLayout.GroundGridX.Length;
+        float x = FieldLayout.GroundGridX[Random.Range(0, groundCount)];
+
+        var go = Instantiate(monsterPrefab, new Vector3(x, FieldBounds.GroundY + 0.9f, 0f), Quaternion.identity);
+        go.name = "Shrine";
+        RunTransient.Mark(go);
+
+        // 구조물이라 움직이지 않는다(원본 `if (e.shrine) continue;` :4024).
+        var move = go.GetComponent<EnemyMove>();
+        if (move != null)
+        {
+            move.enabled = false;
+            var rb = go.GetComponent<Rigidbody2D>();
+            if (rb != null) { rb.gravityScale = 0f; rb.linearVelocity = Vector2.zero; rb.bodyType = RigidbodyType2D.Kinematic; }
+        }
+
+        int level = Mathf.Clamp(RegionConfig.RecommendedLevel(RunProgress.RegionLv) + Random.Range(0, 2), 1, 40);
+        var health = go.GetComponent<EnemyHealth>();
+        if (health != null)
+        {
+            health.SetMaxHp(Shrine.HpForLevel(level));
+            health.SetLevel(level);
+            health.Died += HandleShrineDestroyed;
+        }
+
+        // 원본 w:64 h:96 — 세로로 긴 구조물이라 몹보다 크게 보이게 한다.
+        go.transform.localScale = new Vector3(1.3f, 1.9f, 1f);
+        var sr = go.GetComponent<SpriteRenderer>();
+        if (sr != null) sr.color = new Color(1f, 0.54f, 0.42f); // 원본 colors.soul '#ff8a6a'
+
+        go.AddComponent<Shrine>(); // 마지막에 — Awake가 적 버프를 켠다
+        aliveShrine = go.transform;
+        aliveMonsters.Add(go.transform);
+    }
+
+    void HandleShrineDestroyed(EnemyHealth _) => aliveShrine = null;
 
     void SpawnWave()
     {
@@ -364,6 +452,10 @@ public class EnemySpawner : MonoBehaviour
     /// </summary>
     void HandleEnemyDied(EnemyHealth enemy)
     {
+        // 성소는 일반 처치 보상 경로를 타지 않는다 — 원본도 성소 분기에서 바로 `return`한다(:1809).
+        // 골드/경험치가 고정값이고 처치 수·살기·연쇄에도 안 들어간다.
+        if (enemy != null && enemy.GetComponent<Shrine>() != null) return;
+
         RunProgress.RegisterKill();
         // 결과 화면·HUD가 읽는 이번 런 집계. 원본도 `run.kills`와 누적 통계를 따로 센다(:1857).
         RunState.RegisterKill(isBoss: false);

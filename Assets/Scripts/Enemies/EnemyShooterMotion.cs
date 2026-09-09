@@ -80,7 +80,9 @@ namespace YokaiFront.Enemies
             if (dir.sqrMagnitude < 0.0001f) dir = new Vector2(mover.Direction, 0f);
 
             // 피해량은 이 몹의 접촉 피해와 같은 값을 쓴다(원본 `dmg: e.dmg`) — 지역 배율이 이미 반영돼 있다.
-            EnemyBolt.Spawn(origin, dir * boltSpeed, mover.attackPower, boltLife, boltSprite, boltColor);
+            // 성소 버프(×1.3)도 원본이 여기서 같이 곱한다(`:4098`).
+            float dmg = mover.attackPower * Core.CombatModifiers.EnemyDamageMultiplier;
+            EnemyBolt.Spawn(origin, dir * boltSpeed, dmg, boltLife, boltSprite, boltColor);
         }
     }
 }

@@ -69,8 +69,32 @@ namespace YokaiFront.Core
         public static int ChainKills { get; private set; }
         static float chainTimeLeft;
 
-        /// <summary>성소 버프 남은 시간. 원본 `player.shrineBuffT`(`:1300`).</summary>
+        /// <summary>성소를 **부순 뒤** 플레이어가 받는 가호의 남은 시간. 원본 `player.shrineBuffT`(`:1300`).</summary>
         public static float ShrineBuffLeft { get; private set; }
+
+        /// <summary>
+        /// **성소가 필드에 살아 있는지** — 원본 `run.shrineActive`(project_test.html:4017).
+        ///
+        /// ⚠️ 위의 <see cref="ShrineBuffLeft"/>와 **방향이 정반대라 헷갈리기 쉽다**:
+        /// 성소가 살아 있는 동안은 **적이** 강해지고(피해 ×1.3, 이속 ×1.25),
+        /// 부수면 그 힘이 **플레이어**에게 15초간 넘어온다(피해 ×1.3, 이속 ×1.25).
+        /// </summary>
+        public static bool ShrineActive { get; private set; }
+
+        /// <summary>성소가 살아 있는 동안 적 피해 배수. 원본 `CONFIG.shrine.eDmg`(`:698`, 적용 `:4148`).</summary>
+        public const float ShrineEnemyDamageMult = 1.3f;
+        /// <summary>성소가 살아 있는 동안 적 이동속도 배수. 원본 `CONFIG.shrine.eMs`(`:698`, 적용 `:4040`).</summary>
+        public const float ShrineEnemyMoveSpeedMult = 1.25f;
+        /// <summary>성소 파괴 시 플레이어 가호 지속시간. 원본 `CONFIG.shrine.buffDur`(`:698`).</summary>
+        public const float ShrineBuffDuration = 15f;
+
+        /// <summary>적이 자기 피해에 곱할 값. 성소가 없으면 1.</summary>
+        public static float EnemyDamageMultiplier => ShrineActive ? ShrineEnemyDamageMult : 1f;
+        /// <summary>적이 자기 이동속도에 곱할 값. 성소가 없으면 1.</summary>
+        public static float EnemyMoveSpeedMultiplier => ShrineActive ? ShrineEnemyMoveSpeedMult : 1f;
+
+        /// <summary>성소가 나타나거나 부서질 때 필드가 알려 준다.</summary>
+        public static void SetShrineActive(bool active) => ShrineActive = active;
 
         // ---- 배수 ----
 
@@ -175,6 +199,7 @@ namespace YokaiFront.Core
             ChainKills = 0;
             chainTimeLeft = 0f;
             ShrineBuffLeft = 0f;
+            ShrineActive = false;
         }
 
         /// <summary>테스트 격리용 — 최고 콤보까지 전부 지운다(정적 상태 오염 방지).</summary>
