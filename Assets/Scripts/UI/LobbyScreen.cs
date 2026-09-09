@@ -184,15 +184,24 @@ namespace YokaiFront.UI
                 bool open = profile.IsRegionOpen(r);
                 int fee = RegionConfig.EntryFee(r);
                 bool canPay = profile.gold >= fee;
+                bool bossReady = profile.IsBossUnlocked(r);
 
                 GUILayout.BeginHorizontal();
+
                 GUI.enabled = open && canPay;
-                string label = $"{r}. {RegionConfig.NameOf(r)}";
-                if (GUILayout.Button(label, GUILayout.Height(28f), GUILayout.Width(220f)))
-                    EnterRegion(profile, r, fee);
+                if (GUILayout.Button($"{r}. {RegionConfig.NameOf(r)}", GUILayout.Height(28f), GUILayout.Width(200f)))
+                    EnterRegion(profile, r, fee, RunMode.Normal);
+
+                // 원본도 지역마다 일반/보스 버튼을 나란히 둔다(:6464). 보스는 토벌 100마리 뒤에 열린다.
+                GUI.enabled = open && canPay && bossReady;
+                if (GUILayout.Button($"👹 보스", GUILayout.Height(28f), GUILayout.Width(80f)))
+                    EnterRegion(profile, r, fee, RunMode.Boss);
                 GUI.enabled = true;
 
-                string info = $"권장 Lv.{RegionConfig.RecommendedLevel(r)}+   입장료 {(fee == 0 ? "무료" : fee + " G")}";
+                string info = $"권장 Lv.{RegionConfig.RecommendedLevel(r)}+   입장료 {(fee == 0 ? "무료" : fee + " G")}" +
+                              $"   토벌 {profile.RegionKills(r)} / {RunState.RegionKillTarget}";
+                if (profile.IsBossCleared(r)) info += "   ✔ 격파";
+                else if (bossReady) info += "   👹 보스 도전 가능";
                 if (!open) info += "   🔒 이전 지역 보스를 잡아야 열린다";
                 else if (!canPay) info += "   ← 골드 부족";
                 GUILayout.Label(info);
@@ -200,12 +209,11 @@ namespace YokaiFront.UI
             }
 
             GUILayout.Space(10f);
-            GUILayout.Label("⚠️ 보스가 아직 없어서 지역 해금 조건을 만족시킬 방법이 없다 — 지금은 전 지역이 임시로 열려 있다" +
-                            "(`PlayerProfile.debugUnlockAllRegions`, 보스 구현 때 삭제).");
+            GUILayout.Label($"지역에서 {RunState.RegionKillTarget}마리를 토벌하면 보스가 열리고, 보스를 잡으면 다음 지역이 열린다.");
         }
 
         /// <summary>원본 `startRun`의 입장료 처리(project_test.html:4297~4303).</summary>
-        void EnterRegion(PlayerProfile profile, int region, int fee)
+        void EnterRegion(PlayerProfile profile, int region, int fee, RunMode mode)
         {
             if (fee > 0)
             {
@@ -213,7 +221,7 @@ namespace YokaiFront.UI
                 profile.gold -= fee;
                 ShowToast($"입장료 {fee} G 지불");
             }
-            run?.StartRun(region, RunMode.Normal);
+            run?.StartRun(region, mode);
         }
 
         // ────────────────────────── 강화 ──────────────────────────

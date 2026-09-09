@@ -46,6 +46,14 @@ public class EnemySpawner : MonoBehaviour
     public int maxSpawnPerWave = 7;
     public int maxAliveTotal = 22;
 
+    [Header("보스전 미니언 (원본 CONFIG.run, project_test.html:695)")]
+    [Tooltip("보스전에서 잡몹이 나오는 간격. 원본 minionInterval 7.")]
+    public float minionInterval = 7f;
+    [Tooltip("보스전 한 번에 나오는 잡몹 수. 원본 minionWave 2.")]
+    public int minionWave = 2;
+    [Tooltip("보스전에서 동시에 살아 있을 수 있는 잡몹 수. 원본 maxMinions 4.")]
+    public int maxMinions = 4;
+
     [Header("배치 간격")]
     [Tooltip("같은 웨이브 안에서 몹 사이 최소 간격(월드 유닛). 원본 spawnWave()의 52px(X축 전용) ÷100.")]
     public float minSpacing = 0.52f;
@@ -106,9 +114,12 @@ public class EnemySpawner : MonoBehaviour
     void HandleSceneChanged(GameScene scene)
     {
         if (scene != GameScene.Run) return;
-        waveTimer = waveInterval;
+        waveTimer = RunState.Mode == RunMode.Boss ? minionInterval : waveInterval;
         shrineTimer = Shrine.FirstAt;
         aliveShrine = null;
+
+        // 원본 `if (mode === 'boss') spawnBoss()`(project_test.html:4324).
+        if (RunState.Mode == RunMode.Boss) SpawnBoss();
     }
 
     /// <summary>
@@ -146,8 +157,12 @@ public class EnemySpawner : MonoBehaviour
         waveTimer -= Time.deltaTime;
         if (waveTimer <= 0f)
         {
-            waveTimer = waveInterval;
-            SpawnWave();
+            // 보스전은 잡몹이 훨씬 드물게, 적게, 상한도 낮게 나온다(원본 `:4444`) —
+            // 보스와 싸우는 게 본체라 잡몹이 화면을 채우면 안 된다.
+            bool boss = RunState.Mode == RunMode.Boss;
+            waveTimer = boss ? minionInterval : waveInterval;
+            if (boss) SpawnWaveOf(minionWave, maxMinions);
+            else SpawnWaveOf(maxSpawnPerWave, maxAliveTotal);
         }
 
         UpdateShrine(Time.deltaTime);
@@ -210,7 +225,72 @@ public class EnemySpawner : MonoBehaviour
 
     void HandleShrineDestroyed(EnemyHealth _) => aliveShrine = null;
 
-    void SpawnWave()
+    /// <summary>
+    /// 원본 `spawnBoss()`(project_test.html:4155). 맵 우측 62% 지점의 바닥에 세운다.
+    /// 잡몹과 달리 **지역 배율을 따로 쓴다**(`hpBase 800 × 2.15^(r-1)`) — `EnemyData`를 안 거친다.
+    /// </summary>
+    void SpawnBoss()
+    {
+        if (monsterPrefab == null) return;
+
+        int region = RunState.Region;
+        float x = Mathf.Lerp(FieldBounds.MinX, FieldBounds.MaxX, 0.62f);
+        var go = Instantiate(monsterPrefab, new Vector3(x, FieldBounds.GroundY + 1.2f, 0f), Quaternion.identity);
+        go.name = "Boss";
+        RunTransient.Mark(go);
+
+        var health = go.GetComponent<EnemyHealth>();
+        if (health != null)
+        {
+            health.SetMaxHp(Boss.HpForRegion(region));
+            health.SetLevel(Boss.LevelForRegion(region));
+            health.knockbackMultiplier = Boss.KnockbackMultiplier; // 거의 안 밀린다
+            health.Died += HandleBossDied;
+        }
+
+        var move = go.GetComponent<EnemyMove>();
+        if (move != null)
+        {
+            move.attackPower = Boss.DamageForRegion(region);
+            move.moveSpeed = Boss.MoveSpeed;
+        }
+
+        // 원본 w:130 h:150 — 오니(42×46)의 3배쯤 되는 덩치다.
+        go.transform.localScale = new Vector3(2.8f, 3.2f, 1f);
+        var sr = go.GetComponent<SpriteRenderer>();
+        if (sr != null) sr.color = new Color(0.78f, 0.42f, 1f); // 원본 colors.soul '#c86aff'
+
+        var boss = go.AddComponent<Boss>();
+        boss.projectileSprite = sr != null ? sr.sprite : null;
+        if (move != null) move.RefreshTypeBehaviour(); // Boss가 IEnemyMotion이라 다시 찾게 한다
+
+        aliveMonsters.Add(go.transform);
+    }
+
+    /// <summary>
+    /// 원본 `onBossKilled`(project_test.html:4282) + `killEnemy`의 보스 보상 분기.
+    /// **처치 수엔 안 들어가지만 살기에는 들어간다**(`run.fury++`는 보스 포함, `run.kills++`는 제외).
+    /// </summary>
+    void HandleBossDied(EnemyHealth enemy)
+    {
+        int region = RunState.Region;
+        float sc = DifficultyScalingConfig.RewardMultiplier(region);
+
+        int exp = Mathf.RoundToInt(Boss.RewardExp * sc);
+        int gold = Mathf.RoundToInt(Boss.RewardGold * sc); // 보스는 확률 무시하고 항상 드랍(:1818)
+        ProfileService.Current.AddExp(exp);
+        ProfileService.Current.AddGold(gold);
+        RunState.RegisterReward(gold, exp);
+        RunState.RegisterKill(isBoss: true);
+
+        ProfileService.Current.MarkBossCleared(region); // 다음 지역이 열린다
+    }
+
+    /// <summary>기본 웨이브(일반 사냥). 이름을 나눠 둔 건 테스트가 리플렉션으로 이 메서드를 찾기 때문 —
+    /// 같은 이름의 오버로드가 있으면 `GetMethod`가 모호하다고 던진다(실제로 겪음).</summary>
+    void SpawnWave() => SpawnWaveOf(maxSpawnPerWave, maxAliveTotal);
+
+    void SpawnWaveOf(int count, int aliveCap)
     {
         if (monsterPrefab == null)
         {
@@ -220,11 +300,11 @@ public class EnemySpawner : MonoBehaviour
 
         var placedThisWave = new List<Vector2>(); // 원본 spawnWave()의 `const placed=[]`와 동일 — 이 웨이브 안에서만 겹침 체크
 
-        for (int i = 0; i < maxSpawnPerWave; i++)
+        for (int i = 0; i < count; i++)
         {
-            // "현재 살아있는 몹 수 + 이번에 스폰할 수 >= 22 면 중단" — 이번에 하나 더 스폰하면
+            // "현재 살아있는 몹 수 + 이번에 스폰할 수 >= 상한 이면 중단" — 이번에 하나 더 스폰하면
             // 상한을 넘는 시점에 멈춘다.
-            if (aliveMonsters.Count + placedThisWave.Count >= maxAliveTotal) break;
+            if (aliveMonsters.Count + placedThisWave.Count >= aliveCap) break;
 
             if (TryGetSpawnPosition(placedThisWave, out Vector2 spawnPos))
             {
@@ -452,13 +532,17 @@ public class EnemySpawner : MonoBehaviour
     /// </summary>
     void HandleEnemyDied(EnemyHealth enemy)
     {
-        // 성소는 일반 처치 보상 경로를 타지 않는다 — 원본도 성소 분기에서 바로 `return`한다(:1809).
-        // 골드/경험치가 고정값이고 처치 수·살기·연쇄에도 안 들어간다.
-        if (enemy != null && enemy.GetComponent<Shrine>() != null) return;
+        // 성소·보스는 일반 처치 보상 경로를 타지 않는다 — 원본도 각각 따로 처리한다
+        // (성소 :1797에서 `return`, 보스는 고정 보상 + `onBossKilled`). 둘 다 전용 핸들러가 있다.
+        if (enemy == null) return;
+        if (enemy.GetComponent<Shrine>() != null) return;
+        if (enemy.GetComponent<Boss>() != null) return;
 
         RunProgress.RegisterKill();
         // 결과 화면·HUD가 읽는 이번 런 집계. 원본도 `run.kills`와 누적 통계를 따로 센다(:1857).
         RunState.RegisterKill(isBoss: false);
+        // 지역 토벌 진행도 — 100마리를 채우면 그 지역 보스가 열린다(원본 :1866).
+        ProfileService.Current.RegisterRegionKill(RunState.Region);
 
         EnemyData data = null;
         if (enemy != null) spawnedData.TryGetValue(enemy.gameObject, out data);

@@ -41,27 +41,57 @@ namespace YokaiFront.Core
         public UpgradeLevels upgrades = new UpgradeLevels();
 
         /// <summary>
-        /// 지역별 보스 격파 여부. 원본 `meta.regions[r].bossCleared`(project_test.html:6435)로,
-        /// **다음 지역을 여는 유일한 조건**이다(`regionOpen(r) = r === 1 || regions[r-1].bossCleared`).
-        /// 인덱스는 0부터라 `regionBossCleared[0]`이 1지역이다.
+        /// 지역별 진행도 — 원본 `meta.regions[r] = { kills, bossUnlocked, bossCleared }`(project_test.html:1131).
+        /// 인덱스는 0부터라 `[0]`이 1지역이다.
+        ///
+        /// 셋이 사슬처럼 이어진다: **누적 처치 100 → 보스 해금 → 보스 격파 → 다음 지역 개방**.
+        /// 하나라도 빠지면 진행이 막히거나(해금 안 됨) 압력이 사라진다(전부 개방).
         /// </summary>
+        public int[] regionKills = new int[RegionConfig.Count];
+        public bool[] regionBossUnlocked = new bool[RegionConfig.Count];
         public bool[] regionBossCleared = new bool[RegionConfig.Count];
 
-        /// <summary>
-        /// ⚠️ **임시 — 보스를 구현하면 삭제한다.** 지역 해금 조건이 "이전 지역 보스 격파"인데
-        /// 보스가 아직 없어서 정상적으로는 1지역에서 영영 못 나간다. 그러면 방금 만든 지역별
-        /// 몹 해금표·난이도 스케일링을 **실제로 확인할 방법이 없어서** 열어둔 스위치다.
-        /// 원본에 없는 동작이므로 보스가 생기는 즉시 이 필드와 참조처를 지울 것.
-        /// </summary>
-        public bool debugUnlockAllRegions = true;
+        static bool InRange(int region) => region >= 1 && region <= RegionConfig.Count;
 
-        /// <summary>원본 `regionOpen(r)`(project_test.html:6434).</summary>
+        /// <summary>원본 `regionOpen(r) = r === 1 || regions[r-1].bossCleared`(project_test.html:6434).</summary>
         public bool IsRegionOpen(int region)
         {
             if (region <= 1) return true;
-            if (debugUnlockAllRegions) return true;
-            int prev = region - 2; // 이전 지역의 0-based 인덱스
-            return prev >= 0 && prev < regionBossCleared.Length && regionBossCleared[prev];
+            if (!InRange(region)) return false;
+            return regionBossCleared[region - 2]; // 이전 지역
+        }
+
+        public int RegionKills(int region) => InRange(region) ? regionKills[region - 1] : 0;
+        public bool IsBossUnlocked(int region) => InRange(region) && regionBossUnlocked[region - 1];
+        public bool IsBossCleared(int region) => InRange(region) && regionBossCleared[region - 1];
+
+        /// <summary>
+        /// 이 지역에서 1마리 잡았다. 원본 `:1866`~`:1869`:
+        /// <code>
+        /// if (R.kills &lt; regionKillTarget) { R.kills++; if (R.kills >= target) R.bossUnlocked = true; }
+        /// </code>
+        /// **목표에 도달하면 더 안 센다** — 진행 게이지가 100/100에서 멈춘다.
+        /// </summary>
+        /// <returns>이번 처치로 보스가 새로 해금됐으면 true.</returns>
+        public bool RegisterRegionKill(int region)
+        {
+            if (!InRange(region)) return false;
+            int i = region - 1;
+            if (regionKills[i] >= RunState.RegionKillTarget) return false;
+
+            regionKills[i]++;
+            if (regionKills[i] >= RunState.RegionKillTarget && !regionBossUnlocked[i])
+            {
+                regionBossUnlocked[i] = true;
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>보스를 잡았다 — 다음 지역이 열린다. 원본 `onBossKilled`(project_test.html:4282).</summary>
+        public void MarkBossCleared(int region)
+        {
+            if (InRange(region)) regionBossCleared[region - 1] = true;
         }
 
         /// <summary>레벨이 실제로 오를 때(한 번 이상) 1회 발생. `Characters/PlayerHealth`가 구독해서

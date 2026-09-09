@@ -160,7 +160,21 @@ namespace YokaiFront.Systems
 
         void HandlePlayerDied() => EndRun(RunEndReason.Dead); // 원본 :1927
 
-        void HandleEnemyKilled(GameObject _) => Hitstop(hitstopOnKill);
+        void HandleEnemyKilled(GameObject enemy)
+        {
+            Hitstop(hitstopOnKill);
+
+            // 원본 `onBossKilled`은 1.6초 뒤에 `endRun('bossdead')`를 부른다(project_test.html:4289) —
+            // 격파 연출을 볼 틈을 주려는 것이다. 우리는 연출이 없지만 즉시 결과창이 뜨면
+            // 마지막 타격이 안 보여서 같은 지연을 둔다.
+            if (enemy != null && enemy.GetComponent<YokaiFront.Enemies.Boss>() != null)
+                Invoke(nameof(EndRunAfterBoss), BossClearDelay);
+        }
+
+        /// <summary>원본 `setTimeout(..., 1600)`(project_test.html:4289).</summary>
+        public const float BossClearDelay = 1.6f;
+
+        void EndRunAfterBoss() => EndRun(RunEndReason.BossDead);
         void HandleEnemyDamaged(GameObject _) => Hitstop(hitstopOnHit);
 
         /// <summary>

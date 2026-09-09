@@ -61,20 +61,52 @@ public class RegionAndRunTotalsTests
 
     /// <summary>
     /// 원본 `regionOpen(r) = r === 1 || regions[r-1].bossCleared`(project_test.html:6434).
-    /// 임시 전체 해금 스위치를 끄면 원본 규칙이 그대로 나와야 한다 — 보스를 구현할 때
-    /// 그 스위치만 지우면 되도록 여기서 못 박아 둔다.
+    /// 보스가 생기면서 임시 전체 개방(`debugUnlockAllRegions`)은 삭제됐고, 이제 이게 진짜 규칙이다.
     /// </summary>
     [Test]
     public void RegionOpen_RequiresPreviousBossCleared()
     {
-        var profile = new PlayerProfile { debugUnlockAllRegions = false };
+        var profile = new PlayerProfile();
 
         Assert.IsTrue(profile.IsRegionOpen(1), "1지역은 항상 열려 있다");
         Assert.IsFalse(profile.IsRegionOpen(2), "1지역 보스를 안 잡았는데 2지역이 열렸다");
 
-        profile.regionBossCleared[0] = true; // 1지역 보스 격파
+        profile.MarkBossCleared(1);
         Assert.IsTrue(profile.IsRegionOpen(2));
         Assert.IsFalse(profile.IsRegionOpen(3), "2지역 보스는 아직인데 3지역이 열렸다");
+    }
+
+    /// <summary>
+    /// 원본 `:1866`~`:1869` — 그 지역에서 100마리를 채우면 보스가 열린다.
+    /// **목표에 닿으면 더 안 센다**(게이지가 100/100에서 멈춘다).
+    /// </summary>
+    [Test]
+    public void RegionKills_UnlockBossAtTarget_ThenStopCounting()
+    {
+        var profile = new PlayerProfile();
+        int target = RunState.RegionKillTarget;
+
+        for (int i = 0; i < target - 1; i++)
+            Assert.IsFalse(profile.RegisterRegionKill(1), "목표 전에 보스가 열렸다");
+        Assert.IsFalse(profile.IsBossUnlocked(1));
+
+        Assert.IsTrue(profile.RegisterRegionKill(1), "목표를 채웠는데 해금 신호가 안 왔다");
+        Assert.IsTrue(profile.IsBossUnlocked(1));
+        Assert.AreEqual(target, profile.RegionKills(1));
+
+        profile.RegisterRegionKill(1);
+        Assert.AreEqual(target, profile.RegionKills(1), "목표를 넘겨서 계속 세고 있다");
+    }
+
+    /// <summary>지역별로 따로 센다 — 1지역에서 잡은 게 2지역 게이지를 채우면 안 된다.</summary>
+    [Test]
+    public void RegionKills_AreTrackedPerRegion()
+    {
+        var profile = new PlayerProfile();
+        for (int i = 0; i < 10; i++) profile.RegisterRegionKill(1);
+
+        Assert.AreEqual(10, profile.RegionKills(1));
+        Assert.AreEqual(0, profile.RegionKills(2));
     }
 
     // ────────────────────────── 런 집계 ──────────────────────────
