@@ -62,6 +62,38 @@ public class EnemySpawner : MonoBehaviour
     float cachedMonsterRadius = -1f; // Awake 시점엔 monsterPrefab이 아직 할당 전이라(씬 빌드 순서상)
                                       // 필요할 때 지연 계산한다(GetMonsterRadius 참고).
 
+    // 몹이 몹을 낳는 요청(분열귀 → 새끼)을 받는다. 정적 이벤트라 **반드시 OnDisable에서 해제**해야
+    // 파괴된 스포너를 계속 참조하지 않는다(CLAUDE.md "낮은 층이 높은 층의 기능을 요청" 항목).
+    void OnEnable() => EnemySpawnRequestBus.Requested += HandleSpawnRequest;
+    void OnDisable() => EnemySpawnRequestBus.Requested -= HandleSpawnRequest;
+
+    /// <summary>
+    /// 원본 `spawnEnemyAt(x, y, 'splitlet', { noElite: true, protect: 0.35 })`(project_test.html:1842).
+    /// 웨이브 상한과 무관하게 즉시 스폰한다 — 원본도 죽은 자리에서 바로 낳는다.
+    /// </summary>
+    void HandleSpawnRequest(Vector2 position, EnemyType enemyType)
+    {
+        if (monsterPrefab == null) return;
+
+        var data = FindData(enemyType);
+        var monster = Instantiate(monsterPrefab, position, Quaternion.identity);
+        ApplyEnemyData(monster, data);
+
+        // 원본 `protect: 0.35` — 새끼는 일반 스폰(2초)보다 훨씬 짧은 보호만 받는다.
+        var move = monster.GetComponent<EnemyMove>();
+        if (move != null) move.SetSpawnProtection(0.35f);
+
+        aliveMonsters.Add(monster.transform);
+    }
+
+    EnemyData FindData(EnemyType enemyType)
+    {
+        if (enemyTypes == null) return null;
+        foreach (var d in enemyTypes)
+            if (d != null && d.type == enemyType) return d;
+        return null;
+    }
+
     void Update()
     {
         aliveMonsters.RemoveAll(t => t == null);
