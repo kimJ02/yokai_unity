@@ -220,7 +220,7 @@ public static class BuildPartAScene
         int playerLayer = LayerMask.NameToLayer("Player");
         if (playerLayer >= 0) go.layer = playerLayer;
         // 원본 스폰 좌표 p.x=220 그대로(100px=1유닛 → 2.2)
-        go.transform.position = new Vector3(2.2f, FieldBounds.GroundY + 0.5f, 0f);
+        go.transform.position = new Vector3(2.2f, FieldBounds.GroundY + EntitySizeConfig.PlayerRadius, 0f);
 
         var sr = go.AddComponent<SpriteRenderer>();
         var circleSprite = AssetDatabase.LoadAssetAtPath<Sprite>(SpritePath);
@@ -229,7 +229,7 @@ public static class BuildPartAScene
         go.transform.localScale = new Vector3(0.8f, 0.8f, 1f);
 
         var col = go.AddComponent<CircleCollider2D>();
-        col.radius = 0.5f;
+        col.radius = EntitySizeConfig.PlayerRadius; // 그림을 꽂으면 PlayerRig가 다시 맞춘다
 
         var rb = go.AddComponent<Rigidbody2D>();
         rb.freezeRotation = true;

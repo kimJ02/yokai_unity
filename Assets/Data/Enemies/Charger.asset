@@ -21,7 +21,7 @@ MonoBehaviour:
   goldMin: 6
   goldMax: 12
   knockbackMultiplier: 1
-  colliderRadius: 0.5217391
+  colliderRadius: 0.26086956
   color: {r: 1, g: 0.55, b: 0.25, a: 1}
   sprite: {fileID: 21300000, guid: 222c93692b08e3848a6c6dd83ba4dc41, type: 3}
   originalWidthPx: 46

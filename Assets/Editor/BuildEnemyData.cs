@@ -55,9 +55,10 @@ namespace YokaiFront.Editor
         // **이건 이번 작업에서 생긴 게 아니라 원래 있던 계통 편차**라, 여기서 몰래 바꾸면 스폰 높이·충돌·
         // 기존 테스트가 한꺼번에 흔들린다. 그래서 오니를 지금 값에 고정하고 **종류 간 상대 크기만** 원본에
         // 맞춘다(대오니는 오니보다 확실히 크고, 새끼는 확실히 작게). 절대 크기 재조정은 별도 작업으로 남긴다.
-        const float OniRadius = 0.5f;
-        const float OniHeightPx = 46f;
-        static float RadiusFor(float heightPx) => OniRadius * (heightPx / OniHeightPx);
+        // 덩치는 `Core.EntitySizeConfig`가 단일 출처다 — 플레이어·성소·보스와 비율을 맞춰야 해서
+        // 여기 숫자를 박아두면 한쪽만 바뀌었을 때 알아채기 어렵다.
+        static float RadiusFor(float heightPx) =>
+            EntitySizeConfig.OniRadius * (heightPx / EntitySizeConfig.OniHeightPx);
 
         /// <summary>`Assets/Sprites/Prototype/` 안의 파일명 규칙.</summary>
         static string SpriteNameFor(EnemyType type) => type switch
