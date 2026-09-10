@@ -85,7 +85,10 @@ namespace YokaiFront.Characters
             if (per <= 0f || IsDead || CurrentHp >= maxHp) return;
 
             regenTick += maxHp * per * dt;
-            if (regenTick < 1f) return; // 1 미만은 모아서 준다(정수 체력이라)
+            // 1 미만은 모아뒀다가 정수 단위로 준다 — 원본 `regenAcc`(`:4396`~`:4399`)와 같은 방식이다.
+            // 우리 체력은 float이라 소수로 회복해도 되지만, 그러면 표시 체력이 매 프레임 흔들리고
+            // 원본과 회복 타이밍이 미묘하게 어긋난다.
+            if (regenTick < 1f) return;
             int heal = Mathf.FloorToInt(regenTick);
             regenTick -= heal;
             CurrentHp = Mathf.Min(maxHp, CurrentHp + heal);

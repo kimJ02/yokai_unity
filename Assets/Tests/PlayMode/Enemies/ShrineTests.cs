@@ -51,7 +51,7 @@ public class ShrineTests
         var move = go.AddComponent<EnemyMove>();
         typeof(EnemyMove).GetField("spawnProtectTimer", BindingFlags.NonPublic | BindingFlags.Instance)
                          .SetValue(move, 0f);
-        move.enabled = false;
+        move.isStructure = true; // 원본 `if (e.shrine) continue;`(:4024) — 컴포넌트를 끄면 스폰 보호가 안 풀린다
         go.GetComponent<Rigidbody2D>().gravityScale = 0f;
         go.AddComponent<EnemyHealth>();
         go.AddComponent<Shrine>();
@@ -71,12 +71,18 @@ public class ShrineTests
     /// 성소가 살아 있는 동안 **적**이 강해진다(원본 `run.shrineActive`, 적용 `:4040`·`:4148`).
     /// 플레이어 쪽 배수는 아직 안 붙는다 — 그건 부순 뒤의 보상이다.
     /// </summary>
-    [Test]
-    public void WhileAlive_EnemiesAreBuffed_PlayerIsNot()
+    /// <remarks>
+    /// 한 프레임을 기다리는 이유: 원본은 이 상태를 **매 프레임 다시 계산한다**(`:4414`).
+    /// 세울 때 한 번 켜는 방식이 아니라서(스폰 보호 중인 성소는 아직 적을 강화하면 안 된다)
+    /// `Awake` 직후가 아니라 첫 `Update` 뒤에 켜진다.
+    /// </remarks>
+    [UnityTest]
+    public IEnumerator WhileAlive_EnemiesAreBuffed_PlayerIsNot()
     {
         Assert.AreEqual(1f, CombatModifiers.EnemyDamageMultiplier, 1e-4f, "성소가 없는데 적이 강하다");
 
         var shrine = NewShrine();
+        yield return null;
 
         Assert.IsTrue(CombatModifiers.ShrineActive);
         Assert.AreEqual(CombatModifiers.ShrineEnemyDamageMult, CombatModifiers.EnemyDamageMultiplier, 1e-4f);

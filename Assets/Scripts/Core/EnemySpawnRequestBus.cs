@@ -22,10 +22,21 @@ namespace YokaiFront.Core
     /// </summary>
     public static class EnemySpawnRequestBus
     {
-        /// <summary>(스폰 위치, 몹 종류). 스포너가 구독해서 실제 `Instantiate`를 담당한다.</summary>
-        public static event Action<Vector2, EnemyType> Requested;
+        /// <summary>
+        /// (스폰 위치, 몹 종류, 스폰 보호 시간). 스포너가 구독해서 실제 `Instantiate`를 담당한다.
+        ///
+        /// 보호 시간이 인자에 있는 이유: 원본 `spawnEnemyAt`의 `opts.protect`가 호출자마다 다르다 —
+        /// 분열귀 새끼는 0.35초(`:1842`, 죽은 자리에서 바로 나오는데 2초면 손을 못 댄다),
+        /// 보스 부하는 지정이 없어 **기본 2초**(`:4278` → `:3965`)다. 한 값으로 고정하면 둘 중
+        /// 하나는 반드시 원본과 달라진다.
+        /// </summary>
+        public static event Action<Vector2, EnemyType, float> Requested;
 
-        public static void Request(Vector2 position, EnemyType enemyType) => Requested?.Invoke(position, enemyType);
+        /// <summary>원본 `CONFIG.run.spawnProtect`(project_test.html:695) — `opts.protect` 미지정 시의 기본값.</summary>
+        public const float DefaultSpawnProtect = 2f;
+
+        public static void Request(Vector2 position, EnemyType enemyType, float spawnProtectSeconds) =>
+            Requested?.Invoke(position, enemyType, spawnProtectSeconds);
 
         /// <summary>테스트 격리용 — 정적 이벤트라 구독이 남으면 테스트끼리 오염된다.</summary>
         public static void Reset() => Requested = null;

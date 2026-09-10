@@ -297,7 +297,11 @@ public static class BuildPartAScene
         var go = new GameObject("EnemySpawner");
         var spawner = go.AddComponent<EnemySpawner>();
         spawner.monsterPrefab = monsterPrefab;
-        spawner.orbSprite = AssetDatabase.LoadAssetAtPath<Sprite>(SpritePath); // 경험치 구슬 표시용
+        // 구운 프로토타입 그림을 꽂는다. 없으면(굽기 전) null이 들어가고 코드가 알아서
+        // 예전처럼 색칠한 원형으로 떨어진다 — 씬 빌드가 실패하지는 않는다.
+        spawner.orbSprite = BuildPrototypeSprites.Load("exp_orb");
+        spawner.shrineSprite = BuildPrototypeSprites.Load("shrine");
+        spawner.bossSprite = BuildPrototypeSprites.Load("boss");
 
         // 몹 종류별 수치는 EnemyData(SO)에서 온다. 에셋이 없으면 여기서 만들어 둔다.
         BuildEnemyData.Build();

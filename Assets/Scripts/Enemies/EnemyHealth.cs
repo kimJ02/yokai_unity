@@ -28,6 +28,11 @@ namespace YokaiFront.Enemies
         public float knockbackSpeed = 2.4f;
         [Tooltip("종류별 넉백 배율. 원본 :1678 — 대오니 0.4, 나머지 1. 스폰 시 EnemyData에서 주입된다.")]
         public float knockbackMultiplier = 1f;
+
+        [Tooltip("보스인지. 레벨 페널티 하한이 25%가 아니라 50%가 된다(원본 :1652). " +
+                 "`Boss` 컴포넌트는 Instantiate **뒤에** 붙기 때문에 Awake의 GetComponent로는 못 찾는다 — " +
+                 "이 프로젝트 단골 함정이라 스포너가 직접 켜 준다.")]
+        public bool isBoss;
         [Tooltip("피격 플래시 감쇠 속도. 원본 `e.flash -= dt*6`(project_test.html:4020) — 1에서 0까지 약 0.167초.")]
         public float flashDecay = 6f;
         [Tooltip("플래시 최대 강도. 원본은 흰색을 alpha `flash*0.75`로 덧그린다(project_test.html:4799).")]
@@ -176,13 +181,13 @@ namespace YokaiFront.Enemies
 
             // 대상에 달린 배수 두 개를 여기서 곱한다(`DamageCalculator`는 대상 참조가 없다).
             //  - `vulnMult` — 취약한 적은 받는 피해 ×1.2 (원본 :1663)
-            //  - `lvF`      — 내 레벨이 몹보다 낮으면 레벨당 -5%, 하한 25% (원본 `levelFactor` :1651)
+            //  - `lvF`      — 내 레벨이 몹보다 낮으면 레벨당 -5%, 하한 25%(보스는 50%) (원본 `levelFactor` :1651)
             // **둘을 한 번에 곱하고 한 번만 반올림한다** — 따로 반올림하면 원본(곱셈을 다 모은 뒤
             // 한 번 반올림)과의 오차가 곱해진 만큼 커진다.
             float mult = 1f;
             // 원본 `vulnMult = 1.2 + itemPow('vuln')`(:1663) — 각인을 가지면 취약이 더 아프다.
             if (IsVulnerable) mult *= DamageCalculator.VulnerableMultiplier + ProfileService.Current.items.Pow("vuln");
-            mult *= CombatModifiers.LevelFactor(ProfileService.Current.level, Level);
+            mult *= CombatModifiers.LevelFactor(ProfileService.Current.level, Level, isBoss);
             if (!Mathf.Approximately(mult, 1f))
                 amount = Mathf.Max(1f, Mathf.Round(amount * mult));
 

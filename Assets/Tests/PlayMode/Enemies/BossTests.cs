@@ -180,7 +180,8 @@ public class BossTests
     public IEnumerator Boss_SummonsOncePerPhase()
     {
         var requests = new List<EnemyType>();
-        EnemySpawnRequestBus.Requested += (_, t) => requests.Add(t);
+        var protects = new List<float>();
+        EnemySpawnRequestBus.Requested += (_, t, protect) => { requests.Add(t); protects.Add(protect); };
 
         var boss = NewBoss(new Vector3(10f, FieldBounds.GroundY, 0f));
         var health = boss.GetComponent<EnemyHealth>();
@@ -202,6 +203,13 @@ public class BossTests
         yield return null;
         boss.GetHorizontalSpeed(0.016f, target.transform, 1f);
         Assert.AreEqual(Boss.SummonCount * 2, requests.Count);
+
+        // 원본 `bossSummon`은 `opts.protect`를 안 넘긴다(`:4278`) — 그래서 **기본 2초**다.
+        // 분열귀 새끼(0.35초)와 버스를 공유한다고 값까지 따라가면 안 된다: 부하가 나오자마자
+        // 얻어맞고 사라져서, 보스전 압박이 원본보다 훨씬 약해진다.
+        foreach (float p in protects)
+            Assert.AreEqual(EnemySpawnRequestBus.DefaultSpawnProtect, p, 1e-4f,
+                "보스 부하가 분열귀 새끼용 짧은 스폰 보호를 받고 있다");
     }
 
     // ────────────────────────── 진행도 ──────────────────────────

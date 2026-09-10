@@ -304,7 +304,7 @@ public class EnemyTypeBehaviourTests
     public IEnumerator Splitter_RequestsTwoSplitletsOnDeath()
     {
         var requests = new List<KeyValuePair<Vector2, EnemyType>>();
-        EnemySpawnRequestBus.Requested += (p, t) => requests.Add(new KeyValuePair<Vector2, EnemyType>(p, t));
+        EnemySpawnRequestBus.Requested += (p, t, _) => requests.Add(new KeyValuePair<Vector2, EnemyType>(p, t));
 
         var enemy = NewEnemy(new Vector3(5f, 0.5f, 0f));
         enemy.AddComponent<EnemyHealth>();
@@ -326,7 +326,7 @@ public class EnemyTypeBehaviourTests
     public IEnumerator Splitter_ClampsChildSpawnToGround()
     {
         var requests = new List<Vector2>();
-        EnemySpawnRequestBus.Requested += (p, _) => requests.Add(p);
+        EnemySpawnRequestBus.Requested += (p, _, __) => requests.Add(p);
 
         var enemy = NewEnemy(new Vector3(5f, FieldBounds.GroundY - 3f, 0f)); // 지면보다 한참 아래
         enemy.AddComponent<EnemyHealth>();

@@ -54,6 +54,11 @@ public class EnemyMove : MonoBehaviour, ISpawnProtectable, IGravityAffectable
     [Tooltip("스폰 직후 무적 시간(초) — 원본 CONFIG.run.spawnProtect 그대로.")]
     public float spawnProtectDuration = 2f;
 
+    [Tooltip("성소처럼 움직이지도 때리지도 않는 구조물인지. 원본 `if (e.shrine) continue;`(:4024).\n" +
+             "**컴포넌트를 끄면 안 된다** — 원본은 그 한 줄 앞에서 spawnInvuln을 깎기 때문에(:4023), " +
+             "Update가 멈추면 스폰 보호가 영영 안 풀린다.")]
+    public bool isStructure;
+
     [Header("원본 상수 그대로 이식")]
     public float terminalFallSpeed = 15f; // 원본 1500px/s ÷100(CharacterMover2D와 동일 상한)
     public float edgeMargin = 0.3f;       // 원본 clamp(e.x, 30, mapW-30)의 30px ÷100
@@ -131,6 +136,9 @@ public class EnemyMove : MonoBehaviour, ISpawnProtectable, IGravityAffectable
             return;
         }
 
+        // 원본은 스폰 보호를 깎은 **뒤에** 성소를 건너뛴다(:4024) — 순서가 뒤집히면 무적이 안 풀린다.
+        if (isStructure) return;
+
         if (target == null || !target.gameObject.activeInHierarchy)
             target = FindNearestPlayer();
 
@@ -175,6 +183,8 @@ public class EnemyMove : MonoBehaviour, ISpawnProtectable, IGravityAffectable
     {
         // 원본은 AI 판단보다 먼저 넉백을 감쇠시킨다(project_test.html:4021).
         knockbackX *= Mathf.Max(0f, 1f - knockbackDecay * Time.fixedDeltaTime);
+
+        if (isStructure) return; // 구조물은 밀리지도 걷지도 않는다
 
         // 스폰 보호 중엔 수평 이동을 하지 않는다(위 Update 주석 참고). 중력·착지는 Physics2D에 그대로 맡긴다
         // — 원본은 스폰 지점이 이미 착지 높이라 낙하가 없지만, 우리 쪽은 안전하게 물리에 맡겨 둔다.
