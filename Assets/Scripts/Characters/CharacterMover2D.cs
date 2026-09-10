@@ -244,12 +244,19 @@ public class CharacterMover2D : MonoBehaviour, Core.IRunResettable
         CancelDropThrough();
         ResetMotion();
         Facing = 1;
-        Teleport(new Vector3(RunStartX, Core.FieldBounds.GroundY + StartHeightAboveGround, 0f));
+        // 덩치가 바뀌면 띄울 높이도 같이 바뀌어야 한다 — 상수로 박아두면 커진 캐릭터가
+        // 지면에 파묻힌 채 물리에 밀려 튀어오른다.
+        var col = GetComponent<CircleCollider2D>();
+        float lift = col != null ? col.radius * Mathf.Abs(transform.localScale.x) : StartHeightAboveGround;
+        Teleport(new Vector3(RunStartX, Core.FieldBounds.GroundY + lift, 0f));
     }
 
     /// <summary>원본 `p.x = 220`(project_test.html:1513) ÷100.</summary>
     public const float RunStartX = 2.2f;
-    /// <summary>바닥에 발을 붙이고 시작하기 위한 여유(콜라이더 반높이). 원본은 y=groundY에 바로 놓는다.</summary>
+    /// <summary>
+    /// 콜라이더를 못 찾았을 때 쓰는 기본 여유. 평소엔 실제 반지름을 쓴다(<see cref="ResetForRun"/>).
+    /// 원본은 y=groundY에 바로 놓는다 — 원본 엔티티는 발밑이 기준점이라 띄울 필요가 없다.
+    /// </summary>
     public const float StartHeightAboveGround = 0.5f;
 
     public void ResetMotion()

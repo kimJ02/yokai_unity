@@ -228,7 +228,10 @@ public class EnemySpawner : MonoBehaviour
         int groundCount = FieldLayout.GroundGridX.Length;
         float x = FieldLayout.GroundGridX[Random.Range(0, groundCount)];
 
-        var go = Instantiate(monsterPrefab, new Vector3(x, FieldBounds.GroundY + 0.9f, 0f), Quaternion.identity);
+        // 발을 지면에 붙인다 — 구조물이라 물리로 안 떨어지므로 세울 때 정확히 놓아야 한다.
+        var go = Instantiate(monsterPrefab,
+                             new Vector3(x, FieldBounds.GroundY + EntitySizeConfig.ShrineHeight / 2f, 0f),
+                             Quaternion.identity);
         go.name = "Shrine";
         RunTransient.Mark(go);
 
@@ -253,11 +256,11 @@ public class EnemySpawner : MonoBehaviour
             health.Died += HandleShrineDestroyed;
         }
 
-        // 원본 w:64 h:96 — 세로로 긴 구조물이라 몹보다 크게 보이게 한다.
-        go.transform.localScale = new Vector3(1.3f, 1.9f, 1f);
+        // 원본 w:64 h:96(`:698`) — 오니(42×46)의 두 배 높이인 세로로 긴 구조물이다.
         var sr = go.GetComponent<SpriteRenderer>();
         if (sr != null) sr.color = new Color(1f, 0.54f, 0.42f); // 원본 colors.soul '#ff8a6a'
-        SwapSpriteKeepingSize(go, shrineSprite);
+        FitToWorldSize(go, shrineSprite,
+                       EntitySizeConfig.ShrineWidth, EntitySizeConfig.ShrineHeight);
 
         go.AddComponent<Shrine>();
         aliveShrine = go.transform;
@@ -276,7 +279,9 @@ public class EnemySpawner : MonoBehaviour
 
         int region = RunState.Region;
         float x = Mathf.Lerp(FieldBounds.MinX, FieldBounds.MaxX, 0.62f);
-        var go = Instantiate(monsterPrefab, new Vector3(x, FieldBounds.GroundY + 1.2f, 0f), Quaternion.identity);
+        var go = Instantiate(monsterPrefab,
+                             new Vector3(x, FieldBounds.GroundY + EntitySizeConfig.BossHeight / 2f, 0f),
+                             Quaternion.identity);
         go.name = "Boss";
         RunTransient.Mark(go);
 
@@ -301,14 +306,13 @@ public class EnemySpawner : MonoBehaviour
             move.moveSpeed = Boss.MoveSpeed;
         }
 
-        // 원본 w:130 h:150 — 오니(42×46)의 3배쯤 되는 덩치다.
-        go.transform.localScale = new Vector3(2.8f, 3.2f, 1f);
+        // 원본 w:130 h:150(`:721`) — 오니(42×46)의 3배쯤 되는 덩치다.
         var sr = go.GetComponent<SpriteRenderer>();
         if (sr != null) sr.color = new Color(0.78f, 0.42f, 1f); // 원본 colors.soul '#c86aff'
         // 탄환 스프라이트는 **그림을 갈아끼우기 전**의 원형을 쓴다 — 보스 그림을 그대로 쓰면
         // 화면을 가리는 거대한 탄이 날아간다.
         Sprite bolt = sr != null ? sr.sprite : null;
-        SwapSpriteKeepingSize(go, bossSprite);
+        FitToWorldSize(go, bossSprite, EntitySizeConfig.BossWidth, EntitySizeConfig.BossHeight);
 
         var boss = go.AddComponent<Boss>();
         boss.projectileSprite = bolt;
@@ -319,33 +323,39 @@ public class EnemySpawner : MonoBehaviour
     }
 
     /// <summary>
-    /// 원형 스프라이트를 프로토타입 그림으로 갈아끼우되 **보이는 크기와 판정을 그대로 둔다.**
-    /// 그림마다 픽셀 크기가 달라서(성소 120×92, 보스 176×174) 스케일을 그대로 두면 덩치가 통째로
-    /// 바뀌고, 스케일만 되돌리면 이번엔 콜라이더가 같이 줄어든다 — 그래서 `radius`를 역으로 곱해
-    /// 보정한다(`ApplySize`가 잡몹에게 하는 것과 같은 계산이다).
+    /// 성소·보스를 **원본 픽셀 크기 그대로** 세운다(100px = 1유닛).
     ///
-    /// 덩치 자체가 원본보다 큰 문제는 별개 항목이라 여기서 건드리지 않는다 — 이 함수는 순수하게
-    /// "색칠한 동그라미를 그림으로 바꾸는" 일만 한다.
+    /// 예전엔 "스프라이트를 갈아끼우되 보이던 크기를 유지"하는 방식이었는데, 그 '보이던 크기'가
+    /// 애초에 틀렸다. 프리팹의 기본 스프라이트가 32×32짜리 내장 이미지라, 거기에 맞춰 손으로
+    /// 고른 `localScale`(성소 1.3×1.9)이 실제로는 0.42×0.61유닛밖에 안 됐다 —
+    /// **원본 성소(0.64×0.96)보다 작고, 오니보다도 작았다.** 눈으로 보기 전엔 알 수 없는 종류의
+    /// 어긋남이라, 기준을 "원본 유닛 크기"로 바꿔 손으로 고른 숫자를 없앴다.
+    ///
+    /// 콜라이더가 같은 GameObject에 있어 `localScale`이 물리에도 걸리므로, 반지름은 역으로 나눠
+    /// 월드 반지름을 따로 맞춘다(`ApplySize`가 잡몹에게 하는 것과 같은 계산).
     /// </summary>
-    static void SwapSpriteKeepingSize(GameObject go, Sprite sprite)
+    static void FitToWorldSize(GameObject go, Sprite sprite, float worldWidth, float worldHeight)
     {
-        if (sprite == null) return;
         var sr = go.GetComponent<SpriteRenderer>();
-        if (sr == null) return;
 
-        Vector2 before = sr.sprite != null ? (Vector2)sr.sprite.bounds.size : Vector2.one;
-        Vector2 after = sprite.bounds.size;
-        if (after.x < 0.0001f || after.y < 0.0001f) return;
+        // 그림이 있으면 그림 크기를 기준으로, 없으면 프리팹의 기본 스프라이트를 기준으로 늘린다.
+        Sprite basis = sprite != null ? sprite : (sr != null ? sr.sprite : null);
+        Vector2 size = basis != null ? (Vector2)basis.bounds.size : Vector2.one;
+        if (size.x < 0.0001f || size.y < 0.0001f) return;
 
-        Vector3 old = go.transform.localScale;
-        var next = new Vector3(old.x * before.x / after.x, old.y * before.y / after.y, 1f);
-        go.transform.localScale = next;
+        var scale = new Vector3(worldWidth / size.x, worldHeight / size.y, 1f);
+        go.transform.localScale = scale;
 
+        // 원형 콜라이더라 가로/세로 중 **작은 쪽**에 맞춘다 — 큰 쪽에 맞추면 그림 밖까지 맞는다.
         var col = go.GetComponent<CircleCollider2D>();
-        if (col != null && Mathf.Abs(next.x) > 0.0001f) col.radius *= old.x / next.x;
+        if (col != null && Mathf.Abs(scale.x) > 0.0001f)
+            col.radius = (Mathf.Min(worldWidth, worldHeight) / 2f) / scale.x;
 
-        sr.sprite = sprite;
-        sr.color = Color.white; // 그림에 색이 이미 칠해져 있다 — 또 곱하면 그 색으로 물든다
+        if (sprite != null && sr != null)
+        {
+            sr.sprite = sprite;
+            sr.color = Color.white; // 그림에 색이 이미 칠해져 있다 — 또 곱하면 그 색으로 물든다
+        }
     }
 
     /// <summary>

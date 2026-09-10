@@ -37,8 +37,8 @@ namespace YokaiFront.Characters
         [Header("캐릭터 그림 (프로토타입에서 구워낸 임시 스프라이트)")]
         [Tooltip("CharacterId 순서(마법사·메카닉·섬영·드루이드)대로. 비어 있으면 기본 원형을 그대로 쓴다.")]
         public Sprite[] characterSprites = new Sprite[4];
-        [Tooltip("그림 높이를 이 값(월드 유닛)에 맞춘다. 플레이어 콜라이더 지름과 같게 두면 히트박스와 어긋나 보이지 않는다.")]
-        public float spriteHeight = 1f;
+        [Tooltip("그림 높이(월드 유닛). 콜라이더 지름도 이 값에 맞춰진다 — 기본값은 Core.EntitySizeConfig.")]
+        public float spriteHeight = EntitySizeConfig.PlayerHeight;
 
         readonly List<ICharacterKit> kits = new List<ICharacterKit>();
         CharacterMover2D mover;
@@ -112,16 +112,15 @@ namespace YokaiFront.Characters
             float scale = spriteHeight / h;
 
             // ⚠️ 콜라이더가 같은 GameObject에 있어서 `localScale`이 물리에도 걸린다 —
-            // 스케일만 바꾸면 지면 판정·발판 착지가 통째로 틀어진다. 그래서 반지름을 역으로
-            // 나눠 **월드 반지름을 그대로 유지**한다(적 쪽 `EnemySpawner.ApplySize`와 같은 방식).
+            // 그래서 반지름을 역으로 나눠 원하는 월드 반지름을 맞춘다(적 쪽 `EnemySpawner.ApplySize`와 같은 방식).
+            //
+            // 예전엔 **기존 월드 반지름을 그대로 유지**했는데, 그러면 `spriteHeight`를 키워도
+            // 그림만 커지고 히트박스는 그대로라 "보이는 곳을 때렸는데 안 맞는" 상태가 된다.
+            // 지금은 그림 높이가 곧 지름이다.
+            transform.localScale = new Vector3(scale, scale, 1f);
+
             var col = GetComponent<CircleCollider2D>();
-            if (col != null)
-            {
-                float worldRadius = col.radius * transform.localScale.x;
-                transform.localScale = new Vector3(scale, scale, 1f);
-                col.radius = worldRadius / scale;
-            }
-            else transform.localScale = new Vector3(scale, scale, 1f);
+            if (col != null) col.radius = (spriteHeight / 2f) / scale;
         }
 
         void ApplySelection(CharacterId id, bool notifyPrevious)

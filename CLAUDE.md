@@ -84,7 +84,7 @@ Unity 씬(`.unity`)·프리팹(`.prefab`) 파일은 내부적으로 GUID/fileID�
 
 ### 폴더 구조
 - `Assets/Scripts/`는 도메인별 하위 폴더로 나눈다. **폴더 이름 = 네임스페이스 = asmdef 이름**으로 셋을 항상 일치시킨다(아래 asmdef 계층표와 같은 구분).
-  - `Core/` — 여러 도메인이 같이 쓰는 것(`FieldBounds`, `ISpawnProtectable`, `GameInput`, `IDamageable`, 데이터 SO 기본 타입, `PlayerProfile` — 뒤 셋은 아직 미구현. `PlayerProfile`은 SO가 아님, 아래 "세이브 데이터 vs 설정 데이터" 참고)
+  - `Core/` — 여러 도메인이 같이 쓰는 것(`FieldBounds`, `ISpawnProtectable`, `GameInput`, `IDamageable`, `GameState`/`RunState`/`CombatEvents`, `CombatModifiers`, `EntitySizeConfig`, 데이터 SO 기본 타입, `PlayerProfile` — SO가 아님, 아래 "세이브 데이터 vs 설정 데이터" 참고)
   - `World/` — 필드·카메라·발판
   - `Combat/` — **무기에 종속되지 않는 전투 공용 인프라**(투사체 기반 클래스, 피해 판정 헬퍼)
   - `Characters/` — 플레이어 컨트롤러 + **캐릭터별 무기 구현**(`MageAttack`·`MageProjectile`은 마법사 무기이므로 여기)
@@ -104,13 +104,13 @@ Unity 씬(`.unity`)·프리팹(`.prefab`) 파일은 내부적으로 GUID/fileID�
 
 | 층 | asmdef | 참조 가능 대상 | 들어가는 것 |
 |---|---|---|---|
-| 0 | `YokaiFront.Core` | (없음) | `FieldBounds`, `ISpawnProtectable`, `GameInput`(미구현), `IDamageable`(미구현), 데이터 SO 기본 타입, `PlayerProfile`(미구현) |
+| 0 | `YokaiFront.Core` | (없음) | `FieldBounds`, `ISpawnProtectable`, `GameInput`, `IDamageable`, 런 사이클 계약(`GameState`·`RunState`·`CombatEvents`·`IRunResettable`), `CombatModifiers`, `EntitySizeConfig`, 데이터 SO 기본 타입, `PlayerProfile` |
 | 1 | `YokaiFront.World` · `YokaiFront.Combat` | 0 | 필드/카메라/발판 · 투사체·피해판정 공용 인프라 |
 | 2 | `YokaiFront.Characters` · `YokaiFront.Enemies` | 0~1 | 플레이어 컨트롤러·무기별 공격 · 몬스터 AI |
 | 3 | `YokaiFront.Systems` | 0~2 | 스포너·가챠·세이브 등 오케스트레이션 |
-| 4 | `YokaiFront.UI` | 0~3 | HUD·메뉴 |
+| 4 | `YokaiFront.UI` | 0~3 | HUD·로비·결과 화면(`UiTheme`가 색/판/글자를 소유) |
 
-- **같은 층끼리는 서로 참조 금지.** 특히 `Characters` ↔ `Enemies`는 절대 직접 참조하지 않는다 — 서로 때리는 건 `Core`의 태그(`CompareTag("Enemy")`)와 `ISpawnProtectable` 같은 `Core` 인터페이스로만 한다. `IDamageable`은 아직 없음(Health 시스템과 함께 나중에 `Core`에 추가 예정) — 그 전까지 공격 스크립트는 `Destroy()`를 직접 부른다.
+- **같은 층끼리는 서로 참조 금지.** 특히 `Characters` ↔ `Enemies`는 절대 직접 참조하지 않는다 — 서로 때리는 건 `Core`의 태그(`CompareTag("Enemy")`)와 `ISpawnProtectable`·`IDamageable` 같은 `Core` 인터페이스로만 한다. **공격 스크립트가 `Destroy()`를 직접 부르지 말 것** — 반드시 `IDamageable.TakeDamage()`를 거친다(지속 피해는 `TakeTickDamage()`).
 - **낮은 층이 높은 층의 기능을 "요청"해야 하는 경우(예: 몹이 죽을 때 새 몹을 스폰)는 직접 참조하지 않고 `Core`의 이벤트로 방향을 뒤집는다.** 이 상황이 실제로 곧 온다 — 원본은 분열귀(splitter) 타입이 죽으면 `spawnEnemyAt()`을 직접 호출해 새끼 2마리를 낳는다(`project_test.html:1840`). 지금 저장소에서 `Assets/Scripts/Systems/YokaiFront.Systems.asmdef`를 실제로 열어보면 이미 `"YokaiFront.Enemies"`를 참조하고 있다(3층→2층, 스포너가 몹 프리팹을 다뤄야 하니 당연함) — 그런데 `splitter` 같은 몹을 만들려고 `Enemies`가 거꾸로 `Systems`(스포너)를 참조하면 두 asmdef가 서로를 참조하는 순환참조가 되어 Unity가 "circular assembly definition reference"로 **컴파일 자체를 거부한다**(스타일 위반이 아니라 빌드가 깨짐).
 
   **확정된 해결 패턴 — 이 시그니처 그대로 쓸 것**(`Combat`/`Characters`가 `Enemies`를 몰라도 스폰 무적 상태를 물을 수 있게 만든 `ISpawnProtectable`, `Core/ISpawnProtectable.cs`와 정확히 같은 구조 — 구체 타입 대신 `Core`의 추상화만 아래층이 참조):
@@ -225,19 +225,22 @@ Unity 씬(`.unity`)·프리팹(`.prefab`) 파일은 내부적으로 GUID/fileID�
 
 ## 지금 프로젝트 상태
 
-- Unity: 2D (URP) 템플릿. `Assets/Scripts/`는 `Core / World / Combat / Characters / Enemies / Systems`
-  여섯 폴더 = 여섯 네임스페이스(`YokaiFront.*`) = 여섯 asmdef로 분리돼 있고, 계층 참조 규칙이 컴파일러로 강제된다.
-- **진행 단계(2026-09-09)**: 전투 코어 → 체력·피해 → 성장곡선(레벨·골드강화·난이도 스케일링) →
-  **마법사 스킬트리 전체(폭발·중력 5티어)**까지 `main` 병합 완료. **PlayMode 61/61.** 미병합 브랜치 없음.
-  **다음은 단계 1: 모든 캐릭터 0차(= 기본공격만) + 모든 몬스터** — 스펙은 `HANDOFF.md`.
-  (2026-09-09 회의로 순서 재편: 캐릭터·몬스터 폭을 먼저 채우고 캐릭터 단위로 깊게 판 뒤 밸런스.
-  런 사이클은 폐기가 아니라 보류 — 스펙은 `docs/sprints/04-run-cycle.md`, 계약 4종은 이미 `main`에 있다.)
+- Unity: 2D (URP) 템플릿. `Assets/Scripts/`는 `Core / World / Combat / Characters / Enemies / Systems / UI`
+  일곱 폴더 = 일곱 네임스페이스(`YokaiFront.*`) = 일곱 asmdef로 분리돼 있고, 계층 참조 규칙이 컴파일러로 강제된다.
+- **진행 단계(2026-09-10)**: **게임 한 바퀴가 전부 돈다** — 로비 7탭 → 지역 선택 → 사냥 → 결과 → 로비,
+  그리고 사냥 → 지역 토벌 → 보스 → 다음 지역 → 윤회 → 뽑기까지 성장 고리가 닫혔다. 미병합 브랜치 없음.
+  **남은 것은 섬영·드루이드 0차(팀원)** — 그다음이 단계 2(캐릭터별 5차, 메카닉부터).
+  지금 상태·테스트 수는 `PROGRESS.md`, 스프린트 스펙은 `HANDOFF.md`.
 - **새 세션이 읽는 순서**: 이 파일 → `PROGRESS.md`(지금 상태·다음 할 일·배치 검증 명령) →
   `HANDOFF.md`(지금 스프린트) → `docs/worksplit.md`(분업). 원본 대조는 `docs/original-parity.md`.
 - **배치모드 `-executeMethod`는 전체 네임스페이스 경로가 필요하다**: `YokaiFront.Editor.BuildPartAScene.Build`
   (짧은 이름을 쓰면 "class could not be found"로 실패한다).
-- ⚠️ **지금 코드에 있는 "R키 부활"(`Characters/PlayerDeathHandler`)과 "숫자키 1~7 강화/빌드 선택"
-  (`Characters/PlayerDebugController`)은 원본에 없는 임시방편이다.** 원본은 죽으면 결과 화면→로비
-  (`project_test.html:1927`), 강화는 로비 탭(`:6974`)이다. **런 사이클에서 전자를, 로비 UI에서 후자를 삭제**할 것
-  — 원본에 있는 기능인 줄 알고 유지하지 말 것(두 파일 주석 맨 위에도 같은 경고를 달아뒀다).
+- ⚠️ **원본에 없던 임시방편(R키 부활 · Tab 캐릭터 전환 · 숫자키 강화/빌드 선택)은 2026-09-10에 전부
+  삭제됐다.** 정식 자리는 로비 탭이다(`project_test.html:6974`). **되살리지 말 것** — 죽으면 결과
+  화면→로비가 원본이다(`:1927`).
+- ⚠️ **값을 정의해 놓고 호출부를 안 만드는 실수를 조심할 것.** 2026-09-10 원본 대조 감사에서 나온
+  편차 10건 중 **절반이 이 모양이었다**(쿨감 아이템·살기 공속·성소 스폰 보호·보스 레벨 하한).
+  상수도 함수도 멀쩡히 있으니 **컴파일러도 기존 테스트도 아무 말을 안 한다.**
+  `Tests/PlayMode/OriginalFidelityTests.DefinedApis_AreActuallyCalledSomewhere`가 소스를 직접 훑어
+  이 부류를 잡는다 — 정의와 사용처가 **다른 파일**인 공개 API를 만들면 그 목록에 추가할 것.
 - 게임 로직 검증은 항상 PlayMode 테스트로 한다(`Assets/Tests/PlayMode/`, 도메인별 하위 폴더로 분리됨). Edit Mode 배치 실행에서 Physics2D 쿼리를 신뢰하지 말 것 — 이유는 `PROGRESS.md` 로그 참고.
