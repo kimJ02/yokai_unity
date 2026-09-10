@@ -13,7 +13,7 @@ namespace YokaiFront.UI
     /// 로비는 사냥터를 **가리지 않고 그 위에 뜬다**(원본도 캔버스는 계속 그리고 `#lobby`를 겹친다).
     /// 그래서 판 없이 글자만 얹으면 요괴·발판 위에서 흰 글씨가 그대로 묻힌다. 원본은 읽어야 할
     /// 본문을 `rgba(14,11,20,.92)` 판으로 덮고, 판 밖의 헤더에만 `text-shadow`를 준다 —
-    /// 색과 치수는 전부 <see cref="LobbyTheme"/>에 옮겨 놨다.
+    /// 색과 치수는 전부 <see cref="UiTheme"/>에 옮겨 놨다.
     ///
     /// ## 왜 IMGUI(OnGUI)인가
     /// 이 프로젝트는 **렌더링·비주얼 전부가 명시적으로 범위 밖**이고(원형 스프라이트 유지, 사용자 확인),
@@ -66,20 +66,7 @@ namespace YokaiFront.UI
             if (GameState.Current != GameScene.Lobby) return;
             if (run == null) run = Object.FindFirstObjectByType<RunController>();
 
-            LobbyTheme.Ensure();
-
-            var prevMatrix = GUI.matrix;
-            var prevSkin = GUI.skin;
-
-            // 원본은 1280×720 캔버스를 통째로 확대해서 화면에 맞춘다(`fitScreen()` :7176).
-            // 같은 방식을 쓰지 않으면 해상도마다 글자 크기와 여백 비율이 달라져서, 원본 CSS 픽셀값을
-            // 옮겨온 게 의미를 잃는다.
-            float scale = Mathf.Min(Screen.width / LobbyTheme.DesignWidth, Screen.height / LobbyTheme.DesignHeight);
-            GUI.matrix = Matrix4x4.TRS(
-                new Vector3((Screen.width - LobbyTheme.DesignWidth * scale) * 0.5f,
-                            (Screen.height - LobbyTheme.DesignHeight * scale) * 0.5f, 0f),
-                Quaternion.identity, new Vector3(scale, scale, 1f));
-            GUI.skin = LobbyTheme.Skin;
+            using var scaled = UiTheme.Scaled(); // 원본 fitScreen()과 같은 1280×720 좌표계
 
             var profile = ProfileService.Current;
 
@@ -89,9 +76,9 @@ namespace YokaiFront.UI
             // ⚠️ 가독성의 핵심 — 원본 `#lobbyBody { background:rgba(14,11,20,.92) }`(`:180`).
             // 로비는 사냥터 **위에** 뜬다. 이 판이 없으면 글자가 요괴·발판과 섞여서 안 읽힌다
             // (원본도 헤더/탭만 배경 위에 얹고, 정작 읽어야 할 본문은 거의 불투명한 판으로 덮는다).
-            var body = new Rect(Pad, BodyTop, LobbyTheme.DesignWidth - Pad * 2f,
-                                LobbyTheme.DesignHeight - BodyTop - BodyBottom);
-            GUI.Box(body, GUIContent.none, LobbyTheme.Panel);
+            var body = new Rect(Pad, BodyTop, UiTheme.DesignWidth - Pad * 2f,
+                                UiTheme.DesignHeight - BodyTop - BodyBottom);
+            GUI.Box(body, GUIContent.none, UiTheme.Panel);
 
             var inner = new Rect(body.x + 18f, body.y + 14f, body.width - 36f, body.height - 28f);
             GUILayout.BeginArea(inner);
@@ -110,9 +97,6 @@ namespace YokaiFront.UI
             GUILayout.EndArea();
 
             DrawToast();
-
-            GUI.matrix = prevMatrix;
-            GUI.skin = prevSkin;
         }
 
         /// <summary>
@@ -121,31 +105,32 @@ namespace YokaiFront.UI
         /// </summary>
         void DrawHeader(PlayerProfile profile)
         {
-            LobbyTheme.ShadowLabel(new Rect(Pad, 10f, 240f, 38f), "요괴전선", LobbyTheme.Title);
+            UiTheme.ShadowLabel(new Rect(Pad, 10f, 240f, 38f), "요괴전선", UiTheme.Title);
 
             float x = Pad + 175f;
-            LobbyTheme.ShadowLabel(new Rect(x, 12f, 900f, 22f),
+            UiTheme.ShadowLabel(new Rect(x, 12f, 900f, 22f),
                 $"Lv.<b>{profile.level}</b>    골드 <b>{profile.gold}</b> G    " +
                 $"SP <b>{profile.SpAvailable}</b> (총 {profile.SpTotal})    " +
                 $"윤회 <b>{profile.rebirths}</b>회    ☸ <b>{profile.rp}</b>",
-                LobbyTheme.HeadStat);
+                UiTheme.HeadStat);
 
             // 원본 `#lobbyExpbar` 180×10(`:90`).
             int need = PlayerProfile.RequiredExp(profile.level);
-            LobbyTheme.DrawExpBar(new Rect(x, 40f, 180f, 10f), need > 0 ? profile.exp / (float)need : 0f);
-            LobbyTheme.ShadowLabel(new Rect(x + 190f, 34f, 400f, 20f),
-                $"경험치 {profile.exp} / {need}", LobbyTheme.HeadStat);
+            UiTheme.Bar(new Rect(x, 40f, 180f, 10f),
+                        need > 0 ? profile.exp / (float)need : 0f, UiTheme.ExpFill);
+            UiTheme.ShadowLabel(new Rect(x + 190f, 34f, 400f, 20f),
+                $"경험치 {profile.exp} / {need}", UiTheme.HeadStat);
 
             // 원본 로비 헤더의 "전체 초기화"(`:524`). 실수로 누르면 큰일이라 두 번 묻는다
             // — 원본은 confirm() 대화상자를 쓰는데 IMGUI엔 그게 없어서 버튼 상태로 대신한다.
-            float right = LobbyTheme.DesignWidth - Pad;
+            float right = UiTheme.DesignWidth - Pad;
             if (!confirmingReset)
             {
                 if (GUI.Button(new Rect(right - 100f, 14f, 100f, 28f), "전체 초기화")) confirmingReset = true;
             }
             else
             {
-                LobbyTheme.ShadowLabel(new Rect(right - 320f, 18f, 120f, 22f), "정말 지울까?", LobbyTheme.HeadStat);
+                UiTheme.ShadowLabel(new Rect(right - 320f, 18f, 120f, 22f), "정말 지울까?", UiTheme.HeadStat);
                 if (GUI.Button(new Rect(right - 190f, 14f, 110f, 28f), "네, 지웁니다"))
                 {
                     SaveService.DeleteSave();
@@ -167,10 +152,10 @@ namespace YokaiFront.UI
             for (int i = 0; i < TabNames.Length; i++)
             {
                 var content = new GUIContent(TabNames[i]);
-                float w = LobbyTheme.Tab.CalcSize(content).x;
+                float w = UiTheme.Tab.CalcSize(content).x;
                 bool on = (int)tab == i;
 
-                if (GUI.Toggle(new Rect(x, TabsY, w, TabHeight), on, content, LobbyTheme.Tab) && !on)
+                if (GUI.Toggle(new Rect(x, TabsY, w, TabHeight), on, content, UiTheme.Tab) && !on)
                 {
                     tab = (Tab)i;
                     scroll = Vector2.zero;
@@ -185,9 +170,9 @@ namespace YokaiFront.UI
             if (toastLeft <= 0f) return;
 
             var content = new GUIContent(toast);
-            Vector2 size = LobbyTheme.Toast.CalcSize(content);
-            GUI.Box(new Rect((LobbyTheme.DesignWidth - size.x) * 0.5f, 150f, size.x, size.y),
-                    content, LobbyTheme.Toast);
+            Vector2 size = UiTheme.Toast.CalcSize(content);
+            GUI.Box(new Rect((UiTheme.DesignWidth - size.x) * 0.5f, 150f, size.x, size.y),
+                    content, UiTheme.Toast);
         }
 
         // ────────────────────────── 캐릭터 선택 ──────────────────────────
@@ -607,7 +592,7 @@ namespace YokaiFront.UI
         }
 
         /// <summary>
-        /// 예전엔 `richText`를 켠 스타일을 따로 만들었지만, 지금은 <see cref="LobbyTheme"/>의 기본
+        /// 예전엔 `richText`를 켠 스타일을 따로 만들었지만, 지금은 <see cref="UiTheme"/>의 기본
         /// 라벨이 이미 켜져 있다. 호출부가 많아 이름만 남겨 뒀다 — 새 코드는 그냥 `GUILayout.Label`을 쓰면 된다.
         /// </summary>
         static GUIStyle RichLabel() => GUI.skin.label;
