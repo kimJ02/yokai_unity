@@ -22,6 +22,14 @@ namespace YokaiFront.Enemies
         [Tooltip("남길 새끼의 종류.")]
         public EnemyType childType = EnemyType.Splitlet;
 
+        /// <summary>
+        /// 원본 `spawnEnemyAt(..., { protect: 0.35 })`(project_test.html:1842) — 일반 스폰(2초)보다
+        /// 훨씬 짧다. 죽은 자리에서 바로 나오는데 2초나 무적이면 플레이어가 손을 못 대기 때문이다.
+        /// **값이 여기 있는 이유**: 보스 부하도 같은 버스를 쓰지만 보호 시간은 기본 2초라(`:4278`),
+        /// 스포너에 하나만 두면 둘 중 하나가 반드시 틀린다.
+        /// </summary>
+        public const float SplitSpawnProtect = 0.35f;
+
         EnemyHealth health;
 
         void Awake()
@@ -46,7 +54,7 @@ namespace YokaiFront.Enemies
                 // 원본 `Math.min(e.y, CONFIG.world.groundY)` — 지면보다 아래에서는 안 나온다.
                 // 원본은 Y+가 아래라 min이지만 우리 좌표계에선 max다.
                 float y = Mathf.Max(pos.y, FieldBounds.GroundY);
-                EnemySpawnRequestBus.Request(new Vector2(x, y), childType);
+                EnemySpawnRequestBus.Request(new Vector2(x, y), childType, SplitSpawnProtect);
             }
         }
     }

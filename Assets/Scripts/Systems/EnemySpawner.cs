@@ -78,10 +78,21 @@ public class EnemySpawner : MonoBehaviour
     [Tooltip("구슬 스프라이트. 씬 빌더가 꽂아준다. 비어 있어도 동작은 하고 안 보이기만 한다.")]
     public Sprite orbSprite;
 
+    [Header("성소·보스 그림 (씬 빌더가 꽂아준다)")]
+    [Tooltip("성소 그림. 비어 있으면 예전처럼 원형 스프라이트를 색만 칠해서 쓴다.")]
+    public Sprite shrineSprite;
+    [Tooltip("보스 그림. 비어 있으면 예전처럼 원형 스프라이트를 색만 칠해서 쓴다.")]
+    public Sprite bossSprite;
+
     [Header("몹 종류별 수치 (Assets/Data/Enemies/, BuildEnemyData가 생성)")]
     [Tooltip("스폰할 몹 종류들. 비어 있으면 프리팹에 들어 있는 값을 그대로 쓴다. 지역별 해금표(원본 rollSpawnType :3933)는 몹 6종을 붙일 때 여기에 얹는다.")]
     public EnemyData[] enemyTypes;
 
+    /// <summary>
+    /// 웨이브 상한에 **세는 대상**. 원본 `enemies.filter(e => !e.boss && !e.shrine)`(`:3978`)와 같아야 한다 —
+    /// 보스와 성소를 여기 넣으면 그 둘이 상한 자리를 차지해서, 특히 보스전(상한 4)에선
+    /// 잡몹이 조용히 한두 마리씩 덜 나온다.
+    /// </summary>
     readonly List<Transform> aliveMonsters = new List<Transform>();
     // 스폰된 몹이 어떤 종류였는지 — 처치 보상에서 종류별 exp/gold를 읽어야 해서 들고 있는다.
     readonly Dictionary<GameObject, EnemyData> spawnedData = new Dictionary<GameObject, EnemyData>();
@@ -89,10 +100,8 @@ public class EnemySpawner : MonoBehaviour
     float cachedMonsterRadius = -1f; // Awake 시점엔 monsterPrefab이 아직 할당 전이라(씬 빌드 순서상)
                                       // 필요할 때 지연 계산한다(GetMonsterRadius 참고).
 
-    // 몹이 몹을 낳는 요청(분열귀 → 새끼)을 받는다. 정적 이벤트라 **반드시 OnDisable에서 해제**해야
-    // 파괴된 스포너를 계속 참조하지 않는다(CLAUDE.md "낮은 층이 높은 층의 기능을 요청" 항목).
-    /// <summary>원본 `spawnEnemyAt(..., { protect: 0.35 })`(project_test.html:1842).</summary>
-    const float SplitSpawnProtect = 0.35f;
+    // 몹이 몹을 낳는 요청(분열귀 → 새끼, 보스 → 부하)을 받는다. 정적 이벤트라 **반드시 OnDisable에서
+    // 해제**해야 파괴된 스포너를 계속 참조하지 않는다(CLAUDE.md "낮은 층이 높은 층의 기능을 요청" 항목).
 
     float shrineTimer = Shrine.FirstAt;
     Transform aliveShrine;
@@ -128,10 +137,13 @@ public class EnemySpawner : MonoBehaviour
     }
 
     /// <summary>
-    /// 원본 `spawnEnemyAt(x, y, 'splitlet', { noElite: true, protect: 0.35 })`(project_test.html:1842).
+    /// 몹이 낳는 몹 — 분열귀의 새끼(원본 `:1842`)와 보스의 부하(`:4278`)가 같이 지나간다.
     /// 웨이브 상한과 무관하게 즉시 스폰한다 — 원본도 죽은 자리에서 바로 낳는다.
+    ///
+    /// **스폰 보호 시간은 요청자가 정한다**: 새끼는 0.35초, 부하는 기본 2초다. 여기서 하나로
+    /// 고정하면 둘 중 하나가 원본과 달라진다(예전엔 부하까지 0.35초를 받고 있었다).
     /// </summary>
-    void HandleSpawnRequest(Vector2 position, EnemyType enemyType)
+    void HandleSpawnRequest(Vector2 position, EnemyType enemyType, float spawnProtectSeconds)
     {
         if (monsterPrefab == null) return;
 
@@ -140,9 +152,8 @@ public class EnemySpawner : MonoBehaviour
         // 원본 `noElite: true`(project_test.html:1842) — 새끼는 엘리트로 승격되지 않는다.
         ApplyEnemyData(monster, data, allowElite: false);
 
-        // 원본 `protect: 0.35` — 새끼는 일반 스폰(2초)보다 훨씬 짧은 보호만 받는다.
         var move = monster.GetComponent<EnemyMove>();
-        if (move != null) move.SetSpawnProtection(SplitSpawnProtect);
+        if (move != null) move.SetSpawnProtection(spawnProtectSeconds);
 
         aliveMonsters.Add(monster.transform);
     }
@@ -165,13 +176,23 @@ public class EnemySpawner : MonoBehaviour
             // 보스전은 잡몹이 훨씬 드물게, 적게, 상한도 낮게 나온다(원본 `:4444`) —
             // 보스와 싸우는 게 본체라 잡몹이 화면을 채우면 안 된다.
             bool boss = RunState.Mode == RunMode.Boss;
-            // 황천의 문 — 스폰 속도가 빨라진다(원본 `effWaveInterval() = waveInterval / (1 + itemAdd('rate'))` :3930).
-            waveTimer = (boss ? minionInterval : waveInterval)
-                        / (1f + ProfileService.Current.items.Add(ItemStat.Rate));
-            if (boss) SpawnWaveOf(minionWave, maxMinions);
             // 요기 응집 — 필드 최대 몹이 늘어난다(원본 `effMaxEnemies() = baseMax + itemAdd('mob')` :3929).
-            else SpawnWaveOf(maxSpawnPerWave,
-                             maxAliveTotal + Mathf.RoundToInt(ProfileService.Current.items.Add(ItemStat.Mob)));
+            int cap = maxAliveTotal + Mathf.RoundToInt(ProfileService.Current.items.Add(ItemStat.Mob));
+
+            if (boss)
+            {
+                // 원본 보스전은 `run.minionTimer = CONFIG.run.minionInterval` — **스폰 속도 아이템이 안 붙는다**(:4444).
+                waveTimer = minionInterval;
+                // 원본 `if (enemies.filter(e => !e.boss).length < maxMinions) spawnWave(minionWave)`(:4445).
+                // 상한을 웨이브 크기로 넘기는 게 아니라 **문지기**다 — 4마리 미만이면 2마리를 통째로 부른다.
+                if (aliveMonsters.Count < maxMinions) SpawnWaveOf(minionWave, cap);
+            }
+            else
+            {
+                // 황천의 문 — 스폰 속도가 빨라진다(원본 `effWaveInterval() = waveInterval / (1 + itemAdd('rate'))` :3930).
+                waveTimer = waveInterval / (1f + ProfileService.Current.items.Add(ItemStat.Rate));
+                SpawnWaveOf(maxSpawnPerWave, cap);
+            }
         }
 
         UpdateShrine(Time.deltaTime);
@@ -185,11 +206,18 @@ public class EnemySpawner : MonoBehaviour
     void UpdateShrine(float dt)
     {
         if (!spawnShrines || monsterPrefab == null) return;
-        if (aliveShrine != null) return; // 아직 안 부쉈으면 다음 성소는 안 나온다
+        // 원본은 성소 타이머 자체가 `if (run.mode === 'normal')` 블록 안에 있다(`:4430`) —
+        // **보스전엔 성소가 안 나온다.** 좁은 보스 무대에 구조물이 서면 피할 자리가 사라진다.
+        if (RunState.Mode != RunMode.Normal) return;
 
+        // 원본은 성소가 살아 있어도 타이머를 **계속 깎는다**(`:4437`). 살아 있는 동안 멈춰 세우면
+        // 방치할수록 다음 성소가 늦어지고, 부순 직후엔 35초를 새로 기다리게 된다 — 둘 다 원본과 다르다.
         shrineTimer -= dt;
         if (shrineTimer > 0f) return;
         shrineTimer = Shrine.Interval;
+
+        // 동시에 하나만 — 원본은 이 방어가 `spawnShrine()` 안에 있고, **타이머를 되돌리지 않는다**(`:3997`).
+        if (aliveShrine != null) return;
         SpawnShrine();
     }
 
@@ -205,10 +233,13 @@ public class EnemySpawner : MonoBehaviour
         RunTransient.Mark(go);
 
         // 구조물이라 움직이지 않는다(원본 `if (e.shrine) continue;` :4024).
+        // **컴포넌트를 끄는 게 아니라 플래그로** 처리한다 — 원본은 그 한 줄 앞에서 spawnInvuln을
+        // 깎기 때문에(`:4023`), Update가 멈추면 아래 스폰 보호가 영영 안 풀린다.
         var move = go.GetComponent<EnemyMove>();
         if (move != null)
         {
-            move.enabled = false;
+            move.isStructure = true;
+            move.SetSpawnProtection(Shrine.SpawnProtect); // 원본 `spawnInvuln: 1.0`(:4008) — 몹의 2초와 다르다
             var rb = go.GetComponent<Rigidbody2D>();
             if (rb != null) { rb.gravityScale = 0f; rb.linearVelocity = Vector2.zero; rb.bodyType = RigidbodyType2D.Kinematic; }
         }
@@ -226,10 +257,11 @@ public class EnemySpawner : MonoBehaviour
         go.transform.localScale = new Vector3(1.3f, 1.9f, 1f);
         var sr = go.GetComponent<SpriteRenderer>();
         if (sr != null) sr.color = new Color(1f, 0.54f, 0.42f); // 원본 colors.soul '#ff8a6a'
+        SwapSpriteKeepingSize(go, shrineSprite);
 
-        go.AddComponent<Shrine>(); // 마지막에 — Awake가 적 버프를 켠다
+        go.AddComponent<Shrine>();
         aliveShrine = go.transform;
-        aliveMonsters.Add(go.transform);
+        // 웨이브 상한엔 **안 넣는다** — 원본 `enemies.filter(e => !e.boss && !e.shrine)`(:3978).
     }
 
     void HandleShrineDestroyed(EnemyHealth _) => aliveShrine = null;
@@ -255,6 +287,9 @@ public class EnemySpawner : MonoBehaviour
             health.SetMaxHp(Boss.HpForRegion(region) * RebirthConfig.WallEnemyHp(region, ProfileService.Current.rebirths));
             health.SetLevel(Boss.LevelForRegion(region));
             health.knockbackMultiplier = Boss.KnockbackMultiplier; // 거의 안 밀린다
+            // 레벨 페널티 하한이 25%가 아니라 50%다(원본 `levelFactor`의 보스 분기 :1652).
+            // `Boss` 컴포넌트는 아래에서 붙기 때문에 EnemyHealth가 스스로는 알 수 없다.
+            health.isBoss = true;
             health.Died += HandleBossDied;
         }
 
@@ -270,12 +305,47 @@ public class EnemySpawner : MonoBehaviour
         go.transform.localScale = new Vector3(2.8f, 3.2f, 1f);
         var sr = go.GetComponent<SpriteRenderer>();
         if (sr != null) sr.color = new Color(0.78f, 0.42f, 1f); // 원본 colors.soul '#c86aff'
+        // 탄환 스프라이트는 **그림을 갈아끼우기 전**의 원형을 쓴다 — 보스 그림을 그대로 쓰면
+        // 화면을 가리는 거대한 탄이 날아간다.
+        Sprite bolt = sr != null ? sr.sprite : null;
+        SwapSpriteKeepingSize(go, bossSprite);
 
         var boss = go.AddComponent<Boss>();
-        boss.projectileSprite = sr != null ? sr.sprite : null;
+        boss.projectileSprite = bolt;
         if (move != null) move.RefreshTypeBehaviour(); // Boss가 IEnemyMotion이라 다시 찾게 한다
 
-        aliveMonsters.Add(go.transform);
+        // 웨이브 상한엔 **안 넣는다** — 원본 `enemies.filter(e => !e.boss && !e.shrine)`(:3978).
+        // 넣으면 보스전 상한(4) 한 자리를 보스가 먹어 잡몹이 3마리만 나온다.
+    }
+
+    /// <summary>
+    /// 원형 스프라이트를 프로토타입 그림으로 갈아끼우되 **보이는 크기와 판정을 그대로 둔다.**
+    /// 그림마다 픽셀 크기가 달라서(성소 120×92, 보스 176×174) 스케일을 그대로 두면 덩치가 통째로
+    /// 바뀌고, 스케일만 되돌리면 이번엔 콜라이더가 같이 줄어든다 — 그래서 `radius`를 역으로 곱해
+    /// 보정한다(`ApplySize`가 잡몹에게 하는 것과 같은 계산이다).
+    ///
+    /// 덩치 자체가 원본보다 큰 문제는 별개 항목이라 여기서 건드리지 않는다 — 이 함수는 순수하게
+    /// "색칠한 동그라미를 그림으로 바꾸는" 일만 한다.
+    /// </summary>
+    static void SwapSpriteKeepingSize(GameObject go, Sprite sprite)
+    {
+        if (sprite == null) return;
+        var sr = go.GetComponent<SpriteRenderer>();
+        if (sr == null) return;
+
+        Vector2 before = sr.sprite != null ? (Vector2)sr.sprite.bounds.size : Vector2.one;
+        Vector2 after = sprite.bounds.size;
+        if (after.x < 0.0001f || after.y < 0.0001f) return;
+
+        Vector3 old = go.transform.localScale;
+        var next = new Vector3(old.x * before.x / after.x, old.y * before.y / after.y, 1f);
+        go.transform.localScale = next;
+
+        var col = go.GetComponent<CircleCollider2D>();
+        if (col != null && Mathf.Abs(next.x) > 0.0001f) col.radius *= old.x / next.x;
+
+        sr.sprite = sprite;
+        sr.color = Color.white; // 그림에 색이 이미 칠해져 있다 — 또 곱하면 그 색으로 물든다
     }
 
     /// <summary>

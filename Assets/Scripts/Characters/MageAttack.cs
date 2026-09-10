@@ -98,7 +98,9 @@ public class MageAttack : MonoBehaviour, ICharacterKit, IRunResettable
         // 다시 계산되는 함수인 것과 동일한 방식) — 필드 자기 자신이 아니라 항상 프로필+상수에서
         // 새로 굴리므로 매 프레임 곱해지는 식으로 값이 누적(compounding)되는 버그가 없다.
         baseDamage = PlayerStatCalculator.ComputeAtk(profile) * PlayerStatCalculator.BowDamageMult;
+        // 원본 `p.bowCdMax = B.cd / statAs() * cdMult() * cdBonus`(:1942) — `cdMult()`가 '시간의 조각'이다.
         cooldown = BaseCooldownConst / PlayerStatCalculator.ComputeAttackSpeedMultiplier(profile)
+            * PlayerStatCalculator.ComputeCooldownMultiplier(profile)
             * MageSpecConfig.BowCooldownBonus(branch, tier); // 원본 :1941-1942
 
         // 이번 프레임 시작 시점(직전 프레임까지의) 차지 상태를 기준으로 감속을 먼저 적용한다 —
@@ -185,7 +187,9 @@ public class MageAttack : MonoBehaviour, ICharacterKit, IRunResettable
             Vector2? nearest = FindNearestEnemyPosition();
             MageSkillEffects.GravityCollapse(tier, transform.position, facing, nearest);
         }
-        ultCdTimer = MageSpecConfig.UltCooldown(branch, tier); // 원본 :2177
+        // 원본 `p.ultCdMax = ... * cdMult()`(:2177) — 궁극기 쿨타임에도 '시간의 조각'이 붙는다.
+        ultCdTimer = MageSpecConfig.UltCooldown(branch, tier)
+                     * PlayerStatCalculator.ComputeCooldownMultiplier(ProfileService.Current); // 원본 :2177
     }
 
     /// <summary>원본 `mageFireTeleport()`(project_test.html:2132) — 방향키 방향(없으면 정면)으로

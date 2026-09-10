@@ -228,7 +228,10 @@ namespace YokaiFront.Enemies
                 var type = (i == 0 || Random.value < 0.5f) ? EnemyType.Oni : EnemyType.Wisp;
                 float x = Mathf.Clamp(transform.position.x + Random.Range(-2.6f, 2.6f),
                                       FieldBounds.MinX + 0.8f, FieldBounds.MaxX - 0.8f);
-                EnemySpawnRequestBus.Request(new Vector2(x, FieldBounds.GroundY + 0.5f), type);
+                // 원본 `bossSummon`은 `protect`를 안 넘긴다(`:4278`) — 그래서 **기본 2초**다.
+                // 분열귀 새끼(0.35초)와 같은 경로를 쓴다고 값까지 같으면 안 된다.
+                EnemySpawnRequestBus.Request(new Vector2(x, FieldBounds.GroundY + 0.5f), type,
+                                             EnemySpawnRequestBus.DefaultSpawnProtect);
             }
         }
     }

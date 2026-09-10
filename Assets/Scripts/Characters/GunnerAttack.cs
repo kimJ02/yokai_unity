@@ -57,7 +57,9 @@ namespace YokaiFront.Characters
             // 항상 프로필+상수에서 새로 굴리므로 매 프레임 곱해져 누적되는 버그가 없다.
             var profile = ProfileService.Current;
             baseDamage = PlayerStatCalculator.ComputeAtk(profile) * DamageMult;
-            cooldown = BaseCooldownConst / PlayerStatCalculator.ComputeAttackSpeedMultiplier(profile);
+            // 원본 `p.gunnerCdMax = ... / statAs() * cdMult()`(:2196) — '시간의 조각'이 여기에도 붙는다.
+            cooldown = BaseCooldownConst / PlayerStatCalculator.ComputeAttackSpeedMultiplier(profile)
+                       * PlayerStatCalculator.ComputeCooldownMultiplier(profile);
 
             cdTimer -= Time.deltaTime;
 

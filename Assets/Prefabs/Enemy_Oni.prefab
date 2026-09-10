@@ -147,6 +147,7 @@ MonoBehaviour:
   platformProximityMargin: 0.12
   onPlatformYTolerance: 0.03
   spawnProtectDuration: 2
+  isStructure: 0
   terminalFallSpeed: 15
   edgeMargin: 0.3
   knockbackDecay: 9
@@ -192,6 +193,7 @@ MonoBehaviour:
   maxHp: 38
   knockbackSpeed: 2.4
   knockbackMultiplier: 1
+  isBoss: 0
   flashDecay: 6
   flashStrength: 0.75
   maxBurnStacks: 10

@@ -35,6 +35,9 @@ namespace YokaiFront.Systems
         /// <summary>드랍 위치를 시체보다 이만큼 위로. 원본 `y: min(e.y, groundY) - 40`(`:1861`).</summary>
         public const float DropHeight = 0.4f;
 
+        /// <summary>보이는 지름. 원본 `r: 14`(`:697`) ÷100 × 2.</summary>
+        const float Diameter = 0.28f;
+
         const float BobSpeed = 3f;      // 원본 `Math.sin(o.t * 3)`
         const float BobAmplitude = 0.08f; // 원본 `* 8`px
 
@@ -56,10 +59,14 @@ namespace YokaiFront.Systems
 
             var visual = new GameObject("Visual");
             visual.transform.SetParent(go.transform, false);
-            visual.transform.localScale = Vector3.one * 0.28f;
             var sr = visual.AddComponent<SpriteRenderer>();
             sr.sprite = sprite;
-            sr.color = new Color(0.79f, 0.64f, 1f); // 원본 '#c9a2ff'
+            // 그림마다 픽셀 크기가 다르니 **지름을 기준으로** 스케일을 되돌린다 — 원형 스프라이트를
+            // 전제로 0.28을 박아두면 그림을 갈아끼우는 순간 구슬 크기가 통째로 달라진다.
+            float h = sprite != null ? sprite.bounds.size.y : 1f;
+            visual.transform.localScale = Vector3.one * (h > 0.0001f ? Diameter / h : Diameter);
+            // 구운 그림에는 색이 이미 칠해져 있다 — 여기서 또 곱하면 보라색이 두 번 먹는다.
+            sr.color = sprite != null ? Color.white : new Color(0.79f, 0.64f, 1f); // 원본 '#c9a2ff'
             sr.sortingOrder = 4;
 
             var orb = go.AddComponent<ExpOrb>();
@@ -106,8 +113,10 @@ namespace YokaiFront.Systems
             var profile = ProfileService.Current;
             // 원본 `max(10, round(curExpNeed() * 0.25))` — **현재 레벨의 필요 경험치 기준**이라
             // 레벨이 오를수록 구슬 하나의 가치도 같이 커진다.
+            // 수행의 굴레 — 구슬에도 경험치 배수가 붙는다(원본 `curExpNeed() * expPct * expMultAll()` :4466).
             int exp = Mathf.Max(MinExp,
-                Mathf.RoundToInt(PlayerProfile.RequiredExp(profile.level) * ExpPercent));
+                Mathf.RoundToInt(PlayerProfile.RequiredExp(profile.level) * ExpPercent
+                                 * CombatModifiers.ExpMultiplier));
 
             profile.AddExp(exp);
             RunState.RegisterReward(0, exp); // 결과 화면 집계

@@ -41,13 +41,25 @@ namespace YokaiFront.Enemies
         public static float HpForLevel(int level) => BaseHp * Mathf.Pow(HpGrowPerLevel, level - 1);
 
         EnemyHealth health;
+        ISpawnProtectable spawnProtect;
 
         void Awake()
         {
             health = GetComponent<EnemyHealth>();
+            spawnProtect = GetComponent<ISpawnProtectable>();
             health.Died += HandleDestroyed;
-            // 살아 있는 동안 적 전체가 강해진다(원본 `run.shrineActive`).
-            CombatModifiers.SetShrineActive(true);
+        }
+
+        /// <summary>
+        /// 원본은 이 상태를 **매 프레임 다시 계산한다** —
+        /// `run.shrineActive = enemies.some(e => !e.dead && e.shrine && e.spawnInvuln <= 0)`(`:4414`).
+        /// 핵심은 `spawnInvuln <= 0`이다: **아직 스폰 보호 중인 성소는 적을 강화하지 않는다.**
+        /// 세울 때 플래그를 한 번 켜는 방식이면 손도 못 대는 1초 동안 필드 전체가 먼저 강해진다.
+        /// </summary>
+        void Update()
+        {
+            bool protectedNow = spawnProtect != null && spawnProtect.IsSpawnProtected;
+            CombatModifiers.SetShrineActive(!health.IsDead && !protectedNow);
         }
 
         void OnDestroy()
