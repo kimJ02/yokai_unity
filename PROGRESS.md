@@ -35,12 +35,13 @@
 단계 3  완성된 캐릭터부터 밸런스 (기획자 상윤)
 ```
 
-1. **[팀원] 섬영 0차 → 드루이드 0차** — 단계 1에서 유일하게 남은 조각.
-   `PlayerRig`가 `ICharacterKit` 컴포넌트를 자동 등록하므로 **키트를 붙이기만 하면**
-   로비 캐릭터 선택 탭에도 자동으로 뜬다. 계약은 `docs/worksplit.md` 3절,
-   함정 목록은 `HANDOFF.md`의 "키트 작성자가 알아야 할 것".
-   *(2026-09-12 재확인 — 원격 브랜치·PR·포크 전부 훑었으나 섬영·드루이드 작업은 아직 없다.
-   `Blade*`/`Druid*` 파일은 모든 ref를 통틀어 추가된 적이 없고, 팀원 마지막 커밋은 09-08이다.)*
+1. **[팀원] 섬영 0차 → 드루이드 0차** — `feature/blade-druid-tier0` 브랜치에 둘 다 코드·PlayMode
+   테스트 작성 완료, 테스트 러너 통과 확인(2026-09-12). **아직 `main` 미병합, 씬 미부착.**
+   `PlayerRig`가 `ICharacterKit` 컴포넌트를 자동 등록하지만 그건 **씬의 플레이어 오브젝트에
+   이미 붙어 있는 컴포넌트만** 찾는 것이라, 씬 소유자(나)가 `BladeCombat`/`DruidAttack`을
+   플레이어 오브젝트에 붙여줘야 로비 캐릭터 선택 탭에 실제로 뜬다 — 그 전까진 로직 검증만
+   끝난 상태다. ⚠️ **`Characters/PlayerHealth.cs`에 `Heal(float)` 공개 메서드를 팀원이 추가했다**
+   (섬영 흡혈에 필요, 원래 팀원 담당 파일 목록엔 없던 공용 파일 — 확인 필요, 아래 항목 참고).
 2. **[나] 단계 2 — 메카닉 스킬트리.** 마법사에 이어 두 번째로 깊게 파는 캐릭터.
 3. **[나] 조건부 특수 아이템 11종** — 피해 계산에 대상/플레이어 컨텍스트를 넘기는 작업과 함께.
 4. **[나] 보스 체력바 · 스킬 쿨다운 슬롯** — 원본 `#bossbar`·`.slot`. HUD에 자리만 없다.
@@ -92,8 +93,43 @@ git checkout main            # 미병합 브랜치 없음 — main만 보면 된
 - **캐릭터 컨트롤러는 자체 구현이다.** 초기 스펙은 에셋스토어 컨트롤러 재사용을 전제했지만 배치 환경에서
   인증 없이 받을 수 없어 `Characters/CharacterMover2D.cs`를 직접 짰다. 나중에 실제 에셋으로 바꾸기로 하면
   이 파일 하나만 교체하면 되도록 다른 스크립트와 결합시키지 않았다.
+- **⚠️ 팀원이 `Characters/PlayerHealth.cs`에 `Heal(float amount)` 공개 메서드를 추가했다**
+  (`feature/blade-druid-tier0`, 2026-09-12). 섬영 흡혈(`bladeLifesteal`, 회전베기 피해의 15%를 체력으로
+  회복)을 구현하려는데 `PlayerHealth`엔 `TakeDamage`/`GrantInvuln`만 있고 회복 메서드가 없어서라고 함.
+  `PlayerHealth.cs`는 원래 팀원 담당 파일 목록(`Blade*`·`Druid*`·`IElementAfflictable`)에 없는 공용
+  파일이라 **병합 전에 내가 확인할 것** — 메서드 자체는 순수 추가(clamp만 하는 한 줄)라 충돌 위험은
+  낮아 보이지만, 이런 공용 파일 확장이 앞으로도 필요해질 수 있으니 패턴을 정해두는 게 나을 수도 있다.
+- **씬 부착 대기 중** — `BladeCombat`/`DruidAttack`을 플레이어 오브젝트에 붙이는 건 내 몫
+  (`Assets/Scenes/CombatCore.unity`·`Assets/Editor/BuildPartAScene.cs` 소유권). `feature/blade-druid-tier0`가
+  `main`에 병합되면 붙이고 로비에서 실제 플레이 확인할 것.
 
 ## 로그 (최신이 위)
+
+- **2026-09-12 (2)** — **[팀원] 섬영·드루이드 0차 구현 — `feature/blade-druid-tier0` 브랜치 (PlayMode 210/210).**
+  `docs/worksplit.md` 8절 마지막 조각. 기준값 196(2026-09-10) + 신규 14(드루이드 7·섬영 7) = 210,
+  전부 통과 확인. 씬 미부착이라 실제 로비 플레이 확인은 아직.
+  - **`Characters/DruidAttack.cs`** — 클로 3타 콤보(원본 `druidClaw()` `:3271`, 1타 0.85배·2타
+    0.95배·3타 마무리 1.8배 + reach 1.25배), 마나(최대 20 — 0차는 티어가 없어 `mana.base` 고정,
+    적중 시 8% 회복, 런 시작 시 `mana.cost`로 만땅 `:1526`). 늑대 소환·맹금 변신은 X 스킬이라 범위
+    밖. **빗나가도 콤보 인덱스는 넘어가고, 마나만 적중해야 오른다**(원본이 `if(!hit)return`보다
+    `p.druidCombo` 갱신을 먼저 하는 순서를 그대로 따름, `:3296`~`:3298`) — 놓치기 쉬운 순서라 테스트로
+    못 박음. 이동은 `Instant`(마법사·메카닉과 동일, 맹금 변신 관성 대시만 범위 밖).
+  - **`Characters/BladeCombat.cs`** — 관성 이동(`CharacterMover2D.MoveMode.Inertial` — 파라미터 자체는
+    `PlayerRig`가 전환 시 세팅, 이 키트는 매 프레임 `MoveScale = min(1, statMs)`만 갱신) + 회전베기
+    (원본 `bladeSpinTick`/`bladeSpinHit` `:2510`/`:2480`, 반경 1.05·쿨다운 0.13/statAs) + 속도→피해
+    배수(`bladeDmgMult` `:2439` — 정지 ×1 → 최고속 ×2.4, 이속 100% 초과분은 속도 대신 피해로 추가
+    환산) + 흡혈 15% + 방향키 무적(`bladeDirInvuln` `:2448`, 스킬·티어 무관 상시).
+  - **방향키 무적 구현 방식**: 원본은 "이번 프레임에 방향키가 눌려 있는가"를 매 프레임 즉시 확인하는
+    상태 없는 조건인데, 우리는 `PlayerHealth.InvulnRemaining` 타이머 하나로 무적을 표현하는 구조라
+    똑같이 옮길 자리가 없었다. 대신 방향키가 눌려 있는 동안 매 프레임 `GrantInvuln(dt×2)`를 걸어
+    "이번 프레임만큼은 무적"을 계속 갱신하는 방식으로 우회 — 키를 뗀 직후 최대 한 프레임 정도의
+    잔여 무적이 남을 수 있지만 원본의 프레임 단위 판정과 실질적으로 구분 안 되는 오차라 그대로 뒀다.
+  - **`PlayerHealth.Heal(float)` 신규 추가** — 위 "확인 필요" 항목 참고. 흡혈을 구현할 방법이
+    이것뿐이었다(회복 API가 아예 없었음).
+  - **PlayMode 테스트**: `Assets/Tests/PlayMode/Characters/DruidAttackTests.cs`(7개),
+    `BladeCombatTests.cs`(7개). 속도 배수·콤보 진행·흡혈처럼 실제 입력을 흉내 내기 어려운 부분은
+    이 프로젝트 관례대로 private 메서드를 리플렉션으로 직접 호출해 검증했다(`CharacterKitTests`의
+    `ComputeInertialVx` 테스트와 같은 패턴).
 
 - **2026-09-12** — **원격 브랜치 정리 + 팀원 진행 확인.**
   - `origin/feature/run-cycle-impl` 삭제. 이건 **내가 09-10 새벽에 만든 WIP 세이브포인트**였다

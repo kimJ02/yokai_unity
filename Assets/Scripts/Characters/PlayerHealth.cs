@@ -133,6 +133,22 @@ namespace YokaiFront.Characters
         /// </summary>
         public void GrantInvuln(float duration) => InvulnRemaining = Mathf.Max(InvulnRemaining, duration);
 
+        /// <summary>
+        /// 체력을 회복시킨다(죽은 상태에선 아무 일도 안 한다). 원본은 회복 지점마다 직접
+        /// `p.hp = Math.min(p.maxHp, p.hp + heal)`를 인라인으로 계산한다(재생의 구슬 `:4396`,
+        /// 섬영 흡혈 `bladeLifesteal` `:2498`~`:2504`) — 우리는 여러 호출자가 같은 클램프 로직을
+        /// 반복하지 않도록 공개 메서드로 뺐다.
+        ///
+        /// ⚠️ 2026-09-12 추가: 섬영 0차 흡혈(`Characters/BladeCombat`)에 필요해서 새로 만든
+        /// 공개 API다. `Characters/PlayerHealth`는 원래 팀원(섬영·드루이드) 담당 파일 목록에
+        /// 없는 공용 파일이라 — 팀장 확인 전까지 임시로 추가, 확인되면 지울 것.
+        /// </summary>
+        public void Heal(float amount)
+        {
+            if (IsDead || amount <= 0f) return;
+            CurrentHp = Mathf.Min(maxHp, CurrentHp + amount);
+        }
+
         public void TakeDamage(float amount, GameObject source)
         {
             // 원본 `if (p.invuln > 0 ...) return;`(project_test.html:1881).
