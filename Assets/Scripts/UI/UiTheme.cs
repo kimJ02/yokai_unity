@@ -441,12 +441,31 @@ namespace YokaiFront.UI
             Color prev = style.normal.textColor;
 
             style.normal.textColor = new Color(0f, 0f, 0f, 0.85f);
-            GUI.Label(new Rect(r.x, r.y + 1f, r.width, r.height), text, style);
+            GUI.Label(new Rect(r.x, r.y + ShadowOffset, r.width, r.height), text, style);
 
             style.normal.textColor = color;
             GUI.Label(r, text, style);
 
             style.normal.textColor = prev;
+        }
+
+        /// <summary>
+        /// 그림자를 띄울 거리(설계 단위). **화면에서 최소 1픽셀**이 되도록 역산한다.
+        ///
+        /// 원본 CSS는 `0 1px`이지만, 우리는 설계 좌표를 `GUI.matrix`로 확대/축소해 그린다.
+        /// Game 뷰가 설계 폭(예: 1280)보다 작으면 1 설계픽셀이 **1 화면픽셀 미만**이 되어,
+        /// 그림자와 본문이 거의 같은 자리에 찍히고 두 겹이 뭉개져 **글자가 번져 보인다**
+        /// (사용자가 "글씨가 깨진다"고 지적한 증상).
+        ///
+        /// 확대 중일 때(스케일 ≥ 1)는 원본대로 1을 쓴다 — 그 이상 띄우면 그림자가 따로 논다.
+        /// </summary>
+        static float ShadowOffset
+        {
+            get
+            {
+                float scale = Screen.width / Mathf.Max(1f, CurrentWidth);
+                return scale >= 1f ? 1f : 1f / scale;
+            }
         }
 
         // ── 만들기 ──────────────────────────────────────────────

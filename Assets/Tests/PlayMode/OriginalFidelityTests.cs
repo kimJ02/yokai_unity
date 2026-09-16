@@ -290,6 +290,30 @@ public class OriginalFidelityTests
         Assert.AreEqual(0.50f, oniHeight, 1e-4f);
     }
 
+    /// <summary>
+    /// **플레이어는 발판 사이를 지나갈 수 있어야 한다.**
+    ///
+    /// 2026-09-16에 플레이어 높이를 1.5로 올렸다가, 발판 층간 간격이 1.35라 머리가 윗 발판
+    /// 콜라이더를 뚫었다. 그러면 ①위아래로 끼어 "벽에 막히는" 느낌이 나고 ②마법탄 총구가
+    /// 발판 안에서 생겨 `MageProjectile`이 Ground에 닿은 것으로 보고 **쏘자마자 터진다.**
+    ///
+    /// 숫자만 보면 멀쩡해서 **플레이해보기 전엔 아무도 모르는** 종류라 테스트로 고정한다.
+    /// </summary>
+    [Test]
+    public void PlayerFitsBetweenPlatformFloors()
+    {
+        // 층 높이가 1.35 간격으로 쌓여 있다(1.35 / 2.70 / 4.05 / 5.40).
+        float gap = FieldLayout.NormalPlatforms[4, 1] - FieldLayout.NormalPlatforms[0, 1];
+        Assert.Greater(gap, 0f, "발판 층 간격을 못 읽었다");
+
+        Assert.Less(EntitySizeConfig.PlayerHeight, gap,
+            $"플레이어 높이({EntitySizeConfig.PlayerHeight})가 발판 층간 간격({gap})보다 크다 — " +
+            "발판 위에 서면 머리가 윗 발판을 뚫고, 공격이 발판 안에서 생겨 즉시 터진다");
+
+        Assert.LessOrEqual(EntitySizeConfig.PlayerHeight, EntitySizeConfig.PlayerHeightMax,
+            "여유를 둔 실질 상한을 넘었다");
+    }
+
     // ═══════════════════════ 6. 쿨감 아이템 ═══════════════════════
 
     /// <summary>
