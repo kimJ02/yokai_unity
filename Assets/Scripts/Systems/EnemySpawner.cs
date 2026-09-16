@@ -79,10 +79,26 @@ public class EnemySpawner : MonoBehaviour
     public Sprite orbSprite;
 
     [Header("성소·보스 그림 (씬 빌더가 꽂아준다)")]
-    [Tooltip("성소 그림. 비어 있으면 예전처럼 원형 스프라이트를 색만 칠해서 쓴다.")]
+    [Tooltip("성소 그림. 비어 있으면 프리팹의 기본 스프라이트를 색만 칠해서 쓴다.")]
     public Sprite shrineSprite;
-    [Tooltip("보스 그림. 비어 있으면 예전처럼 원형 스프라이트를 색만 칠해서 쓴다.")]
+    [Tooltip("보스 그림. 비어 있으면 프리팹의 기본 스프라이트를 색만 칠해서 쓴다.")]
     public Sprite bossSprite;
+
+    [Header("임시 도형 (정식 아트 전까지 — 씬 빌더가 꽂아준다)")]
+    [Tooltip("동그라미. 근접 추적 몹과 경험치 구슬이 쓴다.")]
+    public Sprite circleSprite;
+    [Tooltip("네모. 성소가 쓴다(플레이어도 같은 도형이지만 그쪽은 PlayerRig가 꽂는다).")]
+    public Sprite squareSprite;
+    [Tooltip("세모. 방향성 위협(비행·사격·돌진)과 보스가 쓴다.")]
+    public Sprite triangleSprite;
+
+    /// <summary>도형 → 스프라이트. 배정 기준은 `Core.PrimitiveShape` 주석 참고.</summary>
+    Sprite SpriteFor(PrimitiveShape shape) => shape switch
+    {
+        PrimitiveShape.Square => squareSprite,
+        PrimitiveShape.Triangle => triangleSprite,
+        _ => circleSprite,
+    };
 
     [Header("몹 종류별 수치 (Assets/Data/Enemies/, BuildEnemyData가 생성)")]
     [Tooltip("스폰할 몹 종류들. 비어 있으면 프리팹에 들어 있는 값을 그대로 쓴다. 지역별 해금표(원본 rollSpawnType :3933)는 몹 6종을 붙일 때 여기에 얹는다.")]
@@ -581,12 +597,19 @@ public class EnemySpawner : MonoBehaviour
             {
                 if (data.sprite != null)
                 {
-                    // 프로토타입 그림이 있으면 그걸 쓰고 **색조는 흰색으로 둔다** — 그림에 이미
+                    // 정식 그림이 있으면 그걸 쓰고 **색조는 흰색으로 둔다** — 그림에 이미
                     // 종류별 색이 칠해져 있어서 여기서 또 곱하면 전부 그 색으로 물든다.
                     sr.sprite = data.sprite;
                     sr.color = Color.white;
                 }
-                else sr.color = data.color; // 그림이 없을 때만 원형 스프라이트를 종류색으로 칠한다
+                else
+                {
+                    // 지금 기본 경로다(사용자 지시로 스킨을 끈 상태). 종류별 **도형**을 꽂고
+                    // 종류색으로 칠한다 — 도형이 행동 부류를, 색이 종류를 구분한다.
+                    var shapeSprite = SpriteFor(data.shape);
+                    if (shapeSprite != null) sr.sprite = shapeSprite;
+                    sr.color = data.color;
+                }
             }
             AttachTypeBehaviour(monster, data, sr);
             spawnedData[monster] = data; // 처치 보상에서 종류별 exp/gold를 읽으려고 기억해둔다
@@ -621,18 +644,14 @@ public class EnemySpawner : MonoBehaviour
         // 그래서 스케일 하나로 그림 크기를 맞추고, 콜라이더는 `radius`를 역으로 나눠 보정한다:
         //   월드 반지름 = radius × scale  →  radius = 원하는반지름 / scale
         // 이렇게 안 하면 둘 중 하나는 반드시 어긋난다(그림이 히트박스보다 작거나, 그 반대).
+        // **렌더러에 실제로 꽂혀 있는 스프라이트**의 높이로 계산한다. 예전엔 `data.sprite`만 봤는데,
+        // 그러면 도형 스프라이트로 갈아끼운 경우(지금 기본 경로)에 이 분기를 안 타서 프리팹 내장
+        // 스프라이트 크기를 전제로 스케일이 잡혔다 — 덩치가 조용히 틀어지는 종류의 버그다.
         float scale = 1f;
         var sr = monster.GetComponent<SpriteRenderer>();
-        if (data != null && data.sprite != null && sr != null)
-        {
-            float spriteHeight = data.sprite.bounds.size.y; // PPU 100이라 원본 픽셀 그대로의 유닛 크기
-            if (spriteHeight > 0.0001f) scale = (wantRadius * 2f) / spriteHeight;
-        }
-        else
-        {
-            // 그림이 없으면 예전처럼 원형 스프라이트를 스케일로 키운다.
-            scale = wantRadius / prefabWorldRadius;
-        }
+        float spriteHeight = sr != null && sr.sprite != null ? sr.sprite.bounds.size.y : 0f;
+        if (spriteHeight > 0.0001f) scale = (wantRadius * 2f) / spriteHeight;
+        else scale = wantRadius / prefabWorldRadius; // 스프라이트가 없으면 콜라이더 기준으로
 
         monster.transform.localScale = new Vector3(scale, scale, 1f);
         col.radius = wantRadius / scale;

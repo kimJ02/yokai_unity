@@ -32,6 +32,7 @@ public static class BuildPartAScene
     public static void Build()
     {
         EnsureCircleSprite();
+        BuildPrimitiveSprites.Build(); // 네모·세모·동그라미 (없으면 아래 주입이 null이 된다)
         EnsureGroundLayer();
         EnsureMonsterPrefabPhysics();
         Physics2D.gravity = new Vector2(0f, -26f); // 원본 2600px/s² → 26 (100px=1유닛)
@@ -277,12 +278,17 @@ public static class BuildPartAScene
         var rig = go.AddComponent<PlayerRig>();
         // 캐릭터 그림(프로토타입에서 구워낸 임시 스프라이트) — CharacterId 순서(마법사·메카닉·섬영·드루이드).
         // 섬영·드루이드는 키트가 아직 없어 선택되지 않지만, 키트가 붙는 순간 그림도 같이 나온다.
-        rig.characterSprites = new[]
+        // ⚠️ 프로토타입 캐릭터 그림을 **쓰지 않는다** — 사용자 지시(2026-09-16)
+        // "일단 스킨 씌우지 말고 네모 세모 동그라미로만". 넷 다 네모이고 색으로 구분한다.
+        // 되돌리려면 `BuildPrototypeSprites.Load("char_mage")` 식으로 바꾸고 색을 흰색으로 두면 된다.
+        var square = BuildPrimitiveSprites.Load("Square");
+        rig.characterSprites = new[] { square, square, square, square };
+        rig.characterColors = new[]
         {
-            BuildPrototypeSprites.Load("char_mage"),
-            BuildPrototypeSprites.Load("char_gunner"),
-            BuildPrototypeSprites.Load("char_blade"),
-            BuildPrototypeSprites.Load("char_druid"),
+            new Color(0.42f, 0.62f, 1.00f), // 마법사 — 파랑
+            new Color(1.00f, 0.78f, 0.30f), // 메카닉 — 노랑
+            new Color(0.85f, 0.95f, 1.00f), // 섬영  — 흰빛(빠른 느낌)
+            new Color(0.50f, 0.88f, 0.55f), // 드루이드 — 초록
         };
 
         return go;
@@ -327,9 +333,15 @@ public static class BuildPartAScene
         spawner.monsterPrefab = monsterPrefab;
         // 구운 프로토타입 그림을 꽂는다. 없으면(굽기 전) null이 들어가고 코드가 알아서
         // 예전처럼 색칠한 원형으로 떨어진다 — 씬 빌드가 실패하지는 않는다.
-        spawner.orbSprite = BuildPrototypeSprites.Load("exp_orb");
-        spawner.shrineSprite = BuildPrototypeSprites.Load("shrine");
-        spawner.bossSprite = BuildPrototypeSprites.Load("boss");
+        // 임시 도형(사용자 지시 2026-09-16 — 스킨 없이 네모·세모·동그라미로만).
+        // 배정 기준은 `Core.PrimitiveShape` 주석 참고.
+        spawner.circleSprite = BuildPrimitiveSprites.Load("Circle");
+        spawner.squareSprite = BuildPrimitiveSprites.Load("Square");
+        spawner.triangleSprite = BuildPrimitiveSprites.Load("Triangle");
+
+        spawner.orbSprite = spawner.circleSprite;     // 주워 먹는 것 = 동그라미
+        spawner.shrineSprite = spawner.squareSprite;  // 안 움직이는 구조물 = 네모
+        spawner.bossSprite = spawner.triangleSprite;  // 예고 동작을 보고 피해야 하는 위협 = 세모
 
         // 몹 종류별 수치는 EnemyData(SO)에서 온다. 에셋이 없으면 여기서 만들어 둔다.
         BuildEnemyData.Build();
