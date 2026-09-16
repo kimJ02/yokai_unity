@@ -36,6 +36,51 @@ public class SaveServiceTests
         ProfileService.Reset();
     }
 
+    /// <summary>
+    /// 개칭(2026-09-16, 윤회 → 시간 회귀) **이전** 세이브를 읽어도 파편과 회귀 횟수가 살아나야 한다.
+    ///
+    /// `JsonUtility`는 필드 이름으로 값을 맞추므로 `rp`/`rebirths`/`rpEarned`를 바꾼 순간
+    /// 옛 세이브의 그 값들이 **에러도 경고도 없이 0이 된다.** 그 조용한 손실을 막는 게
+    /// `SaveService`의 마이그레이션이고, 이 테스트가 그것을 고정한다.
+    /// </summary>
+    [Test]
+    public void Load_MigratesPreRenameSave()
+    {
+        // 개칭 전 형식 그대로 — 새 필드 이름(shards·regressions·shardsEarned)이 하나도 없다.
+        const string legacy = @"{""level"":9,""gold"":500,""rp"":126,""rebirths"":3," +
+                              @"""stats"":{""totalKills"":72178,""rpEarned"":340}}";
+        File.WriteAllText(SaveService.SavePath, legacy);
+
+        Assert.IsTrue(SaveService.Load(), "옛 세이브를 못 읽었다");
+        var p = ProfileService.Current;
+
+        Assert.AreEqual(126, p.shards, "옛 rp가 시간의 파편으로 안 옮겨졌다");
+        Assert.AreEqual(3, p.regressions, "옛 rebirths가 회귀 횟수로 안 옮겨졌다");
+        Assert.AreEqual(340, p.stats.shardsEarned, "옛 rpEarned가 누적 파편으로 안 옮겨졌다");
+
+        // 개칭과 무관한 값은 원래대로 읽혀야 한다(마이그레이션이 다른 걸 건드리지 않았는지).
+        Assert.AreEqual(9, p.level);
+        Assert.AreEqual(500, p.gold);
+        Assert.AreEqual(72178, p.stats.totalKills);
+    }
+
+    /// <summary>
+    /// 새 이름으로 저장된 파일에는 옛 키가 없으므로 마이그레이션이 **끼어들지 않아야** 한다.
+    /// 값이 0인 게 정상인 프로필(회귀 한 번도 안 함)을 옛 값으로 덮어쓰면 안 된다.
+    /// </summary>
+    [Test]
+    public void Load_LeavesNewFormatAlone()
+    {
+        var p = ProfileService.Current;
+        p.shards = 0;
+        p.regressions = 0;
+        Assert.IsTrue(SaveService.Save());
+
+        Assert.IsTrue(SaveService.Load());
+        Assert.AreEqual(0, ProfileService.Current.shards);
+        Assert.AreEqual(0, ProfileService.Current.regressions);
+    }
+
     /// <summary>저장했다가 다시 읽으면 진행이 그대로 살아나야 한다 — 이게 안 되면 로비 강화가 무의미하다.</summary>
     [Test]
     public void SaveThenLoad_RestoresProgress()

@@ -347,7 +347,7 @@ public class OriginalFidelityTests
             ("EnemyDamageMultiplier",      "CombatModifiers.cs"),
             ("SpawnProtect",               "Shrine.cs"),
             ("DefaultSpawnProtect",        "EnemySpawnRequestBus.cs"),
-            ("WallPlayerDamage",           "RebirthConfig.cs"),
+            ("WallPlayerDamage",           "RegressionConfig.cs"),
         };
 
         var scriptFiles = Directory.GetFiles(

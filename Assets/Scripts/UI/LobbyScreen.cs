@@ -7,7 +7,7 @@ namespace YokaiFront.UI
 {
     /// <summary>
     /// 로비 — 원본 `#lobby`(project_test.html:512)와 `renderLobby()`(`:6378`)에 대응한다.
-    /// 탭 구성은 원본과 같다: **캐릭터 선택 / 스테이지 / 강화 / 전문화 / 윤회 / 기원 / 업적**.
+    /// 탭 구성은 원본과 같다: **캐릭터 선택 / 스테이지 / 강화 / 전문화 / 시간 회귀 / 기원 / 업적**.
     ///
     /// ## 왜 배경을 판으로 덮나
     /// 로비는 사냥터를 **가리지 않고 그 위에 뜬다**(원본도 캔버스는 계속 그리고 `#lobby`를 겹친다).
@@ -26,9 +26,9 @@ namespace YokaiFront.UI
     [DisallowMultipleComponent]
     public class LobbyScreen : MonoBehaviour
     {
-        enum Tab { Character, Stage, Upgrade, Spec, Rebirth, Gacha, Achieve }
+        enum Tab { Character, Stage, Upgrade, Spec, Regression, Gacha, Achieve }
 
-        static readonly string[] TabNames = { "캐릭터 선택", "스테이지", "강화", "전문화", "윤회 ☸", "기원 🎴", "업적 🏆" };
+        static readonly string[] TabNames = { "캐릭터 선택", "스테이지", "강화", "전문화", "시간 회귀 ◈", "기원 🎴", "업적 🏆" };
 
         Tab tab = Tab.Character;
         RunController run;
@@ -89,7 +89,7 @@ namespace YokaiFront.UI
                 case Tab.Stage: DrawStageTab(profile); break;
                 case Tab.Upgrade: DrawUpgradeTab(profile); break;
                 case Tab.Spec: DrawSpecTab(profile); break;
-                case Tab.Rebirth: DrawRebirthTab(profile); break;
+                case Tab.Regression: DrawRegressionTab(profile); break;
                 case Tab.Gacha: DrawGachaTab(profile); break;
                 case Tab.Achieve: DrawAchieveTab(profile); break;
             }
@@ -111,7 +111,7 @@ namespace YokaiFront.UI
             UiTheme.ShadowLabel(new Rect(x, 12f, 900f, 22f),
                 $"Lv.<b>{profile.level}</b>    골드 <b>{profile.gold}</b> G    " +
                 $"SP <b>{profile.SpAvailable}</b> (총 {profile.SpTotal})    " +
-                $"윤회 <b>{profile.rebirths}</b>회    ☸ <b>{profile.rp}</b>",
+                $"시간 회귀 <b>{profile.regressions}</b>회    ◈ <b>{profile.shards}</b>",
                 UiTheme.HeadStat);
 
             // 원본 `#lobbyExpbar` 180×10(`:90`).
@@ -425,42 +425,42 @@ namespace YokaiFront.UI
             "대붕괴 — 최대 5중첩·5개, 밀집 시 대형 2차 폭발.",
         };
 
-        // ────────────────────────── 윤회 ──────────────────────────
+        // ────────────────────────── 시간 회귀 ──────────────────────────
 
         /// <summary>
-        /// 원본 윤회 탭(project_test.html:6495~). **이 게임의 유일한 영구 성장 축**이다 —
+        /// 원본 시간 회귀 탭(project_test.html:6495~). **이 게임의 유일한 영구 성장 축**이다 —
         /// 입장료와 몹 체력이 지역당 지수로 올라서 한 생의 강화만으로는 반드시 벽에 부딪히고,
-        /// 그 벽을 넘는 수단이 윤회뿐이다.
+        /// 그 벽을 넘는 수단이 시간 회귀뿐이다.
         /// </summary>
-        void DrawRebirthTab(PlayerProfile profile)
+        void DrawRegressionTab(PlayerProfile profile)
         {
-            int gain = profile.RebirthPointPreview();
+            int gain = profile.ShardPreview();
             int cleared = profile.ClearedRegionCount();
 
-            GUILayout.Label("윤회하면 이번 생을 처음부터 다시 시작하는 대신 **윤회 포인트**를 얻는다. " +
-                            "포인트는 뽑기(아이템)에 쓰고, 윤회 횟수 자체가 상위 지역의 벽을 낮춘다.");
+            GUILayout.Label("회귀하면 이번 생을 처음부터 다시 시작하는 대신 **시간의 파편**를 얻는다. " +
+                            "포인트는 뽑기(아이템)에 쓰고, 회귀 횟수 자체가 상위 지역의 벽을 낮춘다.");
             GUILayout.Space(6f);
             GUILayout.Label($"이번 생 정복한 지역   {cleared} / {RegionConfig.Count}");
-            GUILayout.Label($"윤회하면 받을 포인트   ☸ {gain}");
-            GUILayout.Label($"지금까지 윤회   {profile.rebirths}회   ·   보유 포인트   ☸ {profile.rp}");
+            GUILayout.Label($"회귀하면 받을 포인트   ◈ {gain}");
+            GUILayout.Label($"지금까지 회귀   {profile.regressions}회   ·   보유 포인트   ◈ {profile.shards}");
             GUILayout.Space(4f);
             GUILayout.Label("보상은 **어디까지 뚫었나**로만 정해진다 — 오래 플레이한다고 늘지 않는다.");
 
             GUILayout.Space(10f);
             GUILayout.Label("<b>초기화</b>: 레벨 · 경험치 · 골드 · 골드 강화 · 전문화(SP) · 지역 진행", RichLabel());
-            GUILayout.Label("<b>유지</b>: 윤회 포인트 · 윤회 횟수", RichLabel());
+            GUILayout.Label("<b>유지</b>: 시간의 파편 · 회귀 횟수", RichLabel());
 
             GUILayout.Space(10f);
             if (gain < 1)
             {
-                GUILayout.Label("아직 정복한 지역이 없어서 윤회할 수 없다 — 보스를 하나라도 잡아야 한다.");
+                GUILayout.Label("아직 정복한 지역이 없어서 회귀할 수 없다 — 보스를 하나라도 잡아야 한다.");
             }
             else
             {
                 // 확인은 **디자인이 있는 전용 창**이 받는다(Figma "시간 회귀창" 31:4,
                 // `UI/RegressionWindow`). 예전엔 이 자리에서 버튼 두 개로 물었는데, 되돌릴 수 없는
                 // 조작을 탭 본문 한구석에서 처리하는 것보다 화면을 덮는 창이 맞다.
-                if (GUILayout.Button($"☸ 시간 회귀 (+{gain})", GUILayout.Height(32f), GUILayout.Width(220f)))
+                if (GUILayout.Button($"◈ 시간 회귀 (+{gain})", GUILayout.Height(32f), GUILayout.Width(220f)))
                 {
                     if (regression == null) regression = Object.FindFirstObjectByType<RegressionWindow>();
                     if (regression != null) regression.Open();
@@ -469,24 +469,24 @@ namespace YokaiFront.UI
             }
 
             GUILayout.Space(14f);
-            DrawRebirthWallTable(profile);
+            DrawRegressionWallTable(profile);
         }
 
         /// <summary>
-        /// 지역별 권장 윤회와 지금 걸리는 벽. 원본은 스테이지 탭에 "윤회 N회"로 적어두는데,
+        /// 지역별 권장 회귀와 지금 걸리는 벽. 원본은 스테이지 탭에 "시간 회귀 N회"로 적어두는데,
         /// **얼마나 불리해지는지**는 안 보여준다 — 숫자를 직접 보여주는 편이 판단에 도움이 된다.
         /// </summary>
-        void DrawRebirthWallTable(PlayerProfile profile)
+        void DrawRegressionWallTable(PlayerProfile profile)
         {
-            GUILayout.Label("<b>지역별 윤회 장벽</b>  (권장에 모자라면 몹이 단단해지고 내 피해가 줄어든다)", RichLabel());
+            GUILayout.Label("<b>지역별 회귀 장벽</b>  (권장에 모자라면 몹이 단단해지고 내 피해가 줄어든다)", RichLabel());
             for (int r = 3; r <= RegionConfig.Count; r++) // 1·2지역은 권장 0회라 벽이 없다
             {
-                int req = RebirthConfig.RequiredRebirths(r);
-                int gap = RebirthConfig.Gap(r, profile.rebirths);
-                string line = $"{r}. {RegionConfig.NameOf(r)}   권장 윤회 {req}회";
+                int req = RegressionConfig.RequiredRegressions(r);
+                int gap = RegressionConfig.Gap(r, profile.regressions);
+                string line = $"{r}. {RegionConfig.NameOf(r)}   권장 회귀 {req}회";
                 if (gap == 0) line += "   ✔ 벽 없음";
-                else line += $"   ⚠ {gap}회 부족 → 몹 체력 ×{RebirthConfig.WallEnemyHp(r, profile.rebirths):0.0}" +
-                             $" · 내 피해 ×{RebirthConfig.WallPlayerDamage(r, profile.rebirths):0.00}";
+                else line += $"   ⚠ {gap}회 부족 → 몹 체력 ×{RegressionConfig.WallEnemyHp(r, profile.regressions):0.0}" +
+                             $" · 내 피해 ×{RegressionConfig.WallPlayerDamage(r, profile.regressions):0.00}";
                 GUILayout.Label(line);
             }
         }
@@ -494,22 +494,22 @@ namespace YokaiFront.UI
         // ────────────────────────── 기원(가챠) ──────────────────────────
 
         /// <summary>
-        /// 원본 가챠 탭(project_test.html:6538~). 윤회 포인트로 아이템을 뽑는다 —
-        /// **아이템이 이 게임의 유일한 영구 성장 축**이라(원본 `:746`) 윤회 → 뽑기 → 더 깊은 지역이
+        /// 원본 가챠 탭(project_test.html:6538~). 시간의 파편로 아이템을 뽑는다 —
+        /// **아이템이 이 게임의 유일한 영구 성장 축**이라(원본 `:746`) 시간 회귀 → 뽑기 → 더 깊은 지역이
         /// 하나의 고리를 이룬다.
         /// </summary>
         void DrawGachaTab(PlayerProfile profile)
         {
             var inv = profile.items;
-            GUILayout.Label($"보유 윤회 포인트   ☸ {profile.rp}     1회 {GachaService.Cost}☸");
+            GUILayout.Label($"보유 시간의 파편   ◈ {profile.shards}     1회 {GachaService.Cost}◈");
             GUILayout.Label($"천장   {inv.pity} / {GachaService.PityAt}" +
                             "   (이만큼 연속으로 영웅+가 안 나오면 다음은 영웅 이상 확정)");
             GUILayout.Space(6f);
 
             GUILayout.BeginHorizontal();
-            GUI.enabled = profile.rp >= GachaService.Cost;
+            GUI.enabled = profile.shards >= GachaService.Cost;
             if (GUILayout.Button("1회 기원", GUILayout.Height(30f), GUILayout.Width(120f))) Pull(profile, 1);
-            GUI.enabled = profile.rp >= GachaService.Cost * 10;
+            GUI.enabled = profile.shards >= GachaService.Cost * 10;
             if (GUILayout.Button("10회 기원", GUILayout.Height(30f), GUILayout.Width(120f))) Pull(profile, 10);
             GUI.enabled = true;
             GUILayout.EndHorizontal();
@@ -533,7 +533,7 @@ namespace YokaiFront.UI
                 GUILayout.Label($"{def.icon} [{ItemDatabase.GradeName(def.grade)}] {def.name}  {n}/{cap}{full}" +
                                 $"   →  {def.description}");
             }
-            if (inv.stacks.Count == 0) GUILayout.Label("아직 없다 — 윤회해서 포인트를 모으고 뽑아 보자.");
+            if (inv.stacks.Count == 0) GUILayout.Label("아직 없다 — 회귀해서 포인트를 모으고 뽑아 보자.");
         }
 
         void Pull(PlayerProfile profile, int n)
@@ -550,7 +550,7 @@ namespace YokaiFront.UI
 
         /// <summary>
         /// 원본 업적 탭(project_test.html:6888). 보상은 없고 **어디까지 왔는지를 보여주는 지표**다 —
-        /// 원본 주석 그대로 "현재 캐릭터/윤회/강화 루프에 맞춘 진행 목표".
+        /// 원본 주석 그대로 "현재 캐릭터/시간 회귀/강화 루프에 맞춘 진행 목표".
         /// </summary>
         void DrawAchieveTab(PlayerProfile profile)
         {
@@ -559,7 +559,7 @@ namespace YokaiFront.UI
             GUILayout.Space(4f);
             GUILayout.Label($"누적 처치 {profile.stats.totalKills}   최고 콤보 {profile.stats.maxCombo}   " +
                             $"엘리트 {profile.stats.elites}   성소 {profile.stats.shrines}   보스 {profile.stats.bosses}");
-            GUILayout.Label($"누적 골드 {profile.stats.goldEarned}   누적 윤회 포인트 {profile.stats.rpEarned}   " +
+            GUILayout.Label($"누적 골드 {profile.stats.goldEarned}   누적 시간의 파편 {profile.stats.shardsEarned}   " +
                             $"뽑기 {profile.stats.pulls}회");
             GUILayout.Space(8f);
 

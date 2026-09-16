@@ -37,8 +37,8 @@ namespace YokaiFront.Core
     /// <summary>
     /// 아이템 35종 — 원본 `ITEMS`(project_test.html:758~803) 그대로.
     ///
-    /// **이 게임의 유일한 영구 성장 축**이다(원본 주석 `:746`). 윤회 포인트로 가챠를 돌려 얻고,
-    /// 윤회해도 사라지지 않는다.
+    /// **이 게임의 유일한 영구 성장 축**이다(원본 주석 `:746`). 시간의 파편로 가챠를 돌려 얻고,
+    /// 회귀해도 사라지지 않는다.
     ///
     /// 등급이 높을수록 개당 효과가 크지만 **중복 상한이 낮다**(일반 10 → 전설 3).
     /// 원본 주석 그대로 "저등급도 끝까지 모으면 쓸모가 있고, 고등급은 '빨리 도달하는' 가치를 갖는다" —
@@ -129,7 +129,7 @@ namespace YokaiFront.Core
             Special("deathBlast",  "연쇄 폭심",     "💥", ItemGrade.Legend, 0.9f,   "처치 시 주변이 폭발한다 (피해 0.9배)"),
             Special("revive",      "최후의 발악",   "🕯", ItemGrade.Legend, 1f,     "쓰러져도 사냥당 1회 부활한다 (체력 40%)"),
             Special("airDmg",      "천공의 지배",   "🪶", ItemGrade.Legend, 0.25f,  "공중에 있을 때 피해 +25%"),
-            Special("keepSpec",    "각인의 봉인",   "🔒", ItemGrade.Legend, 1f,     "윤회해도 무기 전문화가 유지된다"),
+            Special("keepSpec",    "각인의 봉인",   "🔒", ItemGrade.Legend, 1f,     "회귀해도 무기 전문화가 유지된다"),
         };
 
         static Dictionary<string, ItemDef> byId;

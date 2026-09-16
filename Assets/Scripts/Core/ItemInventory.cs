@@ -15,8 +15,8 @@ namespace YokaiFront.Core
     /// 보유 아이템과 그 효과 집계 — 원본 `meta.items`와 `itemCount`/`itemPow`/`itemAdd`/`itemMul`
     /// (project_test.html:1185~:1206).
     ///
-    /// **윤회해도 사라지지 않는다** — 이게 게임의 유일한 영구 성장 축이라(원본 `:746`),
-    /// `PlayerProfile.DoRebirth()`가 건드리지 않는 몇 안 되는 필드 중 하나다.
+    /// **회귀해도 사라지지 않는다** — 이게 게임의 유일한 영구 성장 축이라(원본 `:746`),
+    /// `PlayerProfile.DoRegression()`가 건드리지 않는 몇 안 되는 필드 중 하나다.
     ///
     /// ## 합연산과 곱연산이 갈린다
     /// 같은 "스탯 아이템"이라도 원본은 두 갈래로 집계한다(`:1189`·`:1199`):

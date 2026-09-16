@@ -42,6 +42,19 @@ namespace YokaiFront.UI
         /// <summary>배경 자리표시자 색. Figma는 흰색이지만 위 클래스 주석의 이유로 어둡게 둔다.</summary>
         static readonly Color BackdropPlaceholder = new Color(0.10f, 0.09f, 0.13f);
 
+        /// <summary>
+        /// 이 화면은 1920×1080 좌표계라 **글자도 그 기준으로 커야 한다.** Figma의 메뉴 글자는
+        /// 높이 48~58px(61:53·61:57)이고, 1280×720용 기본 크기(22px)를 그대로 쓰면 버튼 안에서
+        /// 우표처럼 작아 보인다.
+        /// </summary>
+        const int MenuFontSize = 34;
+        const int LogoFontSize = 44;
+
+        GUIStyle menuStyle, logoStyle;
+
+        GUIStyle MenuStyle => menuStyle ??= new GUIStyle(UiTheme.MenuLabel) { fontSize = MenuFontSize };
+        GUIStyle LogoStyle => logoStyle ??= new GUIStyle(UiTheme.MenuLabel) { fontSize = LogoFontSize };
+
         RunController run;
         bool confirmingNewRun;
         string toast = "";
@@ -60,10 +73,12 @@ namespace YokaiFront.UI
             if (GameState.Current != GameScene.Title) return;
             if (run == null) run = Object.FindFirstObjectByType<RunController>();
 
-            using var scaled = UiTheme.Scaled(DesignW, DesignH);
+            // ⚠️ 배경은 **화면 좌표로** 덮는다. 설계 좌표(1920×1080)로 채우면 16:9가 아닌 화면에서
+            // letterbox 띠에 사냥터가 그대로 비친다 — 결과 화면에서 이미 겪은 것과 같은 함정이다.
+            // 그래서 `Scaled()` 블록보다 **먼저** 그린다.
+            UiTheme.FullScreenFill(BackdropPlaceholder);
 
-            // 배경(35:6) — 아직 도트아트가 없다.
-            UiTheme.FillRect(new Rect(0f, 0f, DesignW, DesignH), BackdropPlaceholder);
+            using var scaled = UiTheme.Scaled(DesignW, DesignH);
 
             // 오른쪽 양피지 패널(52:100).
             UiTheme.FillRect(PanelRect, UiTheme.Parchment);
@@ -71,7 +86,7 @@ namespace YokaiFront.UI
             // 로고 박스(35:18) — 금색 판 + 검은 테두리 + "Logo" 자리표시 글자.
             UiTheme.FillRect(LogoRect, UiTheme.PlateGold);
             DrawBorder(LogoRect, Color.black, 2f);
-            GUI.Label(LogoRect, "Logo", UiTheme.MenuLabel);
+            GUI.Label(LogoRect, "Logo", LogoStyle);
 
             UiTheme.FillRect(DividerTop, UiTheme.TitleDivider);
             UiTheme.FillRect(DividerBottom, UiTheme.TitleDivider);
@@ -117,7 +132,7 @@ namespace YokaiFront.UI
         }
 
         bool Button(int index, string label) =>
-            UiTheme.PlateButton(new Rect(ButtonX, ButtonY[index], ButtonW, ButtonH), label);
+            UiTheme.PlateButton(new Rect(ButtonX, ButtonY[index], ButtonW, ButtonH), label, MenuStyle);
 
         /// <summary>세이브를 지우고 새 프로필로 로비에 들어간다.</summary>
         void StartFresh()

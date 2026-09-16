@@ -21,7 +21,7 @@ namespace YokaiFront.Systems
     /// </summary>
     public static class GachaService
     {
-        /// <summary>1회 비용(윤회 포인트). 원본 `GACHA_COST = 10`.</summary>
+        /// <summary>1회 비용(시간의 파편). 원본 `GACHA_COST = 10`.</summary>
         public const int Cost = 10;
         /// <summary>이만큼 연속으로 영웅+가 안 나오면 확정. 원본 `PITY_AT = 20`.</summary>
         public const int PityAt = 20;
@@ -94,11 +94,11 @@ namespace YokaiFront.Systems
 
             for (int i = 0; i < n; i++)
             {
-                if (profile.rp < Cost) break;
+                if (profile.shards < Cost) break;
                 var def = Roll(inv);
                 if (def == null) break; // 전 아이템 상한 — 더 줄 게 없다
 
-                profile.rp -= Cost;
+                profile.shards -= Cost;
                 inv.Add(def.id);
                 // 천장은 **영웅 이상이 나오면 초기화**된다(원본 `:6583`).
                 inv.pity = (def.grade == ItemGrade.Epic || def.grade == ItemGrade.Legend) ? 0 : inv.pity + 1;

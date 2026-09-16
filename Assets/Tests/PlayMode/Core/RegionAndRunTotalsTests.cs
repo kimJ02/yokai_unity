@@ -38,7 +38,7 @@ public class RegionAndRunTotalsTests
 
     /// <summary>
     /// 원본 `entryFeeOf(r) = r <= 1 ? 0 : floor(300 × 2.2^(r-2))`(project_test.html:6438).
-    /// **지역당 지수로 오르는 게 요점**이다 — 결국 감당이 안 되고 그게 윤회를 강제하는 구조라
+    /// **지역당 지수로 오르는 게 요점**이다 — 결국 감당이 안 되고 그게 시간 회귀를 강제하는 구조라
     /// 완만하게 고치면 게임의 진행 압력이 통째로 사라진다.
     /// </summary>
     [Test]

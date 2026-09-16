@@ -362,7 +362,7 @@ namespace YokaiFront.UI
         /// 타이틀 메뉴 버튼. Figma의 256×64 플레이트 그림을 배경으로 쓰고 글자를 얹는다.
         /// 그림이 없으면 금색 사각형 + 갈색 테두리로 대체한다(색은 렌더에서 뽑은 값).
         /// </summary>
-        public static bool PlateButton(Rect r, string text)
+        public static bool PlateButton(Rect r, string text, GUIStyle labelStyle = null)
         {
             if (MenuPlate != null)
             {
@@ -375,7 +375,7 @@ namespace YokaiFront.UI
                 FillRect(new Rect(r.x, r.yMax - 2f, r.width, 2f), PlateEdge);
             }
 
-            GUI.Label(r, text, MenuLabel);
+            GUI.Label(r, text, labelStyle ?? MenuLabel);
             // 그림을 배경으로 쓰므로 버튼 자체는 **투명**이어야 한다 — 기본 버튼 배경이 그려지면
             // 플레이트를 덮는다. GUIStyle.none이 그 역할이다.
             return GUI.Button(r, GUIContent.none, GUIStyle.none);
@@ -405,13 +405,23 @@ namespace YokaiFront.UI
         /// 확대된 디자인 영역 바깥에 레터박스가 남는데, 거기까지 안 덮으면 화면 위아래(또는 좌우)로
         /// 사냥터가 그대로 비쳐서 "화면을 덮는다"는 의도가 깨진다.
         /// </summary>
-        public static void FullScreenScrim()
+        public static void FullScreenScrim() => FullScreenFill(Scrim);
+
+        /// <summary>
+        /// 화면 **전체**를 한 색으로 덮는다.
+        ///
+        /// ⚠️ **설계 좌표가 아니라 실제 화면 좌표로 그린다.** `Scaled()`는 설계 비율(16:9)을 유지하려고
+        /// letterbox를 남기는데, 설계 좌표로 사각형을 채우면 그 letterbox 띠에 **사냥터가 그대로 비친다**
+        /// (플레이어·몹·발판이 타이틀 화면 가장자리에 보이는 증상). 화면을 덮는 게 목적인 배경은
+        /// 반드시 이 함수를 쓸 것.
+        /// </summary>
+        public static void FullScreenFill(Color c)
         {
             Matrix4x4 prevMatrix = GUI.matrix;
             Color prevColor = GUI.color;
 
             GUI.matrix = Matrix4x4.identity;
-            GUI.color = Scrim;
+            GUI.color = c;
             GUI.DrawTexture(new Rect(0f, 0f, Screen.width, Screen.height), white);
 
             GUI.color = prevColor;
