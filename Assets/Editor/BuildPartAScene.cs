@@ -120,8 +120,14 @@ public static class BuildPartAScene
         // 우리 발판 높이 기준으로 다시 계산: 최상단 발판 위 캐릭터 전체(중심+반지름) + 여유 0.2.
         cam.orthographicSize = 3.84f;
         cam.transform.position = new Vector3(playerTransform.position.x, 2.84f, -10f);
-        cam.backgroundColor = Color.white;
+        // ⚠️ 예전엔 `Color.white`였다 — 초기 스캐폴딩의 자리표시자가 그대로 남아 있었다.
+        // 원본은 캔버스에 밤 하늘을 먼저 깔아서(`drawBackground()` · `regionSkyTint`) 흰 배경이
+        // 보일 일이 없는데, 우리는 그 렌더링을 이식하지 않은 채 흰색으로 지우고 있었다.
+        // 그 결과 로비 판(알파 0.92)을 통과한 **8%의 흰색**이 UI 전체를 뿌옇게 만들고 발판선이
+        // 판을 가로질러 보였다. 지역별 하늘색은 `SkyBackground`가 계속 맞춘다.
         cam.clearFlags = CameraClearFlags.SolidColor;
+        cam.backgroundColor = RegionConfig.SkyColor(1);
+        camGO.AddComponent<SkyBackground>();
         camGO.AddComponent<AudioListener>();
 
         var follow = camGO.AddComponent<CameraFollow2D>();
