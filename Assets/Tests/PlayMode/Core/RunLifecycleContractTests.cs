@@ -19,7 +19,7 @@ public class RunLifecycleContractTests
     {
         GameState.Reset();
         RunState.Reset();
-        CombatEvents.Reset();
+        CombatEvents.Reset(); RunEvents.Reset();
     }
 
     [TearDown]
@@ -27,7 +27,7 @@ public class RunLifecycleContractTests
     {
         GameState.Reset();
         RunState.Reset();
-        CombatEvents.Reset();
+        CombatEvents.Reset(); RunEvents.Reset();
     }
 
     [Test]
@@ -130,7 +130,7 @@ public class RunLifecycleContractTests
     {
         int fired = 0;
         CombatEvents.EnemyKilled += _ => fired++;
-        CombatEvents.Reset();
+        CombatEvents.Reset(); RunEvents.Reset();
         CombatEvents.RaiseEnemyKilled(null);
         Assert.AreEqual(0, fired, "Reset 후에도 옛 구독자가 남아 호출됨 — 테스트 간 오염 원인");
     }

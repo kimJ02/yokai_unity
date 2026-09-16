@@ -25,7 +25,7 @@ public class MageSkillTreeTests
         GravityWellZone.ClearAllForTests();
         // 콤보가 남으면 피해 배수가 올라가 기대 피해량이 어긋난다(정적 상태 오염).
         CombatModifiers.Reset();
-        CombatEvents.Reset();
+        CombatEvents.Reset(); RunEvents.Reset();
     }
 
     [TearDown]
@@ -35,7 +35,7 @@ public class MageSkillTreeTests
         GravityWellZone.ClearAllForTests();
         // 콤보가 남으면 피해 배수가 올라가 기대 피해량이 어긋난다(정적 상태 오염).
         CombatModifiers.Reset();
-        CombatEvents.Reset();
+        CombatEvents.Reset(); RunEvents.Reset();
         foreach (var go in Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None))
         {
             if (go == null) continue;

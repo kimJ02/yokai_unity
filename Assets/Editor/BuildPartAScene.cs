@@ -166,6 +166,34 @@ public static class BuildPartAScene
     {
         BuildPlatformSet("Platforms_Normal", FieldLayout.NormalPlatforms, boss: false);
         BuildPlatformSet("Platforms_Boss", FieldLayout.BossPlatforms, boss: true);
+        BuildBossPortal();
+    }
+
+    /// <summary>
+    /// 보스 필드로 통하는 포탈(원본에 없음 — 사용자 지시 2026-09-16).
+    ///
+    /// **발판 묶음의 자식으로 두지 않았다.** `PlatformSet.Activate`가 묶음 전체를 켜고 끄는데,
+    /// 포탈은 자기 상태(잠김/해금/보스필드 여부)를 매 프레임 판단해야 하므로 GameObject가 꺼지면
+    /// 그 판단 자체가 멈춘다. 대신 <see cref="BossPortal.ShouldBeVisible"/>이 렌더러만 끈다.
+    /// </summary>
+    static void BuildBossPortal()
+    {
+        var go = new GameObject("BossPortal");
+        go.transform.position = new Vector3(
+            FieldLayout.BossPortalX,
+            FieldBounds.GroundY + FieldLayout.BossPortalHeight / 2f,
+            0f);
+
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(SpritePath);
+        sr.sortingOrder = -1; // 몹·플레이어 뒤에 — 문은 배경 구조물이다
+
+        // 원형 스프라이트(128px = 1.28유닛)를 문 비율로 늘린다.
+        float unit = 1.28f;
+        go.transform.localScale = new Vector3(
+            FieldLayout.BossPortalWidth / unit, FieldLayout.BossPortalHeight / unit, 1f);
+
+        go.AddComponent<BossPortal>();
     }
 
     static void BuildPlatformSet(string parentName, float[,] table, bool boss)
