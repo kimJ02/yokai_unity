@@ -33,19 +33,21 @@ namespace YokaiFront.Editor
             public float w, h;
             public float knockbackMul;
             public Color color;
+            /// <summary>임시 도형. 배정 기준은 `Core.PrimitiveShape` 주석 참고.</summary>
+            public PrimitiveShape shape;
         }
 
         // 원본 CONFIG.enemyBase(:707~714) 그대로. speed는 px/s(환산은 아래에서 ÷100).
         static readonly Row[] Rows =
         {
-            new Row { type = EnemyType.Wisp,     display = "도깨비불", hp = 26,  dmg = 8,  speedPx = 66,  exp = 5,  goldMin = 3,  goldMax = 6,  w = 34, h = 34, knockbackMul = 1f,   color = new Color(0.56f, 0.85f, 1f) },
-            new Row { type = EnemyType.Oni,      display = "오니",     hp = 38,  dmg = 13, speedPx = 76,  exp = 8,  goldMin = 5,  goldMax = 10, w = 42, h = 46, knockbackMul = 1f,   color = new Color(0.85f, 0.20f, 0.20f) },
+            new Row { type = EnemyType.Wisp,     display = "도깨비불", hp = 26,  dmg = 8,  speedPx = 66,  exp = 5,  goldMin = 3,  goldMax = 6,  w = 34, h = 34, knockbackMul = 1f,   color = new Color(0.56f, 0.85f, 1f) , shape = PrimitiveShape.Triangle },
+            new Row { type = EnemyType.Oni,      display = "오니",     hp = 38,  dmg = 13, speedPx = 76,  exp = 8,  goldMin = 5,  goldMax = 10, w = 42, h = 46, knockbackMul = 1f,   color = new Color(0.85f, 0.20f, 0.20f) , shape = PrimitiveShape.Circle },
             // 원본 :1678 — 대오니만 넉백 0.4배(덜 밀린다). 이동/AI 로직은 오니와 완전히 같다(:710 주석 참고).
-            new Row { type = EnemyType.BigOni,   display = "대오니",   hp = 160, dmg = 26, speedPx = 44,  exp = 27, goldMin = 16, goldMax = 32, w = 68, h = 80, knockbackMul = 0.4f, color = new Color(0.69f, 0.75f, 1f) },
-            new Row { type = EnemyType.Charger,  display = "돌진귀",   hp = 50,  dmg = 15, speedPx = 58,  exp = 11, goldMin = 6,  goldMax = 12, w = 46, h = 48, knockbackMul = 1f,   color = new Color(1f, 0.55f, 0.25f) },
-            new Row { type = EnemyType.Shooter,  display = "사수귀",   hp = 30,  dmg = 10, speedPx = 55,  exp = 10, goldMin = 6,  goldMax = 12, w = 38, h = 46, knockbackMul = 1f,   color = new Color(0.78f, 0.42f, 1f) },
-            new Row { type = EnemyType.Splitter, display = "분열귀",   hp = 55,  dmg = 12, speedPx = 60,  exp = 9,  goldMin = 5,  goldMax = 10, w = 48, h = 44, knockbackMul = 1f,   color = new Color(0.40f, 0.80f, 0.45f) },
-            new Row { type = EnemyType.Splitlet, display = "새끼",     hp = 14,  dmg = 7,  speedPx = 112, exp = 3,  goldMin = 1,  goldMax = 3,  w = 26, h = 28, knockbackMul = 1f,   color = new Color(0.55f, 0.90f, 0.60f) },
+            new Row { type = EnemyType.BigOni,   display = "대오니",   hp = 160, dmg = 26, speedPx = 44,  exp = 27, goldMin = 16, goldMax = 32, w = 68, h = 80, knockbackMul = 0.4f, color = new Color(0.69f, 0.75f, 1f) , shape = PrimitiveShape.Circle },
+            new Row { type = EnemyType.Charger,  display = "돌진귀",   hp = 50,  dmg = 15, speedPx = 58,  exp = 11, goldMin = 6,  goldMax = 12, w = 46, h = 48, knockbackMul = 1f,   color = new Color(1f, 0.55f, 0.25f) , shape = PrimitiveShape.Triangle },
+            new Row { type = EnemyType.Shooter,  display = "사수귀",   hp = 30,  dmg = 10, speedPx = 55,  exp = 10, goldMin = 6,  goldMax = 12, w = 38, h = 46, knockbackMul = 1f,   color = new Color(0.78f, 0.42f, 1f) , shape = PrimitiveShape.Triangle },
+            new Row { type = EnemyType.Splitter, display = "분열귀",   hp = 55,  dmg = 12, speedPx = 60,  exp = 9,  goldMin = 5,  goldMax = 10, w = 48, h = 44, knockbackMul = 1f,   color = new Color(0.40f, 0.80f, 0.45f) , shape = PrimitiveShape.Circle },
+            new Row { type = EnemyType.Splitlet, display = "새끼",     hp = 14,  dmg = 7,  speedPx = 112, exp = 3,  goldMin = 1,  goldMax = 3,  w = 26, h = 28, knockbackMul = 1f,   color = new Color(0.55f, 0.90f, 0.60f) , shape = PrimitiveShape.Circle },
         };
 
         // 오니의 현재 콜라이더(0.5)와 원본 높이(46px)를 기준으로 나머지 종류를 비례 환산한다.
@@ -97,8 +99,12 @@ namespace YokaiFront.Editor
                 asset.knockbackMultiplier = row.knockbackMul;
                 asset.colliderRadius = RadiusFor(row.h);
                 asset.color = row.color;
-                // 프로토타입에서 구워낸 그림을 연결한다(없으면 null → 프리팹 기본 원형 유지).
-                asset.sprite = BuildPrototypeSprites.Load(SpriteNameFor(row.type));
+                // ⚠️ 프로토타입 그림은 **일부러 비워 둔다** — 사용자 지시(2026-09-16)
+                // "일단 스킨 씌우지 말고 네모 세모 동그라미로만". 대신 아래 도형을 종류색으로 칠한다.
+                // 되돌리려면 이 줄을 `BuildPrototypeSprites.Load(SpriteNameFor(row.type))`로 바꾸면 된다
+                // (구운 파일은 `Assets/Sprites/Prototype/`에 그대로 있다).
+                asset.sprite = null;
+                asset.shape = row.shape;
                 asset.originalWidthPx = row.w;
                 asset.originalHeightPx = row.h;
 

@@ -51,12 +51,19 @@ namespace YokaiFront.Core
         public Color color = new Color(0.85f, 0.2f, 0.2f);
 
         /// <summary>
-        /// 이 종류의 그림. 원본 프로토타입의 `draw*()` 결과를 구워낸 임시 스프라이트다
-        /// (`Assets/Sprites/Prototype/`, 만든 절차는 `docs/prototype-sprites.md`).
-        /// **비어 있으면 프리팹의 기본 원형 스프라이트를 종류색으로 칠해서 쓴다** — 정식 아트로
-        /// 갈아끼울 때 같은 이름으로 파일만 덮어쓰면 되고, 없다고 게임이 깨지지는 않는다.
+        /// 이 종류의 **정식 그림**. 들어 있으면 색을 덧칠하지 않고 그대로 그린다.
+        ///
+        /// ⚠️ **지금은 비어 있다** — 사용자 지시(2026-09-16) "일단 스킨 씌우지 말고 네모 세모
+        /// 동그라미로만". 대신 아래 <see cref="shape"/>의 도형을 <see cref="color"/>로 칠해 쓴다.
+        /// 프로토타입에서 구워둔 그림(`Assets/Sprites/Prototype/`, 절차는
+        /// `docs/prototype-sprites.md`)은 파일이 그대로 남아 있고 `BuildEnemyData`가 대입만 안 한다.
         /// </summary>
         public Sprite sprite;
+
+        [Header("임시 도형 (정식 아트 전까지)")]
+        [Tooltip("이 종류를 어떤 도형으로 그릴지. 배정 기준은 Core.PrimitiveShape 주석 참고 — " +
+                 "'플레이어가 다르게 대응해야 하는 것끼리' 갈랐다. 색은 위 color를 그대로 쓴다.")]
+        public PrimitiveShape shape = PrimitiveShape.Circle;
 
         [Header("원본 기록용 (환산 근거 — 로직에서 읽지 않는다)")]
         public float originalWidthPx = 42f;
