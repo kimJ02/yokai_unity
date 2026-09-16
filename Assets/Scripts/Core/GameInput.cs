@@ -40,5 +40,14 @@ namespace YokaiFront.Core
         /// 고른다(`:1027`~`:1028`). **ESC 자체가 로비로 나가는 키가 아니다** — 한 단계 거친다.
         /// </summary>
         public static bool PauseDown => Input.GetKeyDown(KeyCode.Escape);
+
+        /// <summary>
+        /// 상호작용(보스 포탈 입장). **원본에 없는 키다** — 원본은 보스전을 로비에서 고르므로
+        /// 필드에 상호작용할 대상이 없다. 사용자 지시(2026-09-16)로 포탈 방식이 되면서 필요해졌다.
+        ///
+        /// ↑키를 쓰지 않은 이유: 마법사 중력 계열이 "↑ 위로 발사"에 이미 쓰고 있어(`:2169` 계열)
+        /// 포탈 위에서 위로 쏘려다 입장해 버린다.
+        /// </summary>
+        public static bool InteractDown => Input.GetKeyDown(KeyCode.F);
     }
 }

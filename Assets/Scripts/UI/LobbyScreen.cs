@@ -233,8 +233,10 @@ namespace YokaiFront.UI
         /// <summary>원본 `renderStageTab()`(project_test.html:6441).</summary>
         void DrawStageTab(PlayerProfile profile)
         {
-            GUILayout.Label($"일반 사냥: 제한시간 {RunState.NormalTime:0}초 동안 요괴를 잡아 재화를 모은다. " +
+            GUILayout.Label($"제한시간 {RunState.NormalTime:0}초 동안 요괴를 잡아 재화를 모은다. " +
                             "지역이 높을수록 강한 종이 나오고 몹 체력·피해가 지수로 오른다.");
+            GUILayout.Label("<b>보스는 로비에서 고르지 않는다</b> — 필드 우측 끝의 포탈로 들어간다. " +
+                            $"포탈은 그 지역 누적 토벌 {RunState.RegionKillTarget}마리를 채우면 열린다.");
             GUILayout.Space(6f);
 
             for (int r = 1; r <= RegionConfig.Count; r++)
@@ -246,20 +248,18 @@ namespace YokaiFront.UI
 
                 GUILayout.BeginHorizontal();
 
+                // **버튼이 지역마다 하나다.** 원본은 일반/보스 버튼을 나란히 뒀지만(:6464),
+                // 사용자 지시(2026-09-16)로 보스는 필드 안의 포탈로 들어가게 바뀌었다 —
+                // 스테이지가 늘어날 때 로비가 버튼 벽이 되는 것을 막기 위한 변경이다.
                 GUI.enabled = open && canPay;
                 if (GUILayout.Button($"{r}. {RegionConfig.NameOf(r)}", GUILayout.Height(28f), GUILayout.Width(200f)))
                     EnterRegion(profile, r, fee, RunMode.Normal);
-
-                // 원본도 지역마다 일반/보스 버튼을 나란히 둔다(:6464). 보스는 토벌 100마리 뒤에 열린다.
-                GUI.enabled = open && canPay && bossReady;
-                if (GUILayout.Button($"👹 보스", GUILayout.Height(28f), GUILayout.Width(80f)))
-                    EnterRegion(profile, r, fee, RunMode.Boss);
                 GUI.enabled = true;
 
                 string info = $"권장 Lv.{RegionConfig.RecommendedLevel(r)}+   입장료 {(fee == 0 ? "무료" : fee + " G")}" +
                               $"   토벌 {profile.RegionKills(r)} / {RunState.RegionKillTarget}";
                 if (profile.IsBossCleared(r)) info += "   ✔ 격파";
-                else if (bossReady) info += "   👹 보스 도전 가능";
+                else if (bossReady) info += "   🌀 포탈 열림";
                 if (!open) info += "   🔒 이전 지역 보스를 잡아야 열린다";
                 else if (!canPay) info += "   ← 골드 부족";
                 GUILayout.Label(info);
@@ -267,7 +267,10 @@ namespace YokaiFront.UI
             }
 
             GUILayout.Space(10f);
-            GUILayout.Label($"지역에서 {RunState.RegionKillTarget}마리를 토벌하면 보스가 열리고, 보스를 잡으면 다음 지역이 열린다.");
+            GUILayout.Label($"지역에서 {RunState.RegionKillTarget}마리를 토벌하면 <b>필드 우측 끝의 포탈</b>이 열린다. " +
+                            "포탈 앞에서 <b>F</b>를 누르면 보스 필드로 넘어가고, 제한시간이 " +
+                            $"{RunState.BossTime:0}초로 새로 시작한다(처치 수·살기·번 재화는 그대로 유지된다). " +
+                            "보스를 잡으면 다음 지역이 열린다.");
         }
 
         /// <summary>원본 `startRun`의 입장료 처리(project_test.html:4297~4303).</summary>

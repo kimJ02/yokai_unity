@@ -73,6 +73,24 @@ namespace YokaiFront.Core
             Over = false;
         }
 
+        /// <summary>
+        /// 런 도중 보스 필드로 넘어간다 — **사용자 지시(2026-09-16)로 추가된 전환이다.**
+        /// 원본에는 없다(원본은 보스전이 로비에서 시작하는 별개의 런이다, `:4293`).
+        ///
+        /// **런은 끊기지 않는다.** 처치 수·살기·번 골드/경험치를 그대로 들고 간다 — 일반 필드에서
+        /// 쌓은 살기가 보스전에 그대로 얹히는 게 이 구조의 핵심 보상이다. 바뀌는 것은
+        /// 모드와 제한시간뿐이고, 시간은 <see cref="BossTime"/>으로 **새로 시작한다**
+        /// (남은 시간을 물려받으면 일반 필드에서 시간을 다 쓴 경우 보스를 볼 수조차 없다).
+        /// </summary>
+        /// <returns>실제로 전환됐으면 true. 이미 보스 필드거나 끝난 런이면 false.</returns>
+        public static bool EnterBossField()
+        {
+            if (Over || Mode == RunMode.Boss) return false;
+            Mode = RunMode.Boss;
+            TimeLeft = BossTime;
+            return true;
+        }
+
         /// <summary>원본 `updateRun`의 `run.timeLeft -= dt`(:4412). 0에 닿으면 true를 돌려준다(호출자가 timeout 처리).</summary>
         public static bool Tick(float dt)
         {

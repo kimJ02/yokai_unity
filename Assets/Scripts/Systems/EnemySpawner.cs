@@ -110,12 +110,14 @@ public class EnemySpawner : MonoBehaviour
     {
         EnemySpawnRequestBus.Requested += HandleSpawnRequest;
         GameState.Changed += HandleSceneChanged;
+        RunEvents.BossFieldEntered += HandleBossFieldEntered;
     }
 
     void OnDisable()
     {
         EnemySpawnRequestBus.Requested -= HandleSpawnRequest;
         GameState.Changed -= HandleSceneChanged;
+        RunEvents.BossFieldEntered -= HandleBossFieldEntered;
     }
 
     /// <summary>
@@ -133,7 +135,27 @@ public class EnemySpawner : MonoBehaviour
         aliveShrine = null;
 
         // 원본 `if (mode === 'boss') spawnBoss()`(project_test.html:4324).
+        // 지금은 로비가 항상 일반 모드로 입장시키므로(보스는 필드의 포탈로 들어간다) 이 분기는
+        // 평소엔 안 타지만, `StartRun(region, RunMode.Boss)`로 바로 보스전을 여는 경로(테스트 등)를
+        // 위해 남겨 둔다.
         if (RunState.Mode == RunMode.Boss) SpawnBoss();
+    }
+
+    /// <summary>
+    /// 보스 포탈로 보스 필드에 들어왔다 — **원본에 없는 경로**(사용자 지시 2026-09-16).
+    /// 원본은 보스전이 별개의 런이라 `startRun`에서 한 번만 보스를 세우면 됐지만, 이제는
+    /// **런 도중에** 무대가 바뀌므로 그 시점에 보스를 세우고 잡몹 타이머를 보스전 간격으로 돌린다.
+    ///
+    /// `RunController`가 이미 `RunTransient.DestroyAll()`로 필드를 비운 뒤에 이 이벤트를 쏘므로
+    /// 여기서 다시 지우지 않는다 — 두 번 지우면 이 프레임에 세운 보스까지 날아간다.
+    /// </summary>
+    void HandleBossFieldEntered()
+    {
+        aliveMonsters.RemoveAll(t => t == null); // 방금 지워진 잡몹들을 목록에서도 떨어낸다
+        waveTimer = minionInterval;
+        shrineTimer = Shrine.FirstAt; // 보스전엔 성소가 안 나오지만(:4430) 다음 런을 위해 되돌린다
+        aliveShrine = null;
+        SpawnBoss();
     }
 
     /// <summary>
@@ -377,6 +399,11 @@ public class EnemySpawner : MonoBehaviour
         ProfileService.Current.stats.bosses++;
         ProfileService.Current.MarkBossCleared(region); // 다음 지역이 열린다
         Achievements.CheckNew(ProfileService.Current);
+
+        // 원본은 격파 1.6초 뒤에 `endRun('bossdead')`을 부른다(:4289). 지연을 주는 주체가
+        // `RunController`라 이벤트로 넘긴다 — 예전엔 이 호출이 아예 없어서 **보스를 잡아도 런이
+        // 안 끝나고 제한시간까지 빈 무대에 남아 있었다.**
+        RunEvents.RaiseBossDefeated();
     }
 
     /// <summary>기본 웨이브(일반 사냥). 이름을 나눠 둔 건 테스트가 리플렉션으로 이 메서드를 찾기 때문 —

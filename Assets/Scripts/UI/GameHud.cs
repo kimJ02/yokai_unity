@@ -1,6 +1,7 @@
 using UnityEngine;
 using YokaiFront.Characters;
 using YokaiFront.Core;
+using YokaiFront.World;
 
 namespace YokaiFront.UI
 {
@@ -38,6 +39,7 @@ namespace YokaiFront.UI
         const int LowTimeSeconds = 10;
 
         PlayerHealth health;
+        BossPortal portal;
 
         void Awake() => FindPlayer();
 
@@ -59,6 +61,7 @@ namespace YokaiFront.UI
             DrawTopBar(profile);
             DrawTimerBox();
             DrawCombo();
+            DrawPortalPrompt();
             DrawHints();
         }
 
@@ -93,6 +96,27 @@ namespace YokaiFront.UI
                 UiTheme.ShadowLabel(new Rect(LeftX, y, 700f, 20f), buffs, UiTheme.HudSmall, UiTheme.BuffLine);
         }
 
+        /// <summary>
+        /// 보스 포탈 안내 — **원본에 없다**(원본은 보스전을 로비에서 고른다).
+        /// 포탈은 맵 우측 끝에 있어 화면 밖일 때가 많으므로, **범위에 들어왔을 때만** 알려준다.
+        /// 항상 띄워두면 사냥 중 계속 시야를 먹는다.
+        /// </summary>
+        void DrawPortalPrompt()
+        {
+            if (RunState.Mode != RunMode.Normal) return;
+            if (portal == null) portal = Object.FindFirstObjectByType<BossPortal>();
+            if (portal == null || !portal.PlayerInRange) return;
+
+            string text = portal.IsUnlocked
+                ? "🌀 <b>F</b> — 보스 필드로 들어간다"
+                : $"🔒 토벌 {ProfileService.Current.RegionKills(RunState.Region)} / {RunState.RegionKillTarget}"
+                  + " — 아직 열리지 않았다";
+
+            UiTheme.ShadowLabel(new Rect(0f, UiTheme.DesignHeight - 130f, UiTheme.DesignWidth, 24f),
+                                text, Center(UiTheme.Hud),
+                                portal.IsUnlocked ? UiTheme.GoldColor : UiTheme.StageLine);
+        }
+
         /// <summary>원본 `buffTxt`(`:6288`~`:6318`) 중 우리가 가진 것들.</summary>
         string BuffText()
         {
@@ -110,6 +134,10 @@ namespace YokaiFront.UI
             // 원본 `:6290` — 권장 윤회에 모자란 지역이면 몹이 단단해지고 내 피해가 줄어든다.
             int gap = RebirthConfig.Gap(RunState.Region, ProfileService.Current.rebirths);
             if (gap > 0) s += $"   ⚠ 윤회 부족 {gap}회";
+
+            // 포탈이 열렸는지 — 열렸으면 우측 끝으로 가면 된다는 걸 알아야 한다(원본에 없는 안내).
+            if (RunState.Mode == RunMode.Normal && ProfileService.Current.IsBossUnlocked(RunState.Region))
+                s += "   🌀 보스 포탈 열림(우측 끝)";
 
             return s;
         }

@@ -48,6 +48,17 @@ namespace YokaiFront.World
         /// <summary>보스전 맵 폭. 원본 `CONFIG.bossWorld.mapW = 1800`(`:602`) — 훨씬 좁다.</summary>
         public const float BossMapWidth = 18f;
 
+        // ── 보스 포탈 (원본에 없음 — 사용자 지시 2026-09-16) ──
+        /// <summary>
+        /// 보스 포탈의 X 위치. 일반 맵 우측 끝 근처다(폭 26 중 24.2).
+        /// **플레이어 시작 지점(x=2.2)의 반대쪽 끝**이라, 사냥하며 자연스럽게 발견하게 되고
+        /// 100마리를 채운 뒤 계속 사냥하려는 사람이 실수로 근처에 밀려갈 일도 적다.
+        /// </summary>
+        public const float BossPortalX = 24.2f;
+        /// <summary>포탈 크기(월드 유닛) — 문처럼 세로로 길다.</summary>
+        public const float BossPortalWidth = 0.9f;
+        public const float BossPortalHeight = 2.0f;
+
         /// <summary>지금 무대가 보스전인지. <see cref="SetBossArena"/>가 바꾼다.</summary>
         public static bool IsBossArena { get; private set; }
 

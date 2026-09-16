@@ -39,12 +39,18 @@ namespace YokaiFront.Systems
 
         float hitstopLeft;
 
+        /// <summary>원본 `setTimeout(() => endRun('bossdead'), 1600)`(project_test.html:4289).</summary>
+        public const float BossDeadEndDelay = 1.6f;
+        float bossDeadTimer = -1f;
+
         void OnEnable()
         {
             CombatEvents.PlayerDied += HandlePlayerDied;
             CombatEvents.EnemyKilled += HandleEnemyKilled;
             CombatEvents.EnemyDamaged += HandleEnemyDamaged;
             CombatEvents.ShrineBuffGranted += CombatModifiers.GrantShrineBuff;
+            RunEvents.BossPortalRequested += HandleBossPortalRequested;
+            RunEvents.BossDefeated += HandleBossDefeated;
         }
 
         void OnDisable()
@@ -53,6 +59,8 @@ namespace YokaiFront.Systems
             CombatEvents.EnemyKilled -= HandleEnemyKilled;
             CombatEvents.EnemyDamaged -= HandleEnemyDamaged;
             CombatEvents.ShrineBuffGranted -= CombatModifiers.GrantShrineBuff;
+            RunEvents.BossPortalRequested -= HandleBossPortalRequested;
+            RunEvents.BossDefeated -= HandleBossDefeated;
         }
 
         void Start()
@@ -72,6 +80,19 @@ namespace YokaiFront.Systems
             }
 
             if (GameState.Current != GameScene.Run) return;
+
+            // 보스 격파 후 결과 화면까지의 지연. **멈춘 시간(unscaled)으로 잰다** — 히트스톱이
+            // 걸려 있으면 `Time.deltaTime`이 0이라 타이머가 안 줄고 결과 화면이 영영 안 뜬다.
+            if (bossDeadTimer >= 0f)
+            {
+                bossDeadTimer -= Time.unscaledDeltaTime;
+                if (bossDeadTimer <= 0f)
+                {
+                    bossDeadTimer = -1f;
+                    EndRun(RunEndReason.BossDead);
+                }
+                return; // 격파 뒤엔 런 타이머가 더 흐르지 않는다(timeout으로 뒤집히면 안 된다)
+            }
 
             // 히트스톱은 게임을 멈추는 것이므로 **멈춘 시간(unscaled)으로 재야 한다** —
             // `Time.deltaTime`으로 재면 timeScale이 0인 동안 타이머가 안 줄어 영원히 안 풀린다.
@@ -103,6 +124,7 @@ namespace YokaiFront.Systems
             RunTransient.DestroyAll();
             CombatModifiers.ResetForRun(); // 원본 `combo.n = 0; run.chainN = 0`(:4307·:4319)
             hitstopLeft = 0f;
+            bossDeadTimer = -1f;
 
             ResetPlayer();
 
@@ -142,11 +164,52 @@ namespace YokaiFront.Systems
             Time.timeScale = 0f;
         }
 
+        /// <summary>
+        /// 보스 포탈 입장 요청을 처리한다 — **원본에 없는 전환**(사용자 지시 2026-09-16).
+        ///
+        /// 판단은 전부 여기서 한다(포탈은 요청만 던진다, <see cref="RunEvents"/> 주석 참고):
+        /// 사냥 중인지 · 이미 보스 필드가 아닌지 · 그 지역 보스가 해금됐는지.
+        /// </summary>
+        void HandleBossPortalRequested()
+        {
+            if (GameState.Current != GameScene.Run) return;
+            if (!ProfileService.Current.IsBossUnlocked(RunState.Region)) return;
+            EnterBossField();
+        }
+
+        /// <summary>
+        /// 일반 필드 → 보스 필드. 무대·타이머·필드 정리·플레이어 위치를 한 번에 바꾼다.
+        /// <see cref="StartRun"/>과 같은 순서를 쓰는 이유는 거기 주석에 있다(무대를 먼저 바꿔야
+        /// `FieldBounds.MaxX`가 갱신되고, 그 뒤 좌표 계산이 맞는다).
+        /// </summary>
+        /// <returns>실제로 전환됐으면 true.</returns>
+        public bool EnterBossField()
+        {
+            if (!RunState.EnterBossField()) return false;
+
+            YokaiFront.World.PlatformSet.Activate(true);
+
+            // 일반 필드의 잡몹·투사체·장판을 지운다. 안 지우면 좁아진 보스 무대에 이전 필드의
+            // 몹이 맵 밖 좌표로 남아, 플레이어가 닿을 수 없는 곳에서 계속 살아 있다.
+            RunTransient.DestroyAll();
+
+            ResetPlayer(); // 좁아진 무대의 시작 지점으로
+            RunEvents.RaiseBossFieldEntered(); // 스포너가 보스를 세운다
+            return true;
+        }
+
+        /// <summary>
+        /// 보스 격파. 원본은 **1.6초 뒤에** 런을 끝낸다(`:4289`) — 즉사 연출과 보상 표시를
+        /// 볼 시간을 준다. 즉시 결과 화면을 띄우면 무엇을 잡았는지 보이지 않는다.
+        /// </summary>
+        void HandleBossDefeated() => bossDeadTimer = BossDeadEndDelay;
+
         /// <summary>원본 `toLobby()`(:4382).</summary>
         public void EnterLobby()
         {
             YokaiFront.World.PlatformSet.Activate(false); // 로비에선 일반 무대로 되돌린다
             RunTransient.DestroyAll(); // 결과 화면을 거치지 않고 나가도 필드가 남지 않게
+            bossDeadTimer = -1f;
             GameState.Set(GameScene.Lobby);
             Time.timeScale = 0f;
         }

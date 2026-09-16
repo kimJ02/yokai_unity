@@ -51,7 +51,7 @@ public class EnemyHealthTests
     {
         // 콤보가 쌓이면 피해 배수가 올라가 "몇 방에 죽는가" 기대값이 어긋난다(정적 상태 오염).
         CombatModifiers.Reset();
-        CombatEvents.Reset();
+        CombatEvents.Reset(); RunEvents.Reset();
         RunState.Reset();
     }
 

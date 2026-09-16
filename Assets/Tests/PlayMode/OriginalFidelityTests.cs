@@ -44,7 +44,7 @@ public class OriginalFidelityTests
     static void ResetStatics()
     {
         CombatModifiers.Reset();
-        CombatEvents.Reset();
+        CombatEvents.Reset(); RunEvents.Reset();
         RunState.Reset();
         RunTransient.Reset();
         EnemySpawnRequestBus.Reset();

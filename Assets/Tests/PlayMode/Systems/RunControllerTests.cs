@@ -37,7 +37,7 @@ public class RunControllerTests
     {
         GameState.Reset();
         RunState.Reset();
-        CombatEvents.Reset();
+        CombatEvents.Reset(); RunEvents.Reset();
         RunTransient.Reset();
         CombatModifiers.Reset();
         ProfileService.Reset();

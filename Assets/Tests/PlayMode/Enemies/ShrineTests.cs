@@ -36,7 +36,7 @@ public class ShrineTests
     static void ResetStatics()
     {
         CombatModifiers.Reset();
-        CombatEvents.Reset();
+        CombatEvents.Reset(); RunEvents.Reset();
         RunState.Reset();
         RunTransient.Reset();
         ProfileService.Reset();

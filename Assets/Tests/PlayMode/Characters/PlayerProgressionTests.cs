@@ -29,7 +29,7 @@ public class PlayerProgressionTests
     static void ResetStatics()
     {
         ProfileService.Reset();
-        CombatEvents.Reset();
+        CombatEvents.Reset(); RunEvents.Reset();
     }
 
     // ---- 순수 계산 (레벨/경험치, project_test.html:706) ----
