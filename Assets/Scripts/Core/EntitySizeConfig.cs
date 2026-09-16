@@ -29,7 +29,21 @@ namespace YokaiFront.Core
         /// 플레이어 그림 높이(유닛). 콜라이더 반지름도 이 값의 절반으로 따라간다 —
         /// 그림과 히트박스가 따로 놀면 "보이는 곳을 때렸는데 안 맞는" 상태가 된다.
         /// </summary>
-        public const float PlayerHeight = 1.50f;
+        public const float PlayerHeight = 1.00f;
+
+        /// <summary>
+        /// ⚠️ <see cref="PlayerHeight"/>의 **상한은 발판 층간 간격(1.35유닛)**이다
+        /// (`World.FieldLayout.NormalPlatforms` — 1.35 / 2.70 / 4.05 / 5.40).
+        ///
+        /// 넘기면 발판 위에 섰을 때 **머리가 윗 발판 콜라이더를 뚫는다.** 그러면
+        ///   ① 위아래로 끼어 "벽에 막히는" 느낌이 나고,
+        ///   ② 마법탄 총구(`MageAttack`의 `(±0.26, +0.36)` 오프셋)가 발판 안에서 생겨
+        ///      `MageProjectile`이 Ground에 닿은 것으로 보고 **쏘자마자 터진다.**
+        ///
+        /// 2026-09-16에 1.50으로 올렸다가 정확히 이 증상이 나서 1.00으로 되돌렸다.
+        /// 여유를 보면 실질 상한은 **1.15** 정도다.
+        /// </summary>
+        public const float PlayerHeightMax = 1.15f;
 
         /// <summary>플레이어 콜라이더 반지름(월드). 그림 높이의 절반.</summary>
         public const float PlayerRadius = PlayerHeight / 2f;
