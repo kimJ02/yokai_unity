@@ -110,6 +110,54 @@ namespace YokaiFront.UI
         /// <summary>토스트 판(`#toast`).</summary>
         public static GUIStyle Toast { get; private set; }
 
+        // ══════════════ Figma 디자인 (2026-09-16) ══════════════
+        //
+        // 원본 HTML CSS와 별개로, 디자이너가 Figma에 그린 화면이 따로 있다
+        // (파일 9EpUO2k4i9en6cWAATGVa4 — "타이틀" 35:2, "시간 회귀창" 31:4).
+        // 값은 렌더에서 직접 뽑은 것이라 추정이 아니다.
+        //
+        // **해상도 관계가 중요하다**: 회귀창은 640×360으로 그려졌고 우리 설계 좌표는 1280×720이라
+        // 정확히 **2배**다 — 픽셀아트가 정수배로 확대되어 도트가 안 깨진다. 타이틀은 1920×1080이라
+        // 1280×720의 **1.5배**이므로 좌표를 1.5로 나눠 옮긴다(TitleScreen 참고).
+
+        /// <summary>회귀창을 덮는 전체 화면 막. Figma "ESC 메뉴 어두운 배경"(157:12).</summary>
+        public static readonly Color FigmaScrim = Hex(0x1e, 0x1e, 0x1e, 0.86f);
+        /// <summary>회귀창 본체 회색. Figma "창 프레임"(162:2) — 그림이 없을 때의 대체색.</summary>
+        public static readonly Color WindowGray = Hex(0x85, 0x85, 0x85);
+        /// <summary>회귀창 제목 아래 구분선. 그림(window_frame)에 포함돼 있어 보통은 안 쓴다.</summary>
+        public static readonly Color WindowDivider = Hex(0x0e, 0x07, 0x1b);
+
+        /// <summary>타이틀 오른쪽 양피지 패널. Figma "오른쪽 메뉴 패널"(52:100).</summary>
+        public static readonly Color Parchment = Hex(0xc4, 0xa8, 0x73);
+        /// <summary>타이틀 메뉴 버튼·로고 박스 금색. Figma(63:3 · 35:18).</summary>
+        public static readonly Color PlateGold = Hex(0xd2, 0xa0, 0x45);
+        /// <summary>메뉴 버튼 테두리 갈색. Figma(63:3 테두리).</summary>
+        public static readonly Color PlateEdge = Hex(0x63, 0x49, 0x20);
+        /// <summary>타이틀 메뉴 위·아래 구분선. Figma(63:4 · 63:5).</summary>
+        public static readonly Color TitleDivider = Color.black;
+
+        /// <summary>타이틀 메뉴 글자(굵은 검정 — 양피지 위라 흰색은 안 읽힌다).</summary>
+        public static GUIStyle MenuLabel { get; private set; }
+        /// <summary>회귀창 통계 라벨(작은 흰 글씨).</summary>
+        public static GUIStyle StatLabel { get; private set; }
+        /// <summary>회귀창 통계 값(큰 흰 글씨).</summary>
+        public static GUIStyle StatValue { get; private set; }
+
+        static UiTextures textures;
+
+        /// <summary>
+        /// 씬의 <see cref="UiTextures"/>가 `Awake`에서 자기를 넘긴다. 정적 클래스는 에셋 참조를
+        /// 직렬화할 수 없어서 이 우회가 필요하다(그쪽 클래스 주석 참고).
+        /// </summary>
+        public static void SetTextures(UiTextures t) => textures = t;
+
+        public static Texture2D WindowFrame => textures != null ? textures.windowFrame : null;
+        public static Texture2D IconFlag => textures != null ? textures.iconFlag : null;
+        public static Texture2D IconStar => textures != null ? textures.iconStar : null;
+        public static Texture2D IconSkull => textures != null ? textures.iconSkull : null;
+        public static Texture2D IconShard => textures != null ? textures.iconShard : null;
+        public static Texture2D MenuPlate => textures != null ? textures.menuPlate : null;
+
         static Texture2D barBg, white;
 
         /// <summary>
@@ -192,6 +240,27 @@ namespace YokaiFront.UI
             Toast.alignment = TextAnchor.MiddleCenter;
             Toast.normal.textColor = ToastText;
 
+            // ── Figma 디자인용 스타일 ──
+            MenuLabel = new GUIStyle(label)
+            {
+                fontSize = 22,
+                fontStyle = FontStyle.Bold,
+                wordWrap = false,
+                alignment = TextAnchor.MiddleCenter,
+            };
+            MenuLabel.normal.textColor = Color.black; // 양피지 위라 검정이 읽힌다
+
+            StatLabel = new GUIStyle(label) { fontSize = 13, wordWrap = false };
+            StatLabel.normal.textColor = Color.white;
+
+            StatValue = new GUIStyle(label)
+            {
+                fontSize = 28,
+                fontStyle = FontStyle.Bold,
+                wordWrap = false,
+            };
+            StatValue.normal.textColor = Color.white;
+
             // 원본 `.bar { background:rgba(0,0,0,.55); border:1px solid rgba(255,255,255,.25) }`(`:31`).
             barBg = BoxTexture(Hex(0x00, 0x00, 0x00, 0.55f), new Color(1f, 1f, 1f, 0.25f));
             white = Solid(Color.white);
@@ -210,27 +279,106 @@ namespace YokaiFront.UI
         /// 픽셀값을 옮겨온 게 의미를 잃는다.
         /// </summary>
         /// <example><code>using (UiTheme.Scaled()) { /* 1280×720 좌표로 그린다 */ }</code></example>
-        public static ScaledGui Scaled()
+        public static ScaledGui Scaled() => Scaled(DesignWidth, DesignHeight);
+
+        /// <summary>
+        /// 설계 해상도를 지정하는 형태. **Figma 화면마다 그려진 해상도가 달라서** 필요하다 —
+        /// 타이틀은 1920×1080, 시간 회귀창은 640×360에 그려져 있다.
+        ///
+        /// 화면별 좌표계를 그대로 쓰면 **Figma 좌표를 나눗셈 없이 그대로 옮길 수 있다.** 억지로
+        /// 1280×720에 맞추면 1.5로 나눈 소수 좌표가 곳곳에 박히고, 그 반올림 오차가 픽셀아트에서
+        /// 1px씩 어긋나 보인다.
+        /// </summary>
+        public static ScaledGui Scaled(float designWidth, float designHeight)
         {
             Ensure();
-            var saved = new ScaledGui(GUI.matrix, GUI.skin);
+            var saved = new ScaledGui(GUI.matrix, GUI.skin, CurrentWidth, CurrentHeight);
 
-            float scale = Mathf.Min(Screen.width / DesignWidth, Screen.height / DesignHeight);
+            float scale = Mathf.Min(Screen.width / designWidth, Screen.height / designHeight);
             GUI.matrix = Matrix4x4.TRS(
-                new Vector3((Screen.width - DesignWidth * scale) * 0.5f,
-                            (Screen.height - DesignHeight * scale) * 0.5f, 0f),
+                new Vector3((Screen.width - designWidth * scale) * 0.5f,
+                            (Screen.height - designHeight * scale) * 0.5f, 0f),
                 Quaternion.identity, new Vector3(scale, scale, 1f));
             GUI.skin = Skin;
+
+            CurrentWidth = designWidth;
+            CurrentHeight = designHeight;
             return saved;
         }
 
-        /// <summary>`using`이 끝날 때 원래 행렬·스킨으로 되돌린다 — 다른 OnGUI에 영향이 안 가게.</summary>
+        /// <summary>지금 `Scaled()` 블록이 쓰는 설계 좌표계 크기. 화면 전체를 덮을 때 이 값을 쓴다.</summary>
+        public static float CurrentWidth { get; private set; } = DesignWidth;
+        public static float CurrentHeight { get; private set; } = DesignHeight;
+
+        /// <summary>`using`이 끝날 때 원래 행렬·스킨·설계 크기로 되돌린다 — 다른 OnGUI에 영향이 안 가게.</summary>
         public readonly struct ScaledGui : System.IDisposable
         {
             readonly Matrix4x4 matrix;
             readonly GUISkin skin;
-            public ScaledGui(Matrix4x4 m, GUISkin s) { matrix = m; skin = s; }
-            public void Dispose() { GUI.matrix = matrix; GUI.skin = skin; }
+            readonly float w, h;
+            public ScaledGui(Matrix4x4 m, GUISkin s, float width, float height)
+            { matrix = m; skin = s; w = width; h = height; }
+            public void Dispose()
+            {
+                GUI.matrix = matrix;
+                GUI.skin = skin;
+                CurrentWidth = w;
+                CurrentHeight = h;
+            }
+        }
+
+        // ══════════════ Figma 화면용 그리기 도구 ══════════════
+
+        /// <summary>단색 사각형. 판·구분선처럼 그림이 필요 없는 요소에 쓴다.</summary>
+        public static void FillRect(Rect r, Color c)
+        {
+            Color prev = GUI.color;
+            GUI.color = c;
+            GUI.DrawTexture(r, white);
+            GUI.color = prev;
+        }
+
+        /// <summary>
+        /// 텍스처를 사각형에 그린다. 그림이 없으면 <paramref name="fallback"/> 색으로 채운다 —
+        /// 아트가 아직 없는 자리(타이틀 배경·로고)가 실제로 그 상태라 화면이 비지 않게 한다.
+        /// </summary>
+        public static void DrawTex(Rect r, Texture2D tex, Color fallback)
+        {
+            if (tex != null) GUI.DrawTexture(r, tex, ScaleMode.StretchToFill, alphaBlend: true);
+            else FillRect(r, fallback);
+        }
+
+        /// <summary>
+        /// 아이콘을 **원본 비율 그대로** 그린다. Figma 아이콘은 32×32 도트를 64×64로(정수 2배)
+        /// 쓰도록 그려져 있어, 비율을 깨면 도트가 일그러진다.
+        /// </summary>
+        public static void DrawIcon(Rect box, Texture2D tex)
+        {
+            if (tex == null) return;
+            GUI.DrawTexture(box, tex, ScaleMode.ScaleToFit, alphaBlend: true);
+        }
+
+        /// <summary>
+        /// 타이틀 메뉴 버튼. Figma의 256×64 플레이트 그림을 배경으로 쓰고 글자를 얹는다.
+        /// 그림이 없으면 금색 사각형 + 갈색 테두리로 대체한다(색은 렌더에서 뽑은 값).
+        /// </summary>
+        public static bool PlateButton(Rect r, string text)
+        {
+            if (MenuPlate != null)
+            {
+                GUI.DrawTexture(r, MenuPlate, ScaleMode.StretchToFill, alphaBlend: true);
+            }
+            else
+            {
+                FillRect(r, PlateGold);
+                FillRect(new Rect(r.x, r.y, r.width, 2f), PlateEdge);
+                FillRect(new Rect(r.x, r.yMax - 2f, r.width, 2f), PlateEdge);
+            }
+
+            GUI.Label(r, text, MenuLabel);
+            // 그림을 배경으로 쓰므로 버튼 자체는 **투명**이어야 한다 — 기본 버튼 배경이 그려지면
+            // 플레이트를 덮는다. GUIStyle.none이 그 역할이다.
+            return GUI.Button(r, GUIContent.none, GUIStyle.none);
         }
 
         /// <summary>원본 `.bar`(`:31`) — 바탕 위에 비율만큼 채운다. `text`가 있으면 가운데에 얹는다.</summary>

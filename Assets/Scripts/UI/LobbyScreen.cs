@@ -37,7 +37,7 @@ namespace YokaiFront.UI
         string toast = "";
         float toastLeft;
         bool confirmingReset;
-        bool confirmingRebirth;
+        RegressionWindow regression;
 
         void Awake()
         {
@@ -455,29 +455,17 @@ namespace YokaiFront.UI
             {
                 GUILayout.Label("아직 정복한 지역이 없어서 윤회할 수 없다 — 보스를 하나라도 잡아야 한다.");
             }
-            else if (!confirmingRebirth)
-            {
-                if (GUILayout.Button($"☸ 윤회하기 (+{gain})", GUILayout.Height(32f), GUILayout.Width(220f)))
-                    confirmingRebirth = true;
-            }
             else
             {
-                // 되돌릴 수 없는 조작이라 한 번 더 묻는다(원본도 confirm() 대화상자를 쓴다).
-                GUILayout.Label("정말 윤회할까? 이번 생의 진행은 전부 사라진다.");
-                GUILayout.BeginHorizontal();
-                if (GUILayout.Button($"네, 윤회합니다 (+{gain})", GUILayout.Height(30f), GUILayout.Width(200f)))
+                // 확인은 **디자인이 있는 전용 창**이 받는다(Figma "시간 회귀창" 31:4,
+                // `UI/RegressionWindow`). 예전엔 이 자리에서 버튼 두 개로 물었는데, 되돌릴 수 없는
+                // 조작을 탭 본문 한구석에서 처리하는 것보다 화면을 덮는 창이 맞다.
+                if (GUILayout.Button($"☸ 시간 회귀 (+{gain})", GUILayout.Height(32f), GUILayout.Width(220f)))
                 {
-                    int got = profile.DoRebirth();
-                    confirmingRebirth = false;
-                    if (got > 0)
-                    {
-                        ShowToast($"☸ 윤회 — 포인트 +{got}");
-                        SaveService.Save();
-                        tab = Tab.Stage; // 지역 진행이 초기화됐으니 그쪽을 보여준다
-                    }
+                    if (regression == null) regression = Object.FindFirstObjectByType<RegressionWindow>();
+                    if (regression != null) regression.Open();
+                    else ShowToast("회귀창을 찾을 수 없다 — 씬을 다시 빌드할 것");
                 }
-                if (GUILayout.Button("취소", GUILayout.Height(30f), GUILayout.Width(80f))) confirmingRebirth = false;
-                GUILayout.EndHorizontal();
             }
 
             GUILayout.Space(14f);

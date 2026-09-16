@@ -51,7 +51,8 @@ namespace YokaiFront.UI
 
         void OnGUI()
         {
-            if (GameState.Current == GameScene.Lobby) return;
+            // 로비·타이틀에서는 HUD가 없다(원본도 `#hud`를 로비에서 숨긴다).
+            if (GameState.Current == GameScene.Lobby || GameState.Current == GameScene.Title) return;
             if (health == null) FindPlayer();
 
             using var scaled = UiTheme.Scaled();

@@ -65,8 +65,23 @@ namespace YokaiFront.Systems
 
         void Start()
         {
-            // 원본도 로비에서 시작한다(`state.scene`의 초기값 'lobby', :1466).
-            EnterLobby();
+            // 원본은 로비에서 시작하지만(`state.scene` 초기값 'lobby', :1466), 디자인에 타이틀
+            // 화면이 생겨서(Figma 35:2) 그쪽이 먼저다. 로비로는 타이틀 메뉴를 거쳐 들어간다.
+            EnterTitle();
+        }
+
+        /// <summary>
+        /// 타이틀 화면으로. **원본에 없는 화면**이다(2026-09-16, Figma 적용).
+        /// 로비와 같은 정리를 한다 — 타이틀에서 "새 원정"을 고르면 바로 로비로 가므로
+        /// 필드에 지난 런의 잔해가 남아 있으면 안 된다.
+        /// </summary>
+        public void EnterTitle()
+        {
+            YokaiFront.World.PlatformSet.Activate(false);
+            RunTransient.DestroyAll();
+            bossDeadTimer = -1f;
+            GameState.Set(GameScene.Title);
+            Time.timeScale = 0f;
         }
 
         void Update()

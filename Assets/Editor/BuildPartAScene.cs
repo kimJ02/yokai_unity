@@ -314,9 +314,24 @@ public static class BuildPartAScene
         // 화면(로비/HUD/결과)은 전부 이 오브젝트에 같이 붙인다. 각자 `GameState`를 보고 자기 차례에만
         // 그리므로 켜고 끌 필요가 없다 — 원본도 div 셋을 `hidden` 클래스로 토글할 뿐이다.
         var ui = new GameObject("UI");
+
+        // Figma 이미지를 들고 있는 컴포넌트를 **먼저** 붙인다 — `Awake`에서 `UiTheme`에 넘기고,
+        // 같은 오브젝트의 Awake는 붙인 순서로 돌기 때문에 다른 화면보다 앞서 있어야
+        // 첫 프레임부터 그림이 보인다.
+        BuildUiTextures.Apply(); // Point 필터·무압축 (도트가 흐려지지 않게)
+        var tex = ui.AddComponent<UiTextures>();
+        tex.windowFrame = BuildUiTextures.Load("window_frame");
+        tex.iconFlag = BuildUiTextures.Load("icon_flag");
+        tex.iconStar = BuildUiTextures.Load("icon_star");
+        tex.iconSkull = BuildUiTextures.Load("icon_skull");
+        tex.iconShard = BuildUiTextures.Load("icon_shard");
+        tex.menuPlate = BuildUiTextures.Load("menu_plate");
+
+        ui.AddComponent<TitleScreen>();
         ui.AddComponent<LobbyScreen>();
         ui.AddComponent<GameHud>();
         ui.AddComponent<ResultScreen>();
+        ui.AddComponent<RegressionWindow>();
     }
 
     static void BuildEnemySpawner()

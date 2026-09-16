@@ -66,10 +66,11 @@ public class RunControllerTests
     public IEnumerator StartRun_BeginsRunState_AndUnfreezesTime()
     {
         var rc = NewController();
-        yield return null; // Start()가 EnterLobby()로 로비에 넣는다
+        yield return null; // Start()가 EnterTitle()로 타이틀에 넣는다
 
-        Assert.AreEqual(GameScene.Lobby, GameState.Current, "원본도 로비에서 시작한다(:1466)");
-        Assert.AreEqual(0f, Time.timeScale, "로비에선 게임이 멈춰 있어야 한다");
+        // 원본은 로비에서 시작하지만(`:1466`) 디자인에 타이틀 화면이 생겨(Figma 35:2) 그쪽이 먼저다.
+        Assert.AreEqual(GameScene.Title, GameState.Current, "타이틀 화면에서 시작해야 한다");
+        Assert.AreEqual(0f, Time.timeScale, "타이틀에선 게임이 멈춰 있어야 한다");
 
         rc.StartRun(3, RunMode.Normal);
 
@@ -150,13 +151,25 @@ public class RunControllerTests
         Assert.AreEqual(1f, Time.timeScale);
     }
 
-    /// <summary>원본 `pauseRun`의 `if (run.over || state.scene !== 'run') return` — 로비에선 안 걸린다.</summary>
+    /// <summary>
+    /// 원본 `pauseRun`의 `if (run.over || state.scene !== 'run') return`.
+    /// 시작 화면이 로비에서 타이틀로 바뀌었어도(Figma 35:2) 지켜야 할 규칙은 같다:
+    /// **사냥 중이 아닌 화면에서 ESC를 눌러도 화면이 바뀌지 않는다.**
+    /// </summary>
     [UnityTest]
     public IEnumerator Pause_DoesNothingOutsideRun()
     {
         var rc = NewController();
         yield return null;
 
+        var before = GameState.Current;
+        Assert.AreNotEqual(GameScene.Run, before, "이 테스트는 사냥이 아닌 화면에서 시작해야 한다");
+
+        rc.Pause();
+        Assert.AreEqual(before, GameState.Current, "사냥이 아닌데 ESC로 일시정지로 갔다");
+
+        // 로비에서도 같은지 확인한다(예전 테스트가 보던 상황).
+        rc.EnterLobby();
         rc.Pause();
         Assert.AreEqual(GameScene.Lobby, GameState.Current, "로비에서 ESC를 눌러도 일시정지로 가면 안 된다");
     }
