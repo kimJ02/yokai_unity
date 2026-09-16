@@ -1,7 +1,11 @@
 namespace YokaiFront.Core
 {
-    /// <summary>원본 `state.scene`(project_test.html:1466) — 로비/사냥/일시정지/결과.</summary>
-    public enum GameScene { Lobby, Run, Pause, Result }
+    /// <summary>
+    /// 원본 `state.scene`(project_test.html:1466)은 로비/사냥/일시정지/결과 4종이다.
+    /// <see cref="Title"/>은 **원본에 없다** — 디자인(Figma "타이틀" 화면)에 새 원정·불러오기·
+    /// 설정·나가기 메뉴가 생기면서 추가됐다(2026-09-16).
+    /// </summary>
+    public enum GameScene { Lobby, Run, Pause, Result, Title }
 
     /// <summary>
     /// 게임이 지금 어느 화면에 있는지. 원본 `state.scene`과 그 게임루프 분기
