@@ -33,5 +33,48 @@ namespace YokaiFront.Core
 
         /// <summary>몹 표시 레벨 = 권장 레벨. 원본 `regionBaseLv(r) = (r-1)*3 + 1`(:972).</summary>
         public static int RecommendedLevel(int region) => (region - 1) * 3 + 1;
+
+        /// <summary>
+        /// 지역별 하늘 색 3단(위 → 중간 → 아래). 원본 `regionSkyTint(r)`(project_test.html:4483 부근)
+        /// 그대로다 — 원본은 이 셋으로 세로 그라데이션을 그린다.
+        ///
+        /// **왜 필요했나**: 씬 빌더가 카메라 배경을 `Color.white`로 두고 있었다(초기 스캐폴딩의
+        /// 자리표시자). 원본은 캔버스에 어두운 밤 하늘을 먼저 깔기 때문에, 흰 배경 위에서는
+        /// ① 발판·몹이 눈에 찌르고 ② 로비 판이 `rgba(14,11,20,.92)`라 **8% 통과하는 흰색**이
+        /// UI 전체를 뿌옇게 만들었다(사용자가 "깨져 보인다"고 지적한 증상).
+        /// </summary>
+        public static readonly Color[,] SkyTints = BuildSkyTints();
+
+        static Color[,] BuildSkyTints()
+        {
+            // 원본 `tints` 배열의 헥사값 그대로.
+            string[,] hex =
+            {
+                { "0b0b1e", "191430", "2a1a2e" }, { "0b101e", "141c30", "1a2a2e" }, { "10101c", "1e1e2e", "2e2a3a" },
+                { "1e0b14", "301424", "3e1a2a" }, { "12121a", "222230", "32303e" }, { "0b141e", "142230", "1a303e" },
+                { "1e0e0b", "301a14", "3e241a" }, { "140b1e", "241430", "301a3e" }, { "050508", "100c18", "1a1424" },
+            };
+
+            var result = new Color[Count, 3];
+            for (int r = 0; r < Count; r++)
+                for (int i = 0; i < 3; i++)
+                    result[r, i] = Hex(hex[r, i]);
+            return result;
+        }
+
+        /// <summary>
+        /// 그 지역 하늘의 **중간 색**. 카메라는 단색으로만 지울 수 있어서, 3단 그라데이션 중
+        /// 가운데를 대표값으로 쓴다(그라데이션·별·달은 원본 렌더링 쪽이라 아직 이식 범위 밖).
+        /// </summary>
+        public static Color SkyColor(int region)
+        {
+            int r = Mathf.Clamp(region - 1, 0, Count - 1);
+            return SkyTints[r, 1];
+        }
+
+        static Color Hex(string s) => new Color(
+            int.Parse(s.Substring(0, 2), System.Globalization.NumberStyles.HexNumber) / 255f,
+            int.Parse(s.Substring(2, 2), System.Globalization.NumberStyles.HexNumber) / 255f,
+            int.Parse(s.Substring(4, 2), System.Globalization.NumberStyles.HexNumber) / 255f);
     }
 }
