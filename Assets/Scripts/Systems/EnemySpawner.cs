@@ -326,8 +326,8 @@ public class EnemySpawner : MonoBehaviour
         var health = go.GetComponent<EnemyHealth>();
         if (health != null)
         {
-            // 보스도 윤회 장벽을 받는다(원본 `spawnBoss`의 `rebirthWallHpMult(r)` :4159).
-            health.SetMaxHp(Boss.HpForRegion(region) * RebirthConfig.WallEnemyHp(region, ProfileService.Current.rebirths));
+            // 보스도 회귀 장벽을 받는다(원본 `spawnBoss`의 `rebirthWallHpMult(r)` :4159).
+            health.SetMaxHp(Boss.HpForRegion(region) * RegressionConfig.WallEnemyHp(region, ProfileService.Current.regressions));
             health.SetLevel(Boss.LevelForRegion(region));
             health.knockbackMultiplier = Boss.KnockbackMultiplier; // 거의 안 밀린다
             // 레벨 페널티 하한이 25%가 아니라 50%다(원본 `levelFactor`의 보스 분기 :1652).
@@ -340,7 +340,7 @@ public class EnemySpawner : MonoBehaviour
         if (move != null)
         {
             move.attackPower = Boss.DamageForRegion(region)
-                               * RebirthConfig.WallEnemyDamage(region, ProfileService.Current.rebirths);
+                               * RegressionConfig.WallEnemyDamage(region, ProfileService.Current.regressions);
             move.moveSpeed = Boss.MoveSpeed;
         }
 
@@ -564,8 +564,8 @@ public class EnemySpawner : MonoBehaviour
         {
             float baseHp = data != null ? data.maxHp : health.MaxHp;
             float hp = DifficultyScalingConfig.ScaledHp(baseHp, regionLv);
-            // 윤회 장벽 — 권장 윤회에 모자란 지역이면 몹이 훨씬 단단해진다(원본 `rebirthWallHpMult` :975).
-            hp *= RebirthConfig.WallEnemyHp(regionLv, ProfileService.Current.rebirths);
+            // 회귀 장벽 — 권장 회귀에 모자란 지역이면 몹이 훨씬 단단해진다(원본 `rebirthWallHpMult` :975).
+            hp *= RegressionConfig.WallEnemyHp(regionLv, ProfileService.Current.regressions);
             if (elite) hp *= DifficultyScalingConfig.EliteHpMult;
             // 필드만 바꾸면 이미 실행된 Awake가 세팅한 CurrentHp엔 반영 안 되는 이 프로젝트 단골
             // 함정이 있어(EnemyHealth 참고) 반드시 SetMaxHp()를 통해서 바꾼다.
@@ -582,7 +582,7 @@ public class EnemySpawner : MonoBehaviour
         {
             float baseDmg = data != null ? data.attackPower : move.attackPower;
             float dmg = DifficultyScalingConfig.ScaledDmg(baseDmg, regionLv);
-            dmg *= RebirthConfig.WallEnemyDamage(regionLv, ProfileService.Current.rebirths); // 원본 :976
+            dmg *= RegressionConfig.WallEnemyDamage(regionLv, ProfileService.Current.regressions); // 원본 :976
             if (elite) dmg *= DifficultyScalingConfig.EliteDmgMult;
             move.attackPower = dmg;
             // 원본 `speed: base.speed * rand(0.9, 1.1)`(project_test.html:3960) — 같은 종이라도 마리마다

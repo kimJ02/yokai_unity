@@ -132,9 +132,9 @@ namespace YokaiFront.UI
             if (CombatModifiers.ChainKills >= CombatModifiers.ChainKillMin)
                 s += $"   연쇄 ×{CombatModifiers.ChainKills}";
 
-            // 원본 `:6290` — 권장 윤회에 모자란 지역이면 몹이 단단해지고 내 피해가 줄어든다.
-            int gap = RebirthConfig.Gap(RunState.Region, ProfileService.Current.rebirths);
-            if (gap > 0) s += $"   ⚠ 윤회 부족 {gap}회";
+            // 원본 `:6290` — 권장 회귀에 모자란 지역이면 몹이 단단해지고 내 피해가 줄어든다.
+            int gap = RegressionConfig.Gap(RunState.Region, ProfileService.Current.regressions);
+            if (gap > 0) s += $"   ⚠ 회귀 부족 {gap}회";
 
             // 포탈이 열렸는지 — 열렸으면 우측 끝으로 가면 된다는 걸 알아야 한다(원본에 없는 안내).
             if (RunState.Mode == RunMode.Normal && ProfileService.Current.IsBossUnlocked(RunState.Region))

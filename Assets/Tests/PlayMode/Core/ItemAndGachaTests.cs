@@ -10,7 +10,7 @@ namespace YokaiFront.Tests.PlayMode
 /// <summary>
 /// 아이템 35종과 가챠 — 원본 `ITEMS`(project_test.html:758) · `rollItem`/`doGacha`(`:6541`~`:6588`).
 ///
-/// 아이템은 **윤회해도 사라지지 않는 유일한 성장 축**이라, 집계 방식(합/곱)과 상한·천장이
+/// 아이템은 **회귀해도 사라지지 않는 유일한 성장 축**이라, 집계 방식(합/곱)과 상한·천장이
 /// 어긋나면 게임의 장기 곡선이 통째로 달라진다.
 /// </summary>
 public class ItemAndGachaTests
@@ -143,15 +143,15 @@ public class ItemAndGachaTests
 
     // ────────────────────────── 가챠 ──────────────────────────
 
-    /// <summary>포인트가 모자라면 뽑히지 않는다(원본 `if (meta.rp < GACHA_COST) break`).</summary>
+    /// <summary>포인트가 모자라면 뽑히지 않는다(원본 `if (meta.shards < GACHA_COST) break`).</summary>
     [Test]
     public void Gacha_RequiresPoints()
     {
         var p = ProfileService.Current;
-        p.rp = GachaService.Cost - 1;
+        p.shards = GachaService.Cost - 1;
 
         Assert.AreEqual(0, GachaService.Pull(p, 1).Count);
-        Assert.AreEqual(GachaService.Cost - 1, p.rp, "실패했는데 포인트가 깎였다");
+        Assert.AreEqual(GachaService.Cost - 1, p.shards, "실패했는데 포인트가 깎였다");
     }
 
     /// <summary>뽑으면 포인트가 그만큼 줄고 아이템이 늘어난다.</summary>
@@ -159,12 +159,12 @@ public class ItemAndGachaTests
     public void Gacha_SpendsPointsAndGrantsItems()
     {
         var p = ProfileService.Current;
-        p.rp = GachaService.Cost * 5;
+        p.shards = GachaService.Cost * 5;
 
         var got = GachaService.Pull(p, 5);
 
         Assert.AreEqual(5, got.Count);
-        Assert.AreEqual(0, p.rp);
+        Assert.AreEqual(0, p.shards);
         int total = 0;
         foreach (var s in p.items.stacks) total += s.count;
         Assert.AreEqual(5, total);
@@ -191,7 +191,7 @@ public class ItemAndGachaTests
     public void Gacha_PityForcesEpicOrBetter()
     {
         var p = ProfileService.Current;
-        p.rp = GachaService.Cost;
+        p.shards = GachaService.Cost;
         p.items.pity = GachaService.PityAt;
 
         var got = GachaService.Pull(p, 1);
@@ -210,45 +210,45 @@ public class ItemAndGachaTests
         foreach (var d in ItemDatabase.All)
             for (int i = 0; i < ItemDatabase.Cap(d.grade); i++) p.items.Add(d.id);
 
-        p.rp = 1000;
+        p.shards = 1000;
         Assert.AreEqual(0, GachaService.Pull(p, 5).Count);
-        Assert.AreEqual(1000, p.rp);
+        Assert.AreEqual(1000, p.shards);
     }
 
-    /// <summary>아이템은 **윤회해도 남는다** — 이게 영구 성장 축의 정의다.</summary>
+    /// <summary>아이템은 **회귀해도 남는다** — 이게 영구 성장 축의 정의다.</summary>
     [Test]
-    public void Items_SurviveRebirth()
+    public void Items_SurviveRegression()
     {
         var p = ProfileService.Current;
         p.items.Add("atk");
         p.items.Add("lifesteal");
         p.MarkBossCleared(1);
 
-        p.DoRebirth();
+        p.DoRegression();
 
         Assert.AreEqual(1, p.items.Count("atk"));
         Assert.AreEqual(1, p.items.Count("lifesteal"));
     }
 
     /// <summary>
-    /// '시작의 유산' — 윤회 후 골드 강화를 맨바닥이 아니라 몇 레벨 쥐고 시작한다(원본 `headstart` :6524).
+    /// '시작의 유산' — 시간 회귀 후 골드 강화를 맨바닥이 아니라 몇 레벨 쥐고 시작한다(원본 `headstart` :6524).
     /// </summary>
     [Test]
-    public void Headstart_GrantsUpgradeLevelsAfterRebirth()
+    public void Headstart_GrantsUpgradeLevelsAfterRegression()
     {
         var p = ProfileService.Current;
         p.items.Add("headstart"); // per 2
         p.MarkBossCleared(1);
 
-        p.DoRebirth();
+        p.DoRegression();
 
         Assert.AreEqual(2, p.upgrades.atk);
         Assert.AreEqual(2, p.upgrades.crit);
     }
 
-    /// <summary>'각인의 봉인' — 윤회해도 전문화가 유지된다(원본 `keepSpec` :6527).</summary>
+    /// <summary>'각인의 봉인' — 회귀해도 전문화가 유지된다(원본 `keepSpec` :6527).</summary>
     [Test]
-    public void KeepSpec_PreservesSpecializationAcrossRebirth()
+    public void KeepSpec_PreservesSpecializationAcrossRegression()
     {
         var p = ProfileService.Current;
         p.mageBranch = MageBranch.Explosion;
@@ -256,7 +256,7 @@ public class ItemAndGachaTests
         p.spUsed = 10;
         p.MarkBossCleared(1);
 
-        p.DoRebirth();
+        p.DoRegression();
         Assert.AreEqual(MageBranch.None, p.mageBranch, "봉인이 없으면 전문화는 날아가야 한다");
 
         p.items.Add("keepSpec");
@@ -265,7 +265,7 @@ public class ItemAndGachaTests
         p.spUsed = 6;
         p.MarkBossCleared(1);
 
-        p.DoRebirth();
+        p.DoRegression();
         Assert.AreEqual(MageBranch.Gravity, p.mageBranch, "봉인이 있는데 전문화가 날아갔다");
         Assert.AreEqual(3, p.mageTier);
         Assert.AreEqual(6, p.spUsed);

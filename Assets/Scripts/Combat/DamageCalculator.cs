@@ -18,7 +18,7 @@ namespace YokaiFront.Combat
     /// 참조가 없는 순수 계산기라서다: `vulnMult`(취약) · `lvF`(레벨 페널티) 두 개가 그렇다.
     ///
     /// 아직 빠진 항(해당 시스템이 없어서): `itemMul('dmg')`·`itemDmgVs`(아이템) ·
-    /// `rebirthWallPlayerDmgMult`(윤회 장벽). 생기면 `CombatModifiers.DamageMultiplier`에 곱하면 된다.
+    /// `rebirthWallPlayerDmgMult`(회귀 장벽). 생기면 `CombatModifiers.DamageMultiplier`에 곱하면 된다.
     ///
     /// 이 클래스가 `Combat`에 있는 이유: 무기에 종속되지 않는 전투 공용 인프라(CLAUDE.md 폴더 구조 규칙의
     /// "피해 판정 헬퍼")이고, `Characters`(2층)가 `Combat`(1층)을 참조할 수 있어 마법사 무기에서도 쓸 수 있다.

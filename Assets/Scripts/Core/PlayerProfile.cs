@@ -41,21 +41,21 @@ namespace YokaiFront.Core
 
         public UpgradeLevels upgrades = new UpgradeLevels();
 
-        /// <summary>윤회 포인트 — 가챠 재화. 원본 `meta.rp`(project_test.html:1147). **윤회해도 안 없어진다.**</summary>
-        public int rp = 0;
+        /// <summary>시간의 파편 — 가챠 재화. 원본 `meta.shards`(project_test.html:1147). **회귀해도 안 없어진다.**</summary>
+        public int shards = 0;
 
         /// <summary>
-        /// 보유 아이템. 원본 `meta.items`(`:1146`) — **윤회해도 사라지지 않는 유일한 성장 축**이다.
+        /// 보유 아이템. 원본 `meta.items`(`:1146`) — **회귀해도 사라지지 않는 유일한 성장 축**이다.
         /// </summary>
         public ItemInventory items = new ItemInventory();
 
-        /// <summary>누적 통계. **윤회해도 안 지워진다** — 업적이 "이번 생"이 아니라 "지금까지"를 본다.</summary>
+        /// <summary>누적 통계. **회귀해도 안 지워진다** — 업적이 "이번 생"이 아니라 "지금까지"를 본다.</summary>
         public PlayerStats stats = new PlayerStats();
 
         /// <summary>달성한 업적 id. 원본 `meta.achieved`(project_test.html:1150).</summary>
         public List<string> achieved = new List<string>();
-        /// <summary>지금까지 윤회한 횟수. 원본 `meta.rebirths` — 윤회 장벽 계산의 기준이다.</summary>
-        public int rebirths = 0;
+        /// <summary>지금까지 회귀한 횟수. 원본 `meta.regressions` — 회귀 장벽 계산의 기준이다.</summary>
+        public int regressions = 0;
 
         /// <summary>
         /// 지역별 진행도 — 원본 `meta.regions[r] = { kills, bossUnlocked, bossCleared }`(project_test.html:1131).
@@ -112,15 +112,15 @@ namespace YokaiFront.Core
         }
 
         /// <summary>
-        /// 지금 윤회하면 받을 윤회 포인트 — 원본 `rpPreview()`(project_test.html:6505).
+        /// 지금 회귀하면 받을 시간의 파편 — 원본 `rpPreview()`(project_test.html:6505).
         /// **이번 생에 정복한 지역만** 센다. 원본 주석 그대로 "갈아넣은 시간이 아니라
         /// '어디까지 뚫었나'가 보상이다" — 시간을 오래 쓴다고 늘지 않는다.
         /// </summary>
-        public int RebirthPointPreview()
+        public int ShardPreview()
         {
             int sum = 0;
             for (int r = 1; r <= RegionConfig.Count; r++)
-                if (IsBossCleared(r)) sum += RebirthConfig.RpOfRegion(r);
+                if (IsBossCleared(r)) sum += RegressionConfig.ShardsOfRegion(r);
             return sum;
         }
 
@@ -133,18 +133,18 @@ namespace YokaiFront.Core
         }
 
         /// <summary>
-        /// 윤회한다 — 원본 `doRebirth()`(project_test.html:6509).
+        /// 회귀한다 — 원본 `doRebirth()`(project_test.html:6509).
         ///
         /// **초기화**: 레벨·경험치·골드·골드 강화·전문화(SP)·지역 진행.
-        /// **유지**: 윤회 포인트·윤회 횟수(그리고 나중에 아이템).
+        /// **유지**: 시간의 파편·회귀 횟수(그리고 나중에 아이템).
         ///
         /// 정복한 지역이 하나도 없으면 아무 일도 안 한다(원본 `if (gain &lt; 1) return`) —
         /// 얻을 게 없는데 진행만 날리는 걸 막는 안전장치다.
         /// </summary>
-        /// <returns>얻은 윤회 포인트. 0이면 윤회가 일어나지 않았다.</returns>
-        public int DoRebirth()
+        /// <returns>얻은 시간의 파편. 0이면 시간 회귀가 일어나지 않았다.</returns>
+        public int DoRegression()
         {
-            int gain = RebirthPointPreview();
+            int gain = ShardPreview();
             if (gain < 1) return 0;
 
             // '각인의 봉인'이 있으면 되돌려줄 값을 미리 잡아둔다(아래에서 복구).
@@ -152,9 +152,9 @@ namespace YokaiFront.Core
             int keptTier = mageTier;
             int keptSpUsed = spUsed;
 
-            rp += gain;
-            rebirths++;
-            stats.rpEarned += gain;
+            shards += gain;
+            regressions++;
+            stats.shardsEarned += gain;
 
             level = 1;
             exp = 0;

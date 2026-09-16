@@ -20,7 +20,7 @@ namespace YokaiFront.Core
             "설산 고개", "화염 동굴", "저승 문턱", "백귀야행",
         };
 
-        // 원본 CONFIG.entryFee(:739) — 지역당 지수 증가라 결국 감당이 안 되고, 그게 윤회를 강제한다.
+        // 원본 CONFIG.entryFee(:739) — 지역당 지수 증가라 결국 감당이 안 되고, 그게 시간 회귀를 강제한다.
         const float EntryFeeBase = 300f;
         const float EntryFeeGrow = 2.2f;
 

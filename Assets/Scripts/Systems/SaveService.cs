@@ -57,8 +57,10 @@ namespace YokaiFront.Systems
             if (!HasSave) return false;
             try
             {
+                string json = File.ReadAllText(SavePath);
                 var profile = new PlayerProfile(); // 기본값에서 시작 — 위 "기본값 위에 덮어쓰는 이유" 참고
-                JsonUtility.FromJsonOverwrite(File.ReadAllText(SavePath), profile);
+                JsonUtility.FromJsonOverwrite(json, profile);
+                MigrateLegacyRebirthFields(json, profile);
                 ProfileService.Current = profile;
                 return true;
             }
@@ -67,6 +69,41 @@ namespace YokaiFront.Systems
                 Debug.LogWarning($"[SaveService] 불러오기 실패, 새 프로필로 시작: {e.Message}");
                 return false;
             }
+        }
+
+        /// <summary>
+        /// 2026-09-16 개칭(윤회 → 시간 회귀 / 윤회 포인트 → 시간의 파편) **이전** 세이브를 살린다.
+        ///
+        /// `JsonUtility`는 **필드 이름으로** 값을 맞추므로, `rp`/`rebirths`/`rpEarned`를
+        /// `shards`/`regressions`/`shardsEarned`로 바꾼 순간 옛 세이브의 그 값들이 조용히 0이 된다 —
+        /// 에러도 경고도 없이 파편과 회귀 횟수만 사라지는, **알아채기 어려운 손실**이다.
+        /// 그래서 옛 이름으로 한 번 더 읽어 새 필드가 비어 있을 때만 옮겨 담는다.
+        ///
+        /// 새 이름으로 저장된 파일에는 옛 키가 없으므로 이 함수는 아무 일도 하지 않는다.
+        /// 한 번 저장되면 옛 키는 파일에서 사라지니, 다음 개칭 때 이 코드는 지워도 된다.
+        /// </summary>
+        static void MigrateLegacyRebirthFields(string json, PlayerProfile profile)
+        {
+            var legacy = JsonUtility.FromJson<LegacyProfile>(json);
+            if (legacy == null) return;
+
+            if (profile.shards == 0 && legacy.rp != 0) profile.shards = legacy.rp;
+            if (profile.regressions == 0 && legacy.rebirths != 0) profile.regressions = legacy.rebirths;
+            if (profile.stats != null && profile.stats.shardsEarned == 0 && legacy.stats != null
+                && legacy.stats.rpEarned != 0)
+                profile.stats.shardsEarned = legacy.stats.rpEarned;
+        }
+
+        /// <summary>개칭 전 필드 이름만 담은 읽기 전용 형태(위 <see cref="MigrateLegacyRebirthFields"/>용).</summary>
+        [System.Serializable]
+        class LegacyProfile
+        {
+            public int rp;
+            public int rebirths;
+            public LegacyStats stats;
+
+            [System.Serializable]
+            public class LegacyStats { public int rpEarned; }
         }
 
         /// <summary>전체 초기화(원본 로비의 "전체 초기화" 버튼, project_test.html:524).</summary>

@@ -5,7 +5,7 @@ namespace YokaiFront.Core
 {
     /// <summary>
     /// 누적 통계 — 원본 `meta.stats`(project_test.html:1151)와 `meta.totalKills`(`:1152`).
-    /// **윤회해도 사라지지 않는다** — 업적이 "이번 생"이 아니라 "지금까지"를 보기 때문이다.
+    /// **회귀해도 사라지지 않는다** — 업적이 "이번 생"이 아니라 "지금까지"를 보기 때문이다.
     /// </summary>
     [Serializable]
     public class PlayerStats
@@ -15,7 +15,7 @@ namespace YokaiFront.Core
         public int elites;
         public int shrines;
         public int bosses;
-        public int rpEarned;
+        public int shardsEarned;
         public int goldEarned;
         public int pulls;
     }
@@ -33,7 +33,7 @@ namespace YokaiFront.Core
     /// <summary>
     /// 업적 — 원본 `ACHIEVEMENTS`(project_test.html:802)와 `checkAchievements()`(`:1451`).
     ///
-    /// 원본 주석 그대로 "현재 캐릭터/윤회/강화 루프에 맞춘 진행 목표"다. 보상은 없고
+    /// 원본 주석 그대로 "현재 캐릭터/시간 회귀/강화 루프에 맞춘 진행 목표"다. 보상은 없고
     /// **어디까지 왔는지를 보여주는 지표**다 — 그래서 조건을 임의로 완화하면 의미가 사라진다.
     ///
     /// ## 아직 판정할 수 없는 것
@@ -94,12 +94,12 @@ namespace YokaiFront.Core
             A("boss9",     "백귀 토벌자",   "보스 9종 처치",          p => p.stats.bosses >= 9),
             A("spec1",     "전문화 입문",   "캐릭터 빌드 1층 개방",   p => p.mageTier >= 1),
             A("mage5",     "대마법사",      "마법사 빌드 5층 완성",   p => p.mageTier >= 5),
-            A("reborn1",   "윤회의 시작",   "첫 윤회",                p => p.rebirths >= 1),
-            A("reborn3",   "세 번째 삶",    "윤회 3회",               p => p.rebirths >= 3),
-            A("reborn5",   "거듭된 환생",   "윤회 5회",               p => p.rebirths >= 5),
-            A("wall9",     "윤회의 증명",   "9지역 권장 윤회 달성",   p => p.rebirths >= RebirthConfig.RequiredRebirths(9)),
-            A("rp100",     "윤회의 무게",   "누적 윤회 포인트 100",   p => p.stats.rpEarned >= 100),
-            A("rp1k",      "윤회의 주인",   "누적 윤회 포인트 1,000", p => p.stats.rpEarned >= 1000),
+            A("reborn1",   "회귀의 시작",   "첫 시간 회귀",                p => p.regressions >= 1),
+            A("reborn3",   "세 번째 삶",    "회귀 3회",               p => p.regressions >= 3),
+            A("reborn5",   "거듭된 회귀",   "회귀 5회",               p => p.regressions >= 5),
+            A("wall9",     "회귀의 증명",   "9지역 권장 회귀 달성",   p => p.regressions >= RegressionConfig.RequiredRegressions(9)),
+            A("rp100",     "파편의 무게",   "누적 시간의 파편 100",   p => p.stats.shardsEarned >= 100),
+            A("rp1k",      "파편의 주인",   "누적 시간의 파편 1,000", p => p.stats.shardsEarned >= 1000),
             A("goldUp50",  "단련가",        "골드 강화 총합 50 달성", p => UpgradeTotal(p) >= 50),
             A("item1",     "첫 수확",       "아이템 1종 획득",        p => ItemKinds(p) >= 1),
             A("item10",    "수집가",        "아이템 10종 획득",       p => ItemKinds(p) >= 10),
@@ -112,7 +112,7 @@ namespace YokaiFront.Core
 
         /// <summary>
         /// 새로 달성한 업적을 확인하고 기록한다 — 원본 `checkAchievements()`(project_test.html:1451).
-        /// 처치·윤회·뽑기처럼 통계가 움직인 뒤에 부르면 된다. **이미 달성한 건 다시 안 알린다.**
+        /// 처치·시간 회귀·뽑기처럼 통계가 움직인 뒤에 부르면 된다. **이미 달성한 건 다시 안 알린다.**
         /// </summary>
         /// <returns>이번에 새로 달성한 것들(없으면 빈 목록).</returns>
         public static List<Achievement> CheckNew(PlayerProfile p)

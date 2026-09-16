@@ -9,8 +9,8 @@ namespace YokaiFront.UI
     ///
     /// ## 이게 결과 창이 아니라 확인 창인 이유
     /// 제목은 "회귀 결과"지만 통계 칸이 **"획득 <b>가능한</b> 파편"**이다 — 아직 받지 않았다는 뜻이고,
-    /// 우리 <see cref="PlayerProfile.RebirthPointPreview"/>가 정확히 그 값이다. 그래서 이 창은
-    /// 윤회를 실행하기 **전에** "이만큼 받고 이번 생을 접겠는가"를 확인하는 자리로 붙였다.
+    /// 우리 <see cref="PlayerProfile.ShardPreview"/>가 정확히 그 값이다. 그래서 이 창은
+    /// 시간 회귀를 실행하기 **전에** "이만큼 받고 이번 생을 접겠는가"를 확인하는 자리로 붙였다.
     /// (디자인에 확인/취소 버튼이 없어서 아래 두 개는 내가 추가했다 — 되돌릴 수 없는 조작이라
     /// 창만 띄우고 끝낼 수는 없다.)
     ///
@@ -63,10 +63,12 @@ namespace YokaiFront.UI
             if (GameState.Current != GameScene.Lobby) { IsOpen = false; return; }
 
             var profile = ProfileService.Current;
-            using var scaled = UiTheme.Scaled(DesignW, DesignH);
 
-            // 어두운 배경(157:12) — 화면 전체를 덮어 뒤의 로비 입력이 오인되지 않게 한다.
-            UiTheme.FillRect(new Rect(0f, 0f, DesignW, DesignH), UiTheme.FigmaScrim);
+            // 어두운 배경(157:12) — **화면 좌표로** 덮는다. 설계 좌표(640×360)로 채우면 16:9가 아닌
+            // 화면에서 letterbox 띠에 로비가 비쳐 보인다(TitleScreen 주석과 같은 이유).
+            UiTheme.FullScreenFill(UiTheme.FigmaScrim);
+
+            using var scaled = UiTheme.Scaled(DesignW, DesignH);
 
             // 창 프레임(162:2) — 제목 아래 구분선이 그림에 포함돼 있다.
             UiTheme.DrawTex(WindowRect, UiTheme.WindowFrame, UiTheme.WindowGray);
@@ -80,7 +82,7 @@ namespace YokaiFront.UI
                  "정복한 지역", $"{profile.ClearedRegionCount()} / {RegionConfig.Count}");
 
             Stat(IconShard, UiTheme.IconShard, RightTextX, RowTopLabelY, RowTopValueY,
-                 "획득 가능한 파편", $"{profile.RebirthPointPreview():N0}");
+                 "획득 가능한 파편", $"{profile.ShardPreview():N0}");
 
             Stat(IconStar, UiTheme.IconStar, LeftTextX, RowBottomLabelY, RowBottomValueY,
                  "현재 레벨", $"Lv.{profile.level}");
@@ -101,13 +103,13 @@ namespace YokaiFront.UI
 
         void DrawButtons(PlayerProfile profile)
         {
-            int gain = profile.RebirthPointPreview();
+            int gain = profile.ShardPreview();
 
-            // 정복한 지역이 없으면 받을 파편이 없다 — 원본도 그때는 윤회를 막는다.
+            // 정복한 지역이 없으면 받을 파편이 없다 — 원본도 그때는 시간 회귀를 막는다.
             GUI.enabled = gain >= 1;
             if (UiTheme.PlateButton(ConfirmRect, gain >= 1 ? $"회귀 (+{gain})" : "회귀 불가"))
             {
-                int got = profile.DoRebirth();
+                int got = profile.DoRegression();
                 if (got > 0) SaveService.Save();
                 IsOpen = false;
             }
