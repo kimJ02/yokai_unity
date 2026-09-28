@@ -23,7 +23,6 @@ namespace YokaiFront.Characters
     public class GunnerLaserBeam
     {
         readonly GunnerAttack kit;
-        readonly Transform owner;
         readonly CharacterMover2D mover;
 
         /// <summary>이번 프레임에 광선이 켜져 있는지(원본 `p.gunnerBeam != null`).</summary>
@@ -52,7 +51,6 @@ namespace YokaiFront.Characters
         public GunnerLaserBeam(GunnerAttack kit, CharacterMover2D mover)
         {
             this.kit = kit;
-            owner = kit.transform;
             this.mover = mover;
         }
 
@@ -74,7 +72,8 @@ namespace YokaiFront.Characters
             }
 
             int facing = mover != null ? mover.Facing : 1;
-            Vector2 o = (Vector2)owner.position
+            // 원본 ox = p.x + facing*26, oy = p.y - 38 — p.y는 발이라 발 위치에서 잰다(GunnerAttack.FeetPosition).
+            Vector2 o = kit.FeetPosition
                         + new Vector2(facing * GunnerSpecConfig.BeamOriginForward, GunnerSpecConfig.BeamOriginHeight);
             Vector2 d = new Vector2(facing, 0f);
             float range = GunnerSpecConfig.BeamRange(tier);

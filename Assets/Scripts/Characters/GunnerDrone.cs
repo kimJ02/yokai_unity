@@ -34,8 +34,7 @@ namespace YokaiFront.Characters
         /// <summary>지금 조준 중인 적(원본 `z.target`).</summary>
         public Collider2D Target { get; private set; }
 
-        Transform player;
-        CharacterMover2D playerMover;
+        GunnerAttack owner;
         Sprite bulletSprite;
         float fireTimer;
         float scanTimer;
@@ -43,13 +42,14 @@ namespace YokaiFront.Characters
 
         /// <summary>
         /// 원본 `summonLaserDrone(tier, stackSpend)` — 기존 드론을 전부 치우고 새로 소환한다(5층은 2기).
-        /// 소모한 충전 스택 1개당 지속시간 +0.32초.
+        /// 소모한 충전 스택 1개당 지속시간 +0.32초. 높이는 원본처럼 캐릭터 **발**에서 잰다(`p.y - 78`).
         /// </summary>
-        public static void Summon(Transform player, CharacterMover2D mover, int tier, int stackSpend, Sprite sprite)
+        public static void Summon(GunnerAttack owner, int tier, int stackSpend, Sprite sprite)
         {
             foreach (var d in new List<GunnerDrone>(Active)) d.Remove();
 
-            int facing = mover != null ? mover.Facing : 1;
+            int facing = owner.Facing;
+            Vector2 feet = owner.FeetPosition;
             int count = GunnerSpecConfig.DroneCount(tier);
             for (int i = 0; i < count; i++)
             {
@@ -57,9 +57,9 @@ namespace YokaiFront.Characters
                 var go = new GameObject("GunnerDrone");
                 // 런이 끝나거나 새로 시작하면 사라져야 한다(원본 `zones = []`, :4318).
                 go.AddComponent<RunTransient>();
-                go.transform.position = player.position + new Vector3(
+                go.transform.position = feet + new Vector2(
                     -facing * GunnerSpecConfig.DroneSpawnBack + side * GunnerSpecConfig.DroneSpawnSide,
-                    GunnerSpecConfig.DroneSpawnHeight + i * GunnerSpecConfig.DroneSpawnHeightStep, 0f);
+                    GunnerSpecConfig.DroneSpawnHeight + i * GunnerSpecConfig.DroneSpawnHeightStep);
 
                 var visual = new GameObject("Visual");
                 visual.transform.SetParent(go.transform, false);
@@ -70,8 +70,7 @@ namespace YokaiFront.Characters
                 sr.sortingOrder = 3;
 
                 var d = go.AddComponent<GunnerDrone>();
-                d.player = player;
-                d.playerMover = mover;
+                d.owner = owner;
                 d.bulletSprite = sprite;
                 d.Tier = tier;
                 d.Side = side;
@@ -111,11 +110,11 @@ namespace YokaiFront.Characters
                 Target = FindNearest();
             }
 
-            // 원본 :3884~:3887 — 캐릭터 뒤쪽 위를 따라다닌다.
-            if (player != null)
+            // 원본 :3884~:3887 — 캐릭터 뒤쪽 위를 따라다닌다(높이는 발 기준 `player.y - 86`).
+            if (owner != null)
             {
-                int facing = playerMover != null ? playerMover.Facing : 1;
-                Vector2 follow = (Vector2)player.position + new Vector2(
+                int facing = owner.Facing;
+                Vector2 follow = owner.FeetPosition + new Vector2(
                     -facing * GunnerSpecConfig.DroneFollowBack + Side * GunnerSpecConfig.DroneFollowSide,
                     GunnerSpecConfig.DroneFollowHeight
                     + Mathf.Sin(Time.time * GunnerSpecConfig.DroneBobFreq + Side) * GunnerSpecConfig.DroneBobAmp);

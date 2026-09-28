@@ -44,7 +44,7 @@ namespace YokaiFront.Characters
 
         // ---- 레이저 빔 (updateGunnerBeam, project_test.html:2224) — Z를 누르고 있는 동안 ----
         public const float BeamOriginForward = 0.26f;   // 원본 ox = p.x + facing*26
-        public const float BeamOriginHeight = 0.38f;    // 원본 oy = p.y - 38 (Y+가 아래라 부호를 뒤집음)
+        public const float BeamOriginHeight = 0.38f;    // 원본 oy = p.y - 38 — p.y는 발, Y+가 아래라 부호를 뒤집음
         /// <summary>원본 `(tier >= 5 ? 520 : 360 + tier*40) * 0.8` px ÷100.</summary>
         public static float BeamRange(int tier) => (tier >= 5 ? 520f : 360f + tier * 40f) * 0.8f / 100f;
         /// <summary>유도 탐지 거리 — 5층은 사거리의 1.5배(`seekR`).</summary>

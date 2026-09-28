@@ -45,12 +45,14 @@ namespace YokaiFront.Characters
 
         const float BulletSpeed = 13.2f;         // 원본 spd 1320 ÷100(:2192) — 레이저 빌드도 같은 탄속
         const float MuzzleForward = 0.30f;       // 원본 x: p.x + facing*30(:2199)
-        const float MuzzleHeight = 0.38f;        // 원본 y: p.y - 38 — 원본 Y+가 아래라 부호를 뒤집었다
+        /// <summary>원본 y: `p.y - 38`(:2199) — **발**에서 0.38 위(<see cref="FeetPosition"/>, <see cref="PlayerBody"/>).</summary>
+        const float MuzzleHeight = 0.38f;
 
         public Sprite bulletSprite;              // 런타임 AssetDatabase 호출을 피하려고 씬 빌더가 꽂아준다
         public Color bulletColor = new Color(1f, 0.92f, 0.63f);
 
         CharacterMover2D mover;
+        CircleCollider2D bodyCol;
         GunnerLaserBeam beam;
         float cdTimer;
         float ultCdTimer;
@@ -82,6 +84,15 @@ namespace YokaiFront.Characters
         /// <summary>Z 레이저 광선 상태(레이저 빌드 전용).</summary>
         public GunnerLaserBeam Beam => beam;
 
+        /// <summary>캐릭터가 보는 방향(원본 `p.facing`).</summary>
+        public int Facing => mover != null ? mover.Facing : 1;
+
+        /// <summary>
+        /// 발 위치 — 원본 `(p.x, p.y)`(<see cref="PlayerBody.Feet"/>). 원본의 `p.y - N` 꼴 높이
+        /// (총구·빔·설치기·드론)는 전부 여기서 잰다.
+        /// </summary>
+        public Vector2 FeetPosition => PlayerBody.Feet(transform, bodyCol);
+
         public void OnSelected()
         {
             cdTimer = 0f;
@@ -108,6 +119,7 @@ namespace YokaiFront.Characters
         void Awake()
         {
             mover = GetComponent<CharacterMover2D>();
+            bodyCol = GetComponent<CircleCollider2D>();
             beam = new GunnerLaserBeam(this, mover);
         }
 
@@ -152,8 +164,9 @@ namespace YokaiFront.Characters
         void Fire()
         {
             int laserTier = LaserTier;
-            int facing = mover != null ? mover.Facing : 1;
-            Vector3 spawnPos = transform.position + new Vector3(facing * MuzzleForward, MuzzleHeight, 0f);
+            int facing = Facing;
+            Vector2 feet = FeetPosition;
+            Vector3 spawnPos = new Vector3(feet.x + facing * MuzzleForward, feet.y + MuzzleHeight, 0f);
             Vector2 velocity = new Vector2(facing * BulletSpeed, 0f);
 
             GunnerBullet.Spawn(spawnPos, velocity, baseDamage,
@@ -207,7 +220,7 @@ namespace YokaiFront.Characters
                 // 충전 스택은 소환하는 순간 전부 드론 지속시간으로 바뀐다(`consumeGunnerStacks`).
                 int stackSpend = Stacks;
                 Stacks = 0;
-                GunnerDrone.Summon(transform, mover, tier, stackSpend, bulletSprite);
+                GunnerDrone.Summon(this, tier, stackSpend, bulletSprite);
                 ultCdTimer = GunnerSpecConfig.DroneUltCooldown(tier) * cdMult;
                 return;
             }
@@ -224,8 +237,8 @@ namespace YokaiFront.Characters
                     if (oldest == null || t.Age > oldest.Age) oldest = t;
                 oldest?.Remove();
             }
-            int facing = mover != null ? mover.Facing : 1;
-            GunnerTurret.Place(transform.position, facing, tier, bulletSprite);
+            // 원본 `placeGunnerTurret`는 `y: p.y` — 발 높이(바닥)에 놓는다.
+            GunnerTurret.Place(FeetPosition, Facing, tier, bulletSprite);
             ultCdTimer = GunnerSpecConfig.TurretUltCooldown(tier) * cdMult;
         }
 

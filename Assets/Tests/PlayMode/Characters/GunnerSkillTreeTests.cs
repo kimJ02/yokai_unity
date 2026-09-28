@@ -110,11 +110,11 @@ public class GunnerSkillTreeTests
     [UnityTest]
     public IEnumerator LaserBeam_Tier1_HitsEnemyAhead_NotBehindOrBeyondRange_AndChargesStacks()
     {
-        // 총구 = (5+0.26, 0.5+0.38). 1층 사거리 = (360+40)×0.8 ÷100 = 3.2
+        // 총구 = 발(5, 0.5-0.5) + (0.26, 0.38) — 원본 p.y는 발. 1층 사거리 = (360+40)×0.8 ÷100 = 3.2
         var g = NewGunner(new Vector3(5f, 0.5f, 0f), GunnerBranch.Laser, 1);
-        var ahead = NewEnemy(new Vector3(7.26f, 0.88f, 0f));
-        var behind = NewEnemy(new Vector3(3.0f, 0.88f, 0f));
-        var beyond = NewEnemy(new Vector3(9.26f, 0.88f, 0f)); // 앞으로 4.0 > 3.2
+        var ahead = NewEnemy(new Vector3(7.26f, 0.38f, 0f));
+        var behind = NewEnemy(new Vector3(3.0f, 0.38f, 0f));
+        var beyond = NewEnemy(new Vector3(9.26f, 0.38f, 0f)); // 앞으로 4.0 > 3.2
         yield return new WaitForFixedUpdate();
 
         HoldBeam(g, 30); // 1.5초 — 틱 0.13초
@@ -134,7 +134,7 @@ public class GunnerSkillTreeTests
     {
         // 총구에서 (2.5, 0.6) — 각도 0.2355rad(3층 콘 0.26 안), 직선 광선과의 거리 0.6 > 폭 0.156+적폭×0.35=0.506
         var g = NewGunner(new Vector3(5f, 0.5f, 0f), GunnerBranch.Laser, 1);
-        var off = NewEnemy(new Vector3(7.76f, 1.48f, 0f));
+        var off = NewEnemy(new Vector3(7.76f, 0.98f, 0f));
         yield return new WaitForFixedUpdate();
 
         HoldBeam(g, 20);
@@ -151,7 +151,7 @@ public class GunnerSkillTreeTests
     {
         // 각도 atan(1.2/2.0)=0.54rad — 4층 콘(0.44) 밖, 5층 콘(0.6109) 안
         var g = NewGunner(new Vector3(5f, 0.5f, 0f), GunnerBranch.Laser, 4);
-        var wide = NewEnemy(new Vector3(7.26f, 2.08f, 0f));
+        var wide = NewEnemy(new Vector3(7.26f, 1.58f, 0f));
         yield return new WaitForFixedUpdate();
 
         HoldBeam(g, 20);
@@ -197,6 +197,26 @@ public class GunnerSkillTreeTests
 
         Assert.IsTrue(Damaged(enemy), "총알이 적을 못 맞혔다");
         Assert.AreEqual(1, g.PartHits, "설치기 빌드는 총알 적중마다 부품 적중 수가 1 올라야 한다");
+    }
+
+    /// <summary>
+    /// 오니 크기(키 0.5)의 적이 바닥에 서 있을 때, 같은 바닥에 선 메카닉의 정면 총알이 **맞아야** 한다.
+    /// 총구를 몸 중심에서 재던 시절엔 총알이 오니 머리 위로 지나갔다 — 원본 `p.y - 38`의 p.y는 발이다.
+    /// </summary>
+    [UnityTest]
+    public IEnumerator Bullet_HitsOniSizedEnemyOnSameGround()
+    {
+        // 지금 플레이어 크기(EntitySizeConfig: 키 0.5)로 바닥(y=0)에 세운다.
+        var g = NewGunner(new Vector3(5f, EntitySizeConfig.PlayerRadius, 0f), GunnerBranch.None, 0);
+        g.GetComponent<CircleCollider2D>().radius = EntitySizeConfig.PlayerRadius;
+        var oni = NewEnemy(new Vector3(6.5f, EntitySizeConfig.OniRadius, 0f), EntitySizeConfig.OniRadius);
+        yield return new WaitForFixedUpdate();
+
+        Call(g, "Fire");
+        float t = 0f;
+        while (t < 0.4f) { yield return new WaitForFixedUpdate(); t += Time.fixedDeltaTime; }
+
+        Assert.IsTrue(Damaged(oni), "바닥의 오니 크기 적을 정면 총알이 못 맞혔다 — 총구 높이를 발에서 재는지 확인");
     }
 
     [UnityTest]
@@ -300,7 +320,7 @@ public class GunnerSkillTreeTests
     public IEnumerator Drone_FiresOnlyAtEnemiesWithinRange()
     {
         var g = NewGunner(new Vector3(5f, 0.5f, 0f), GunnerBranch.Laser, 1);
-        // 드론은 (5-0.56-0.42, 0.5+0.86) 근처를 따라다닌다. 사거리 1층 = (420+55)÷100 = 4.75
+        // 드론은 발(5, 0) 기준 (5-0.56-0.42, 0+0.86) 근처를 따라다닌다. 사거리 1층 = (420+55)÷100 = 4.75
         var far = NewEnemy(new Vector3(-1.2f, 1.36f, 0f)); // 약 5.2 떨어짐
         yield return new WaitForFixedUpdate();
 
@@ -330,6 +350,7 @@ public class GunnerSkillTreeTests
         Assert.AreEqual(0, g.Stacks, "설치에 부품 1개를 써야 한다");
         var tp = GunnerTurret.Active[0].transform.position;
         Assert.AreEqual(5f + 0.34f, tp.x, 0.001f, "설치기는 캐릭터 앞 0.34에 놓인다");
+        Assert.AreEqual(0f, tp.y, 0.001f, "설치기는 캐릭터 발 높이(원본 y: p.y)에 놓인다");
         Assert.AreEqual(0.55f - 0.03f, g.UltCooldownRemaining, 0.001f, "설치기 쿨다운 = 0.55-min(0.18, tier×0.03)");
     }
 

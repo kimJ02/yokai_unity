@@ -67,6 +67,7 @@ public class MageAttack : MonoBehaviour, ICharacterKit, IRunResettable
     public Color boltColor = new Color(0.55f, 0.8f, 1f);
 
     CharacterMover2D mover;
+    CircleCollider2D bodyCol;
     PlayerHealth health;
     float cdTimer;
     bool charging;
@@ -77,6 +78,7 @@ public class MageAttack : MonoBehaviour, ICharacterKit, IRunResettable
     void Awake()
     {
         mover = GetComponent<CharacterMover2D>();
+        bodyCol = GetComponent<CircleCollider2D>();
         health = GetComponent<PlayerHealth>();
 
         var ind = new GameObject("ChargeIndicator");
@@ -149,9 +151,12 @@ public class MageAttack : MonoBehaviour, ICharacterKit, IRunResettable
         float aimY = (GameInput.Up ? 1 : 0) - (GameInput.Down ? 1 : 0);
 
         // 원본(project_test.html:1951-1954) — 중력 계열에서 방향키 없이 "아래"만 누르면(우리 좌표계는
-        // 아래=aimY<0), 발사와 별개로 현재 위치 바로 아래에 즉시 중력점을 하나 터뜨린다.
+        // 아래=aimY<0), 발사와 별개로 그 자리에 즉시 중력점을 하나 터뜨린다.
+        // 위치는 원본 `(p.x, p.y - 34)` — p.y는 **발**이라 발에서 0.34 **위**다(PlayerBody 참고).
+        // 예전엔 몸 중심에서 0.34 아래로 옮겨져 있었다(원본 Y+가 아래인 걸 "아래"로 잘못 읽음).
+        Vector2 feet = PlayerBody.Feet(transform, bodyCol);
         if (gravityOrb && aimY < 0f && aimX == 0f)
-            MageSkillEffects.DetonateGravityOrb(transform.position + new Vector3(0f, -0.34f, 0f), tier, chargeK, facing);
+            MageSkillEffects.DetonateGravityOrb(feet + new Vector2(0f, 0.34f), tier, chargeK, facing);
 
         if (aimX == 0f && aimY == 0f) aimX = facing;
         Vector2 aim = new Vector2(aimX, aimY).normalized;
@@ -167,7 +172,8 @@ public class MageAttack : MonoBehaviour, ICharacterKit, IRunResettable
         float explosionPower = MageSpecConfig.BowExplosionPower(chargeK);
         bool charged = chargeK >= 0.5f;
 
-        Vector3 spawnPos = transform.position + new Vector3(aim.x >= 0 ? 0.26f : -0.26f, 0.36f, 0f);
+        // 원본 `y: p.y - 36`(:1965) — 발에서 0.36 위. 몸 중심에서 재면 키 0.5짜리 오니 머리 위로 지나간다.
+        Vector3 spawnPos = new Vector3(feet.x + (aim.x >= 0 ? 0.26f : -0.26f), feet.y + 0.36f, 0f);
         MageProjectile.Spawn(spawnPos, aim * spd, dmg, pierce, life, sizeMul, boltSprite, boltColor,
             inf, charged, explosive, explosionPower, gravityOrb, chargeK, tier, transform.position, facing);
     }

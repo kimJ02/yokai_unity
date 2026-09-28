@@ -40,14 +40,15 @@ namespace YokaiFront.Characters
         public Vector2 FieldPoint => (Vector2)transform.position + new Vector2(0f, GunnerSpecConfig.FieldPointHeight);
 
         /// <summary>
-        /// 원본 `placeGunnerTurret(tier)` — 캐릭터 앞 0.34에 놓되 맵 양 끝 0.36 안쪽으로 자른다. 높이는 캐릭터 기준점 그대로.
+        /// 원본 `placeGunnerTurret(tier)` — 캐릭터 앞 0.34에 놓되 맵 양 끝 0.36 안쪽으로 자른다. 높이는 캐릭터 **발**
+        /// (원본 `y: p.y`, <see cref="GunnerAttack.FeetPosition"/>)이라 <paramref name="playerFeet"/>로 받는다.
         /// 개수 한도 초과 시 가장 오래된 것을 치우는 건 호출하는 쪽(<see cref="GunnerAttack"/>, 원본 `tryGunnerSkill`) 몫이다.
         /// </summary>
-        public static GunnerTurret Place(Vector2 playerPos, int facing, int tier, Sprite sprite)
+        public static GunnerTurret Place(Vector2 playerFeet, int facing, int tier, Sprite sprite)
         {
-            float x = Mathf.Clamp(playerPos.x + facing * GunnerSpecConfig.TurretPlaceForward,
+            float x = Mathf.Clamp(playerFeet.x + facing * GunnerSpecConfig.TurretPlaceForward,
                 FieldBounds.MinX + GunnerSpecConfig.TurretEdgeMargin, FieldBounds.MaxX - GunnerSpecConfig.TurretEdgeMargin);
-            return Spawn(new Vector2(x, playerPos.y), tier, sprite);
+            return Spawn(new Vector2(x, playerFeet.y), tier, sprite);
         }
 
         /// <summary>정해진 자리에 바로 세운다(<see cref="Place"/>가 위치 계산 뒤 부른다 — 테스트도 직접 쓴다).</summary>
