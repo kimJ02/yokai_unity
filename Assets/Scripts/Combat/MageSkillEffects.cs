@@ -51,11 +51,19 @@ namespace YokaiFront.Combat
         /// 원본 `detonateGravityOrb`(project_test.html:2023) — 충돌 지점 원형 피해를 준 뒤
         /// 그 자리에 중력점을 만들거나 중첩시킨다(<see cref="GravityWellZone.SpawnOrMerge"/>).
         /// 넉백은 폭발 중심 기준(원본 `kbDir: sign(dx)||player.facing`, dx = e.x - 폭발x).
+        ///
+        /// **버그 수정(2026-09-28)**: 원본 `y = Math.min(y, groundY - 20)`은 원본이 **Y+가 아래인
+        /// 캔버스 좌표계**라 "바닥보다 더 내려가지 못하게" 막는 상한 클램프였다. 이 포팅은 Y+가
+        /// 위인 Unity 좌표계(`FieldBounds.GroundY = 0f`, 발판이 위로 갈수록 Y가 커짐)인데 부호를
+        /// 안 뒤집고 그대로 `Mathf.Min`을 써서, `GroundY - clearance`(= -0.2)가 모든 유효 Y(≥0)보다
+        /// 항상 작아 **폭발 지점이 몇 층에서 터지든 무조건 맵 맨 밑바닥 아래로 끌려 내려갔다**
+        /// (중력장이 항상 1층 바닥에서만 생기는 것처럼 보이는 원인). 다른 파일들처럼 방향을
+        /// 뒤집은 `Mathf.Max`로 고쳤다 — "바닥보다 아래로는 못 내려간다"는 의도는 그대로 유지된다.
         /// </summary>
         public static int DetonateGravityOrb(Vector2 pos, int tier, float chargeK, int playerFacing)
         {
             if (tier <= 0) return 0;
-            pos.y = Mathf.Min(pos.y, FieldBounds.GroundY - MageSpecConfig.GravityGroundClearance);
+            pos.y = Mathf.Max(pos.y, FieldBounds.GroundY + MageSpecConfig.GravityGroundClearance);
             float r = MageSpecConfig.GravityImpactRadius(tier, chargeK);
             float dmgMult = MageSpecConfig.GravityImpactDamageMult(tier, chargeK);
             var profile = ProfileService.Current;
