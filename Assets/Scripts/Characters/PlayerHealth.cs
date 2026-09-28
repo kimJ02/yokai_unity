@@ -133,6 +133,24 @@ namespace YokaiFront.Characters
         /// </summary>
         public void GrantInvuln(float duration) => InvulnRemaining = Mathf.Max(InvulnRemaining, duration);
 
+        /// <summary>
+        /// 체력을 회복한다(최대체력을 넘지 않게 자른다). 원본엔 이 이름의 공용 함수가 따로 없고,
+        /// 회복이 필요한 곳마다 `p.hp = Math.min(p.maxHp, p.hp + heal)`를 그때그때 인라인으로 썼다
+        /// (흡혈 `bladeLifesteal` project_test.html:2503, 재생의 구슬 `updateItemBuffs` :4393 등) —
+        /// 여기서는 그 한 줄을 공용 메서드로 뽑은 것뿐이라 새 동작을 추가하지 않는다.
+        ///
+        /// 죽은 상태에서는 회복하지 않는다(원본에도 사망 이후 회복이 의미 있는 경로가 없다).
+        ///
+        /// **팀장 확인 필요**: `PlayerHealth`는 `docs/worksplit.md`의 팀원 담당 파일 목록에 없는
+        /// 공용 파일이다 — 섬영 흡혈(`BladeCombat`)에 필요해서 최소한으로 추가했다(2026-09-28,
+        /// 사용자 확인 후 재작성). main 병합 전에 팀장 리뷰가 필요하다.
+        /// </summary>
+        public void Heal(float amount)
+        {
+            if (amount <= 0f || IsDead) return;
+            CurrentHp = Mathf.Min(maxHp, CurrentHp + amount);
+        }
+
         public void TakeDamage(float amount, GameObject source)
         {
             // 원본 `if (p.invuln > 0 ...) return;`(project_test.html:1881).

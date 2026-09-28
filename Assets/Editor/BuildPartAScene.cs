@@ -277,13 +277,17 @@ public static class BuildPartAScene
 
         var gunner = go.AddComponent<GunnerAttack>();
         gunner.bulletSprite = circleSprite;
-        // 섬영·드루이드 키트(팀원 작업)가 생기면 여기에 같이 붙일 것 — PlayerRig가 자동으로 찾는다.
+
+        // 섬영 키트(팀원 작업, 2026-09-28 부착) — 회전베기는 즉시 판정이라 투사체 스프라이트가 필요 없다.
+        // 드루이드는 기획에서 제외되어 키트 자체가 없다(2026-09-28 사용자 확정) — 더 안 붙는다.
+        go.AddComponent<BladeCombat>();
 
         // 캐릭터 키트 전환기. **키트를 전부 붙인 뒤 마지막에** 추가해야 Awake에서 전부 찾는다
-        // (GetComponents는 이미 붙어 있는 것만 본다). 섬영·드루이드 키트가 생기면 위에 같이 붙일 것.
+        // (GetComponents는 이미 붙어 있는 것만 본다).
         var rig = go.AddComponent<PlayerRig>();
         // 캐릭터 그림(프로토타입에서 구워낸 임시 스프라이트) — CharacterId 순서(마법사·메카닉·섬영·드루이드).
-        // 섬영·드루이드는 키트가 아직 없어 선택되지 않지만, 키트가 붙는 순간 그림도 같이 나온다.
+        // 드루이드는 키트가 없어 선택되지 않지만(기획 제외), 그림 배열 자체는 CharacterId 개수(4)에
+        // 맞춰 그대로 둔다 — PlayerRig.ApplySprite가 인덱스로 접근하므로 배열을 줄이면 안 된다.
         // ⚠️ 프로토타입 캐릭터 그림을 **쓰지 않는다** — 사용자 지시(2026-09-16)
         // "일단 스킨 씌우지 말고 네모 세모 동그라미로만". 넷 다 네모이고 색으로 구분한다.
         // 되돌리려면 `BuildPrototypeSprites.Load("char_mage")` 식으로 바꾸고 색을 흰색으로 두면 된다.
