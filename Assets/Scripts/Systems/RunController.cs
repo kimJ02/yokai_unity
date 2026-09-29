@@ -216,6 +216,8 @@ namespace YokaiFront.Systems
         /// <summary>
         /// 보스 격파. 원본은 **1.6초 뒤에** 런을 끝낸다(`:4289`) — 즉사 연출과 보상 표시를
         /// 볼 시간을 준다. 즉시 결과 화면을 띄우면 무엇을 잡았는지 보이지 않는다.
+        /// **보스 격파 → 런 종료 예약은 이 한 곳뿐이다**(<see cref="HandleEnemyKilled"/> 주석 참고) —
+        /// 타이머는 사냥 시작·로비 진입 때 -1로 초기화되므로 다음 런으로 새지 않는다.
         /// </summary>
         void HandleBossDefeated() => bossDeadTimer = BossDeadEndDelay;
 
@@ -248,17 +250,13 @@ namespace YokaiFront.Systems
         {
             Hitstop(hitstopOnKill);
 
-            // 원본 `onBossKilled`은 1.6초 뒤에 `endRun('bossdead')`를 부른다(project_test.html:4289) —
-            // 격파 연출을 볼 틈을 주려는 것이다. 우리는 연출이 없지만 즉시 결과창이 뜨면
-            // 마지막 타격이 안 보여서 같은 지연을 둔다.
-            if (enemy != null && enemy.GetComponent<YokaiFront.Enemies.Boss>() != null)
-                Invoke(nameof(EndRunAfterBoss), BossClearDelay);
+            // ⚠️ 보스 격파 뒤 결과 화면 예약은 **여기서 하지 않는다** — `RunEvents.BossDefeated` →
+            // <see cref="HandleBossDefeated"/>(`bossDeadTimer`, 멈춘 시간 기준)가 한다.
+            // 예전엔 여기서도 `Invoke(EndRunAfterBoss, 1.6)`를 걸어 **두 번** 예약했는데, `Invoke`는 게임 시간
+            // 기준이라 결과·로비의 `timeScale = 0` 동안 멈춘 채 남아 있다가 **다음 사냥 시작 직후** 터져서
+            // 방금 들어온 런을 "보스 격파"로 끝냈다(2026-09-28 사용자 발견). 취소도 안 되는 경로라 없앴다.
         }
 
-        /// <summary>원본 `setTimeout(..., 1600)`(project_test.html:4289).</summary>
-        public const float BossClearDelay = 1.6f;
-
-        void EndRunAfterBoss() => EndRun(RunEndReason.BossDead);
         void HandleEnemyDamaged(GameObject _) => Hitstop(hitstopOnHit);
 
         /// <summary>
