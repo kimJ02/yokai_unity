@@ -32,6 +32,9 @@ namespace YokaiFront.Editor
             "icon_shard",      //  32×32  시간의 파편 — 획득 파편     (163:20)
             "window_frame",    // 512×288 회귀창 프레임(제목 구분선 포함) (162:2)
             "menu_plate",      // 256×64  타이틀 메뉴 버튼 플레이트 (63:3 · 61:54~56)
+            "skill_slot_attack", // 32×32 전투 HUD Z 칸(틀+칼)      (보스 HUD 181:2)
+            "skill_slot_skill",  // 32×32 전투 HUD X 칸(틀+마법진)  (181:3)
+            "skill_slot_jump",   // 32×32 전투 HUD C 칸(틀+화살표)  (181:4)
         };
 
         [MenuItem("YokaiFront/UI 텍스처 임포트 설정")]

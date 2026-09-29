@@ -66,6 +66,20 @@ namespace YokaiFront.Characters
             ApplySelection(Current, notifyPrevious: false);
         }
 
+        /// <summary>
+        /// 지금 켜져 있는 키트(<see cref="Current"/>의 것). HUD가 여기서 스킬 슬롯 상태(<see cref="ISkillSlotSource"/>)를
+        /// 읽는다 — 키트가 없는 캐릭터를 가리키는 순간은 없지만(<see cref="Update"/>가 되돌린다) 방어로 null을 준다.
+        /// </summary>
+        public ICharacterKit CurrentKit
+        {
+            get
+            {
+                foreach (var kit in kits)
+                    if (kit.Character == Current) return kit;
+                return null;
+            }
+        }
+
         public bool HasKit(CharacterId id)
         {
             foreach (var kit in kits)

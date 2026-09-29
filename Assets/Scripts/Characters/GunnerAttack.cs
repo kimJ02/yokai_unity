@@ -25,7 +25,7 @@ namespace YokaiFront.Characters
     /// <see cref="PlayerProfile.gunnerTier"/>)에 있고 로비 전문화 탭에서 SP로 배운다 — 이 키트는 매 프레임
     /// 읽기만 한다(원본 `gunnerFire`가 `meta.skills.gunner`를 매번 새로 읽는 것과 같다).
     /// </summary>
-    public class GunnerAttack : MonoBehaviour, ICharacterKit, IRunResettable
+    public class GunnerAttack : MonoBehaviour, ICharacterKit, IRunResettable, ISkillSlotSource
     {
         /// <summary>레이저·드론·설치기 연출색 — 원본 `#8fd8ff`.</summary>
         public static readonly Color LaserColor = new Color(0x8f / 255f, 0xd8 / 255f, 1f);
@@ -49,6 +49,10 @@ namespace YokaiFront.Characters
         GunnerLaserBeam beam;
         float cdTimer;
         float ultCdTimer;
+        // 쿨다운을 **건 순간**의 최대치 — HUD 슬롯 덮개 비율의 분모. 원본 `p.gunnerCdMax`(:2196)·`p.ultCdMax`
+        // (:2399·:2414)도 발사·시전 때 정해진다.
+        float attackCdMax;
+        float ultCdMax;
         float fieldTickTimer;                    // 원본 player.mechFieldTick
 
         GameObject fieldVisualRoot;
@@ -81,6 +85,48 @@ namespace YokaiFront.Characters
 
         /// <summary>캐릭터가 보는 방향(원본 `p.facing`).</summary>
         public int Facing => mover != null ? mover.Facing : 1;
+
+        // ---- HUD 스킬 슬롯 (원본 syncHUD 슬롯 부분 :6319~:6366, 버프 줄 :6312~:6317) ----
+
+        /// <summary>
+        /// Z 칸 — 원본 `clamp(p.atkCds.gunner / p.gunnerCdMax, 0, 1)`(:6322)과 남은 초. 레이저 빌드가 광선을 쏘는
+        /// 동안에는 총알 쿨다운이 안 걸려서 비어 있다(원본도 광선은 `atkCds.gunner`를 건드리지 않는다).
+        /// </summary>
+        public SkillSlotState AttackSlot => SkillSlotState.Cooldown(cdTimer, attackCdMax);
+
+        /// <summary>
+        /// X 칸 — 원본 `clamp(p.ultCd / p.ultCdMax, 0, 1)`(:6352). 갈래가 있으면 오른쪽 위에 충전 스택(레이저)
+        /// 또는 부품(설치기) `n/최대`(:6358), 설치기인데 부품이 0개면 `noStack`(:6364).
+        /// </summary>
+        public SkillSlotState SkillSlot
+        {
+            get
+            {
+                var b = Branch;
+                bool stackSkill = b != GunnerBranch.None;
+                return SkillSlotState.Cooldown(ultCdTimer, ultCdMax,
+                    stackSkill ? Stacks : 0, stackSkill ? StackMax : 0,
+                    noStack: b == GunnerBranch.Installer && Stacks <= 0);
+            }
+        }
+
+        /// <summary>
+        /// 원본 버프 줄의 메카닉 몫(:6312~:6317) — 레이저는 `충전 n/최대`, 설치기는
+        /// `부품 n/최대 · 적중 k/10 · 설치기 a/b · 링크 L`. 링크 거리는 원본이 보여주는 숫자 그대로(px, 우리 단위×100).
+        /// </summary>
+        public string BuffText
+        {
+            get
+            {
+                var b = Branch;
+                if (b == GunnerBranch.Laser) return $"충전 {Stacks}/{StackMax}";
+                if (b != GunnerBranch.Installer) return "";
+                int t = InstallerTier;
+                return $"부품 {Stacks}/{StackMax} · 적중 {PartHits}/{GunnerSpecConfig.PartHitsPerPart}" +
+                       $" · 설치기 {GunnerTurret.Active.Count}/{GunnerSpecConfig.TurretMax(t)}" +
+                       $" · 링크 {Mathf.RoundToInt(GunnerSpecConfig.LinkMax(t) * 100f)}";
+            }
+        }
 
         /// <summary>
         /// 발 위치 — 원본 `(p.x, p.y)`(<see cref="PlayerBody.Feet"/>). 원본의 `p.y - N` 꼴 높이
@@ -143,7 +189,7 @@ namespace YokaiFront.Characters
             if (!beamOn && cdTimer <= 0f && (held || GameInput.AttackDown))
             {
                 Fire();
-                cdTimer = cooldown;
+                cdTimer = attackCdMax = cooldown;
             }
 
             UpdateField(dt);
@@ -217,7 +263,7 @@ namespace YokaiFront.Characters
                 int stackSpend = Stacks;
                 Stacks = 0;
                 GunnerDrone.Summon(this, tier, stackSpend, bulletSprite);
-                ultCdTimer = GunnerSpecConfig.DroneUltCooldown(tier) * cdMult;
+                ultCdTimer = ultCdMax = GunnerSpecConfig.DroneUltCooldown(tier) * cdMult;
                 return;
             }
 
@@ -235,7 +281,7 @@ namespace YokaiFront.Characters
             }
             // 원본 `placeGunnerTurret`는 `y: p.y` — 발 높이(바닥)에 놓는다.
             GunnerTurret.Place(FeetPosition, Facing, tier, bulletSprite);
-            ultCdTimer = GunnerSpecConfig.TurretUltCooldown(tier) * cdMult;
+            ultCdTimer = ultCdMax = GunnerSpecConfig.TurretUltCooldown(tier) * cdMult;
         }
 
         /// <summary>

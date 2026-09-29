@@ -122,7 +122,13 @@ public interface ICharacterKit
 | `Systems/RunController` | 로비↔사냥↔결과 전이. UI만 부른다 | 나 |
 | `Core/EntitySizeConfig` | **덩치의 단일 출처** — 플레이어·몹·성소·보스 크기 | 나 |
 | `UI/UiTheme` | 로비·결과·HUD 공통 색/판/글자(원본 CSS 이식) | 나 |
+| `Characters/ISkillSlotSource` | **HUD 스킬 슬롯(Z·X 쿨다운·스택)과 버프 줄의 캐릭터 몫** — 키트가 구현하면 HUD에 뜬다(아래 참고) | 공용 |
 | `Core/EnemySpawnRequestBus.Request` | **인자 3개다** — (위치, 종류, **스폰 보호 시간**) | 나 |
+
+> **섬영 키트에 HUD 쿨다운 붙이기** (2026-09-29, 팀장이 `BladeCombat`은 안 건드리고 남겨둠):
+> `BladeCombat`에 `ISkillSlotSource`를 구현하면 끝이다 — HUD·씬은 손댈 필요 없다. 원본 값은 syncHUD(:6321~:6348):
+> Z 칸 = `SkillSlotState.Cooldown(cdTimer, SpinCd)`(**원본은 공속 반영 전 0.13으로 나눈다**, `p.atkCds.blade / CONFIG.blade.spin.cd`),
+> X 칸 = 갈래가 칼날폭풍이면 `stormCd / storm.cd`, 아니면 `focusCd / focus.cd`, 버프 글 = 원본 :6293~:6300(속도 %·피해 배수 등).
 
 ⚠️ **단골 함정 1**: `Instantiate`/`AddComponent` 직후 필드만 바꾸면 이미 실행된 `Awake()`에 반영이 안 된다.
 적 체력은 반드시 `EnemyHealth.SetMaxHp()`로 바꿀 것(이 함정으로 이미 3번 깨졌다).
