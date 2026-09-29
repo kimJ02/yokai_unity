@@ -37,9 +37,10 @@ namespace YokaiFront.Core
     /// **어디까지 왔는지를 보여주는 지표**다 — 그래서 조건을 임의로 완화하면 의미가 사라진다.
     ///
     /// ## 아직 판정할 수 없는 것
-    /// 원본 업적 중 메카닉·섬영 빌드 5층(`mechanic5`·`blade5`·`specAll`)은 그 스킬트리가 아직
-    /// 없어서 **뺐다**(항상 거짓인 업적을 목록에 두면 "달성 불가"가 정상인지 버그인지 알 수 없다).
-    /// 해당 트리를 만들 때 여기 줄만 추가하면 된다.
+    /// 원본 업적 중 섬영 빌드 5층(`blade5`)은 그 스킬트리가 아직 없어서 **뺐다**(항상 거짓인 업적을
+    /// 목록에 두면 "달성 불가"가 정상인지 버그인지 알 수 없다). 트리를 만들 때 여기 줄만 추가하면 된다.
+    /// 메카닉(`mechanic5`)과 "어느 캐릭터든"(`spec1`·`specAll`)은 메카닉 트리가 생겨서(2026-09-28) 원본대로
+    /// 넣었다 — `specAll`·`spec1`의 섬영 항은 섬영 트리가 생길 때 더한다.
     /// </summary>
     public static class Achievements
     {
@@ -92,8 +93,11 @@ namespace YokaiFront.Core
             A("reg9",      "백귀야행 종결", "9지역 정복 — 완주!",     p => p.IsBossCleared(9)),
             A("boss5",     "보스 헌터",     "보스 5종 처치",          p => p.stats.bosses >= 5),
             A("boss9",     "백귀 토벌자",   "보스 9종 처치",          p => p.stats.bosses >= 9),
-            A("spec1",     "전문화 입문",   "캐릭터 빌드 1층 개방",   p => p.mageTier >= 1),
+            // 원본 :819~:823 — spec1/specAll은 "어느 캐릭터든"이다(섬영 항은 트리가 생기면 추가).
+            A("spec1",     "전문화 입문",   "캐릭터 빌드 1층 개방",   p => p.mageTier >= 1 || p.gunnerTier >= 1),
+            A("specAll",   "숙련된 전투가", "캐릭터 빌드 5층 완성",   p => p.mageTier >= 5 || p.gunnerTier >= 5),
             A("mage5",     "대마법사",      "마법사 빌드 5층 완성",   p => p.mageTier >= 5),
+            A("mechanic5", "전장의 설계자", "메카닉 빌드 5층 완성",   p => p.gunnerTier >= 5),
             A("reborn1",   "회귀의 시작",   "첫 시간 회귀",                p => p.regressions >= 1),
             A("reborn3",   "세 번째 삶",    "회귀 3회",               p => p.regressions >= 3),
             A("reborn5",   "거듭된 회귀",   "회귀 5회",               p => p.regressions >= 5),

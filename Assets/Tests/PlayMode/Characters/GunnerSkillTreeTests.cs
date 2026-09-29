@@ -64,9 +64,16 @@ public class GunnerSkillTreeTests
         rb.gravityScale = 0f;
         rb.constraints = RigidbodyConstraints2D.FreezeAll;
         var g = go.AddComponent<GunnerAttack>();
-        g.branch = branch;
-        g.tier = tier;
+        SetBuild(branch, tier);
         return g;
+    }
+
+    /// <summary>메카닉 빌드는 세이브(프로필)에 있다 — 원본 `meta.skills.gunner`. 키트는 매 프레임 읽기만 한다.</summary>
+    static void SetBuild(GunnerBranch branch, int tier)
+    {
+        ProfileService.Current.character = CharacterId.Gunner;
+        ProfileService.Current.gunnerBranch = branch;
+        ProfileService.Current.gunnerTier = tier;
     }
 
     static EnemyHealth NewEnemy(Vector3 pos, float radius = 0.5f, float hp = 100000f)
@@ -140,7 +147,7 @@ public class GunnerSkillTreeTests
         HoldBeam(g, 20);
         Assert.IsFalse(Damaged(off), "1층은 유도가 없는데 비스듬한 적이 맞았다");
 
-        g.tier = 3;
+        SetBuild(GunnerBranch.Laser, 3);
         HoldBeam(g, 20);
         Assert.AreEqual(off.GetComponent<Collider2D>(), g.Beam.Target, "3층 광선이 콘 안의 적을 목표로 잡지 않았다");
         Assert.IsTrue(Damaged(off), "3층 광선이 콘 안의 적 쪽으로 휘지 않았다");
@@ -157,7 +164,7 @@ public class GunnerSkillTreeTests
         HoldBeam(g, 20);
         Assert.IsNull(g.Beam.Target, "4층 콘(±0.44rad) 밖의 적을 목표로 잡았다");
 
-        g.tier = 5;
+        SetBuild(GunnerBranch.Laser, 5);
         HoldBeam(g, 20);
         Assert.IsTrue(g.Beam.Curved, "5층 광선이 곡선이 되지 않았다");
         Assert.IsTrue(Damaged(wide), "5층 곡선 광선이 넓은 콘 안의 적을 못 맞혔다");
@@ -242,16 +249,18 @@ public class GunnerSkillTreeTests
     [UnityTest]
     public IEnumerator Stacks_NoBranchIgnored_LaserCapsAtMax_InstallerOnePartPerTenHits()
     {
-        var none = NewGunner(new Vector3(2f, 0.5f, 0f), GunnerBranch.None, 0);
-        var laser = NewGunner(new Vector3(4f, 0.5f, 0f), GunnerBranch.Laser, 4);
-        var inst = NewGunner(new Vector3(6f, 0.5f, 0f), GunnerBranch.Installer, 1);
+        // 빌드는 프로필 하나라 키트 하나로 빌드를 바꿔 가며 본다.
+        var g = NewGunner(new Vector3(4f, 0.5f, 0f), GunnerBranch.None, 0);
         yield return null;
 
-        Assert.AreEqual(0, none.AddStack(5), "0차는 스택이 쌓이면 안 된다(원본 addGunnerStack의 `if (!s.branch) return 0`)");
+        Assert.AreEqual(0, g.AddStack(5), "0차는 스택이 쌓이면 안 된다(원본 addGunnerStack의 `if (!s.branch) return 0`)");
 
-        laser.AddStack(100);
-        Assert.AreEqual(6 + 4 * 3 + 4, laser.Stacks, "레이저 4층 최대치는 6+tier×3+4=22");
+        SetBuild(GunnerBranch.Laser, 4);
+        g.AddStack(100);
+        Assert.AreEqual(6 + 4 * 3 + 4, g.Stacks, "레이저 4층 최대치는 6+tier×3+4=22");
 
+        SetBuild(GunnerBranch.Installer, 1);
+        var inst = g;
         inst.ResetForRun();
         Assert.AreEqual(1, inst.Stacks, "설치기 빌드는 부품 1개를 쥐고 시작한다");
         for (int i = 0; i < 9; i++) inst.AddStack(1);
@@ -456,6 +465,48 @@ public class GunnerSkillTreeTests
         var tri = new List<Vector2> { new Vector2(0, 0), new Vector2(3, 0), new Vector2(1.5f, 2) };
         Assert.AreEqual(3, GunnerField.LinkSegments(tri, 4f).Count, "세 변이 다 연결돼야 닫힌 도형");
         Assert.AreEqual(2, GunnerField.LinkSegments(tri, 2.6f).Count, "한도보다 긴 변(3.0)은 연결되면 안 된다");
+    }
+
+    // ───────────────────────── 빌드 습득 · 시간 회귀 (PlayerProfile) ─────────────────────────
+
+    /// <summary>원본 `learnSkill('gunner', …)`(:7011) — 갈래 고정, 1층부터 순서대로, 층 비용 1~5, SP 부족 시 실패.</summary>
+    [Test]
+    public void LearnGunnerTier_FollowsOriginalLearnSkillRules()
+    {
+        var p = ProfileService.Current;
+        p.level = 3; // SP 2
+        Assert.IsTrue(p.TryLearnGunnerTier(GunnerBranch.Laser), "SP 2로 1층(비용 1)을 못 배웠다");
+        Assert.AreEqual(GunnerBranch.Laser, p.gunnerBranch);
+        Assert.AreEqual(1, p.gunnerTier);
+        Assert.IsFalse(p.TryLearnGunnerTier(GunnerBranch.Installer), "갈래는 처음 고른 뒤 바꿀 수 없다");
+        Assert.IsFalse(p.TryLearnGunnerTier(GunnerBranch.Laser), "남은 SP 1로 2층(비용 2)을 배웠다");
+
+        p.level = 16; // SP 15 = 1+2+3+4+5
+        for (int t = 2; t <= 5; t++) Assert.IsTrue(p.TryLearnGunnerTier(GunnerBranch.Laser), $"{t}층을 못 배웠다");
+        Assert.AreEqual(5, p.gunnerTier);
+        Assert.AreEqual(15, p.spUsed);
+        Assert.IsFalse(p.TryLearnGunnerTier(GunnerBranch.Laser), "5층 위로 올라갔다");
+    }
+
+    /// <summary>원본 doRebirth(:6509~) — 모든 무기의 빌드를 비우고, '각인의 봉인'이 있으면 그대로 둔다.</summary>
+    [Test]
+    public void Regression_ClearsGunnerBuild_UnlessKeepSpec()
+    {
+        var p = ProfileService.Current;
+        p.MarkBossCleared(1); // 정복 지역이 없으면 회귀 자체가 안 된다
+        p.gunnerBranch = GunnerBranch.Installer;
+        p.gunnerTier = 3;
+        Assert.Greater(p.DoRegression(), 0);
+        Assert.AreEqual(GunnerBranch.None, p.gunnerBranch, "회귀했는데 메카닉 갈래가 남았다");
+        Assert.AreEqual(0, p.gunnerTier);
+
+        p.MarkBossCleared(1);
+        p.gunnerBranch = GunnerBranch.Laser;
+        p.gunnerTier = 2;
+        p.items.Add("keepSpec");
+        Assert.Greater(p.DoRegression(), 0);
+        Assert.AreEqual(GunnerBranch.Laser, p.gunnerBranch, "각인의 봉인이 있는데 메카닉 빌드가 지워졌다");
+        Assert.AreEqual(2, p.gunnerTier);
     }
 
     [Test]

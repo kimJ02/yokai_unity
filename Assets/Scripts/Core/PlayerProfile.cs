@@ -39,6 +39,14 @@ namespace YokaiFront.Core
         public MageBranch mageBranch = MageBranch.None;
         public int mageTier = 0;
 
+        /// <summary>
+        /// 메카닉 빌드 — 원본 `meta.skills.gunner = {branch, tier}`(project_test.html:1139).
+        /// 마법사와 같은 방식으로 **SP는 위의 `spUsed`를 같이 쓴다** — 캐릭터별 SP·레벨 분리(원본
+        /// `charProgress`)는 아직이다(위 `character` 주석 참고).
+        /// </summary>
+        public GunnerBranch gunnerBranch = GunnerBranch.None;
+        public int gunnerTier = 0;
+
         public UpgradeLevels upgrades = new UpgradeLevels();
 
         /// <summary>시간의 파편 — 가챠 재화. 원본 `meta.shards`(project_test.html:1147). **회귀해도 안 없어진다.**</summary>
@@ -150,6 +158,8 @@ namespace YokaiFront.Core
             // '각인의 봉인'이 있으면 되돌려줄 값을 미리 잡아둔다(아래에서 복구).
             var keptBranch = mageBranch;
             int keptTier = mageTier;
+            var keptGunnerBranch = gunnerBranch;
+            int keptGunnerTier = gunnerTier;
             int keptSpUsed = spUsed;
 
             shards += gain;
@@ -160,9 +170,12 @@ namespace YokaiFront.Core
             exp = 0;
             gold = 0;
             upgrades = new UpgradeLevels();
+            // 원본 doRebirth(:6509~) — **모든 무기**의 빌드를 비운다(`for (const w in meta.skills)`).
             spUsed = 0;
             mageBranch = MageBranch.None;
             mageTier = 0;
+            gunnerBranch = GunnerBranch.None;
+            gunnerTier = 0;
 
             regionKills = new int[RegionConfig.Count];
             regionBossUnlocked = new bool[RegionConfig.Count];
@@ -180,6 +193,8 @@ namespace YokaiFront.Core
             {
                 mageBranch = keptBranch;
                 mageTier = keptTier;
+                gunnerBranch = keptGunnerBranch;
+                gunnerTier = keptGunnerTier;
                 spUsed = keptSpUsed;
             }
 
@@ -285,10 +300,37 @@ namespace YokaiFront.Core
             spUsed += cost;
             return true;
         }
+
+        /// <summary>
+        /// 메카닉 빌드 티어당 SP 비용. 원본 `SPEC.gunner.move/conv.tiers[].cost`(project_test.html:918-930) —
+        /// 두 갈래 모두 1,2,3,4,5로 마법사와 같다.
+        /// </summary>
+        static readonly int[] GunnerTierCost = { 1, 2, 3, 4, 5 };
+
+        /// <summary>
+        /// 메카닉 다음 티어 습득 — 원본 `learnSkill('gunner', branch, tier)`(project_test.html:7011). 규칙은 마법사와 같다:
+        /// 갈래는 처음 배울 때 고정, 1층부터 순서대로만, SP가 모자라면 실패.
+        /// </summary>
+        public bool TryLearnGunnerTier(GunnerBranch branch)
+        {
+            if (branch == GunnerBranch.None) return false;
+            if (gunnerBranch != GunnerBranch.None && gunnerBranch != branch) return false;
+            int nextTier = gunnerTier + 1;
+            if (nextTier > GunnerTierCost.Length) return false;
+            int cost = GunnerTierCost[nextTier - 1];
+            if (SpAvailable < cost) return false;
+            gunnerBranch = branch;
+            gunnerTier = nextTier;
+            spUsed += cost;
+            return true;
+        }
     }
 
     /// <summary>원본 마법사 빌드 갈래. move=폭발 계열, conv=중력 계열(project_test.html:900-913).</summary>
     public enum MageBranch { None, Explosion, Gravity }
+
+    /// <summary>원본 메카닉 빌드 갈래. move=캐릭터 레이저 빌드, conv=설치기 빌드(project_test.html:915-932).</summary>
+    public enum GunnerBranch { None, Laser, Installer }
 
     /// <summary>
     /// 골드 강화 5종의 현재 단계. 원본 `CONFIG.upgrades`(project_test.html:731)와 이름을 맞췄으나

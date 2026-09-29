@@ -80,9 +80,30 @@ namespace YokaiFront.Characters
         public bool Select(CharacterId id)
         {
             if (!HasKit(id)) return false;
-            if (id == Current && Application.isPlaying) return true;
+            if (id == Current && Application.isPlaying)
+            {
+                // 키트는 이미 이 캐릭터지만 **프로필이 다른 캐릭터를 가리킬 수 있다**(세이브를 새로 불러오거나
+                // "새 원정"으로 프로필이 통째로 바뀐 직후) — 그러면 로비는 마법사, 사냥은 메카닉처럼 어긋난다.
+                ProfileService.Current.character = id;
+                return true;
+            }
             ApplySelection(id, notifyPrevious: true);
             return true;
+        }
+
+        /// <summary>
+        /// **키트는 항상 프로필의 캐릭터를 따라간다.** 선택 캐릭터의 출처는 세이브(`PlayerProfile.character`)인데,
+        /// 프로필은 게임 도중에 통째로 바뀔 수 있다 — 자동 불러오기(`AutoSave.Awake`, 이 컴포넌트의 Awake와
+        /// 순서가 보장되지 않는다), 타이틀의 "새 원정", 로비의 "전체 초기화". 그때 키트를 다시 맞추지 않으면
+        /// 전문화·캐릭터 탭(프로필을 본다)과 실제 공격(키트)이 서로 다른 캐릭터가 된다(2026-09-28 사용자 발견:
+        /// 메카닉을 골랐는데 전문화 탭엔 마법사 트리, 사냥에선 메카닉 공격).
+        /// </summary>
+        void Update()
+        {
+            var profile = ProfileService.Current;
+            if (profile.character == Current) return;
+            if (HasKit(profile.character)) ApplySelection(profile.character, notifyPrevious: true);
+            else profile.character = Current; // 키트가 없는 캐릭터(드루이드 등)를 가리키면 지금 키트로 되돌린다
         }
 
         /// <summary>구현된 다음 캐릭터로 순환 전환(디버그 조작용).</summary>

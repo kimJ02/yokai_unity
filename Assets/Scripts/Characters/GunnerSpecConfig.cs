@@ -1,12 +1,9 @@
 using UnityEngine;
+using YokaiFront.Core;
 
 namespace YokaiFront.Characters
 {
-    /// <summary>
-    /// 메카닉 빌드 갈래. 원본 `SPEC.gunner`(project_test.html:915)의 두 갈래 —
-    /// `move` = 캐릭터 레이저 빌드, `conv` = 설치기 빌드.
-    /// </summary>
-    public enum GunnerBranch { None, Laser, Installer }
+    // 갈래 enum(`GunnerBranch`)은 세이브에 들어가야 해서 Core(`PlayerProfile.cs`)에 있다.
 
     /// <summary>
     /// 메카닉 스킬트리(전문화) 수치 전부 — 원본 `SPEC.gunner`(project_test.html:915-932)의 두 갈래 5티어와,

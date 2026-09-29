@@ -21,21 +21,14 @@ namespace YokaiFront.Characters
     ///
     /// 이동은 마법사와 같은 즉시-속도 방식(원본 `updatePlayerCommon`의 bow/gunner 공통 분기).
     ///
-    /// ⚠️ **빌드의 출처(임시)**: 원본은 `meta.skills.gunner = {branch, tier}`를 세이브에 두고 로비 전문화 탭에서
-    /// SP로 배운다. 그 저장 자리(`PlayerProfile`)는 캐릭터별 SP·갈래·티어 일반화(`docs/worksplit.md` 7·9절)가
-    /// 끝날 때 붙이기로 했고, 그 전까지는 이 컴포넌트의 <see cref="branch"/>/<see cref="tier"/>가 출처다 —
-    /// 에디터 플레이 중 인스펙터에서 바꿔 보면 바로 반영된다.
+    /// 빌드는 원본 `meta.skills.gunner = {branch, tier}`처럼 세이브(<see cref="PlayerProfile.gunnerBranch"/>/
+    /// <see cref="PlayerProfile.gunnerTier"/>)에 있고 로비 전문화 탭에서 SP로 배운다 — 이 키트는 매 프레임
+    /// 읽기만 한다(원본 `gunnerFire`가 `meta.skills.gunner`를 매번 새로 읽는 것과 같다).
     /// </summary>
     public class GunnerAttack : MonoBehaviour, ICharacterKit, IRunResettable
     {
         /// <summary>레이저·드론·설치기 연출색 — 원본 `#8fd8ff`.</summary>
         public static readonly Color LaserColor = new Color(0x8f / 255f, 0xd8 / 255f, 1f);
-
-        [Header("메카닉 빌드 — 임시 출처(PlayerProfile 일반화 전까지, 인스펙터에서 바꿔 볼 수 있다)")]
-        [Tooltip("원본 meta.skills.gunner.branch — Laser=캐릭터 레이저 빌드(move), Installer=설치기 빌드(conv).")]
-        public GunnerBranch branch = GunnerBranch.None;
-        [Tooltip("원본 meta.skills.gunner.tier — 0이면 갈래를 골랐어도 0차로 취급한다.")]
-        [Range(0, 5)] public int tier = 0;
 
         [Header("원본 CONFIG/gunnerFire 그대로 (거리·속도는 100px=1유닛 축척)")]
         [Tooltip("표시용 현재 쿨다운. 매 프레임 빌드별 기준값 ÷ 공격속도 배수 × 쿨감으로 다시 계산된다.")]
@@ -65,20 +58,22 @@ namespace YokaiFront.Characters
         /// <summary>메카닉은 마법사와 같은 즉시-속도 이동(관성은 섬영 전용).</summary>
         public CharacterMover2D.MoveMode RequiredMoveMode => CharacterMover2D.MoveMode.Instant;
 
+        /// <summary>지금 빌드 층수 — 원본 `meta.skills.gunner.tier`.</summary>
+        public int Tier => ProfileService.Current.gunnerTier;
         /// <summary>
-        /// 실제로 적용되는 갈래 — 티어가 1 미만이면 없음. 원본은 갈래가 정해지는 순간 1층을 같이 배우므로
-        /// (`learnSkill`) "갈래는 있는데 0층"인 상태가 없다 — 인스펙터로 그런 값을 넣어도 0차로 본다.
+        /// 실제로 적용되는 갈래 — 층수가 1 미만이면 없음. 원본은 갈래가 정해지는 순간 1층을 같이 배우므로
+        /// (`learnSkill`) "갈래는 있는데 0층"인 상태가 없다 — 세이브가 그런 값이어도 0차로 본다.
         /// </summary>
-        public GunnerBranch Branch => tier >= 1 ? branch : GunnerBranch.None;
-        public int LaserTier => GunnerSpecConfig.LaserTier(Branch, tier);
-        public int InstallerTier => GunnerSpecConfig.InstallerTier(Branch, tier);
+        public GunnerBranch Branch => Tier >= 1 ? ProfileService.Current.gunnerBranch : GunnerBranch.None;
+        public int LaserTier => GunnerSpecConfig.LaserTier(Branch, Tier);
+        public int InstallerTier => GunnerSpecConfig.InstallerTier(Branch, Tier);
 
         /// <summary>충전 스택(레이저) 또는 부품(설치기) — 원본 `player.gunnerStacks`.</summary>
         public int Stacks { get; private set; }
         /// <summary>설치기 빌드의 부품 충전용 적중 수(10이면 부품 1개) — 원본 `player.gunnerPartHits`.</summary>
         public int PartHits { get; private set; }
         /// <summary>원본 `gunnerStackMax()`.</summary>
-        public int StackMax => GunnerSpecConfig.StackMax(Branch, tier);
+        public int StackMax => GunnerSpecConfig.StackMax(Branch, Tier);
         /// <summary>X 스킬 남은 쿨다운(원본 `p.ultCd`).</summary>
         public float UltCooldownRemaining => Mathf.Max(0f, ultCdTimer);
         /// <summary>Z 레이저 광선 상태(레이저 빌드 전용).</summary>
@@ -213,6 +208,7 @@ namespace YokaiFront.Characters
             if (ultCdTimer > 0f) return;
             var b = Branch;
             if (b == GunnerBranch.None) return; // 원본: "메카닉 빌드를 먼저 습득하자"
+            int tier = Tier;
             float cdMult = PlayerStatCalculator.ComputeCooldownMultiplier(ProfileService.Current);
 
             if (b == GunnerBranch.Laser)
