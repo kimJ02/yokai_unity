@@ -10,7 +10,7 @@ namespace YokaiFront.Tests.PlayMode
 {
 
 /// <summary>
-/// 단계 1 착수 전제(캐릭터 뼈대) 검증 — `HANDOFF.md` 1번, 계약은 `docs/worksplit.md` 3절.
+/// 단계 1 착수 전제(캐릭터 뼈대) 검증 — `docs/sprints/05-all-characters-tier0.md` 1번, 계약은 `docs/worksplit.md` 3절.
 /// 팀원 세션이 섬영·드루이드 키트를 여기에 얹으므로, 계약이 바뀌면 여기서 먼저 깨져야 한다.
 /// </summary>
 public class CharacterKitTests
