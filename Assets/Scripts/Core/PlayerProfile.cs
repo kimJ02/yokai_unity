@@ -15,34 +15,44 @@ namespace YokaiFront.Core
     [System.Serializable]
     public class PlayerProfile
     {
-        public int level = 1;
-        public int exp = 0;
+        /// <summary>
+        /// 레벨·경험치·쓴 SP는 **캐릭터마다 따로** 간다 — 원본 `meta.charProgress[캐릭터] = { level, exp, spUsed }`
+        /// (project_test.html:1124 `makeCharProgress`, `charProg()` `:1249`). 인덱스는 <see cref="CharacterId"/> 순서.
+        /// 골드·골드 강화·시간의 파편·아이템·지역 진행·업적은 원본처럼 **모든 캐릭터가 같이 쓴다**(아래 필드들).
+        /// 원본처럼 4칸을 다 만들어 둔다(드루이드는 기획에서 빠졌지만 칸은 남긴다 — 순서가 곧 인덱스다).
+        /// </summary>
+        public List<CharacterProgress> charProgress = NewCharProgress();
+
+        /// <summary>
+        /// **지금 고른 캐릭터**의 레벨·경험치 — 원본 `curLevel()`·`curExp()`(`:1255`~`:1256`).
+        ///
+        /// 예전엔 필드였다. 이 이름을 트랙 A/B·UI·테스트가 전부 쓰는 공유 계약이라, 이름은 그대로 두고
+        /// 캐릭터별 칸(<see cref="Progress"/>)을 가리키게만 바꿨다 — 그래서 소문자 프로퍼티다. 다른 캐릭터의 값은
+        /// <see cref="ProgressOf"/>로 읽는다. 세이브(`JsonUtility`)는 프로퍼티를 안 쓰고 <see cref="charProgress"/>만 쓴다.
+        /// </summary>
+        public int level { get => Progress.level; set => Progress.level = value; }
+        public int exp { get => Progress.exp; set => Progress.exp = value; }
+
         public int gold = 0;
 
         /// <summary>
         /// 지금 고른 캐릭터. 원본 `meta.character`(project_test.html:1134, 기본값 'mage').
         /// 파생 스탯의 캐릭터 배수(<see cref="CharacterStats.StatMultiplier"/>)가 이 값을 본다.
-        ///
-        /// ⚠️ 원본은 레벨·경험치·SP를 **캐릭터별로** 따로 관리한다(`meta.charProgress`, `:1249`).
-        /// 우리는 아직 단일 `level`/`exp`/`spUsed`를 공유한다 — 0차 단계 검증엔 지장이 없어서
-        /// 미뤄둔 것이고, **단계 2(캐릭터별 5차 심화) 때 `branch`/`tier` 일반화와 같이 분리한다**
-        /// (`docs/worksplit.md` 7절 확정 사항).
+        /// <see cref="level"/>·<see cref="exp"/>·<see cref="spUsed"/>도 이 캐릭터의 칸을 가리킨다(원본 `charProg()`).
         /// </summary>
         public CharacterId character = CharacterId.Mage;
 
         /// <summary>
-        /// 스킬트리(전문화)에 쓴 SP. 원본은 캐릭터별로 따로 관리한다(`charProg().spUsed`,
-        /// project_test.html:1249) — 이 프로토타입엔 마법사 하나뿐이라 이 필드가 곧 마법사의 spUsed다.
-        /// 캐릭터가 늘어나면 `PlayerProfile` 자체를 캐릭터별로 두거나 이 필드를 분리해야 한다.
+        /// **지금 고른 캐릭터**가 스킬트리(전문화)에 쓴 SP — 원본 `charProg().spUsed`(project_test.html:7023).
+        /// 캐릭터마다 따로다(<see cref="charProgress"/>). 예전엔 필드였고 이름은 그대로다(<see cref="level"/> 참고).
         /// </summary>
-        public int spUsed = 0;
+        public int spUsed { get => Progress.spUsed; set => Progress.spUsed = value; }
         public MageBranch mageBranch = MageBranch.None;
         public int mageTier = 0;
 
         /// <summary>
         /// 메카닉 빌드 — 원본 `meta.skills.gunner = {branch, tier}`(project_test.html:1139).
-        /// 마법사와 같은 방식으로 **SP는 위의 `spUsed`를 같이 쓴다** — 캐릭터별 SP·레벨 분리(원본
-        /// `charProgress`)는 아직이다(위 `character` 주석 참고).
+        /// SP는 메카닉 자기 몫이다(<see cref="charProgress"/> — 로비에서 메카닉을 고른 채로 배운다).
         /// </summary>
         public GunnerBranch gunnerBranch = GunnerBranch.None;
         public int gunnerTier = 0;
@@ -75,6 +85,34 @@ namespace YokaiFront.Core
         public int[] regionKills = new int[RegionConfig.Count];
         public bool[] regionBossUnlocked = new bool[RegionConfig.Count];
         public bool[] regionBossCleared = new bool[RegionConfig.Count];
+
+        /// <summary>캐릭터 칸 수 — <see cref="CharacterId"/> 값 개수(원본 `CHARACTERS` 4종).</summary>
+        static readonly int CharacterCount = System.Enum.GetValues(typeof(CharacterId)).Length;
+
+        /// <summary>원본 `makeCharProgress()`(`:1124`) — 캐릭터마다 1레벨·경험치 0·SP 0.</summary>
+        static List<CharacterProgress> NewCharProgress()
+        {
+            var list = new List<CharacterProgress>(CharacterCount);
+            for (int i = 0; i < CharacterCount; i++) list.Add(new CharacterProgress());
+            return list;
+        }
+
+        /// <summary>
+        /// 그 캐릭터의 성장 칸 — 원본 `charProg(char)`(`:1249`). 없는 캐릭터면 마법사 칸(원본
+        /// `CHARACTERS[char] ? char : 'mage'`), 칸이 모자라거나 비었으면 새로 채운다(원본
+        /// `if (!meta.charProgress[key]) meta.charProgress[key] = { level: 1, exp: 0, spUsed: 0 }`).
+        /// </summary>
+        public CharacterProgress ProgressOf(CharacterId id)
+        {
+            if (charProgress == null) charProgress = new List<CharacterProgress>(CharacterCount);
+            while (charProgress.Count < CharacterCount) charProgress.Add(new CharacterProgress());
+            int i = (int)id;
+            if (i < 0 || i >= CharacterCount) i = (int)CharacterId.Mage;
+            return charProgress[i] ??= new CharacterProgress();
+        }
+
+        /// <summary>지금 고른 캐릭터의 성장 칸 — 원본 `charProg()`.</summary>
+        public CharacterProgress Progress => ProgressOf(character);
 
         static bool InRange(int region) => region >= 1 && region <= RegionConfig.Count;
 
@@ -143,8 +181,11 @@ namespace YokaiFront.Core
         /// <summary>
         /// 회귀한다 — 원본 `doRebirth()`(project_test.html:6509).
         ///
-        /// **초기화**: 레벨·경험치·골드·골드 강화·전문화(SP)·지역 진행.
-        /// **유지**: 시간의 파편·회귀 횟수(그리고 나중에 아이템).
+        /// **초기화**: **모든 캐릭터의** 레벨·경험치·쓴 SP(원본 `resetAllCharLevels()`·`resetAllCharSp()` `:6519`·`:6524`),
+        /// 골드·골드 강화·전문화 빌드·지역 진행.
+        /// **유지**: 시간의 파편·회귀 횟수·아이템. '각인의 봉인'이 있으면 빌드(갈래·층)도 — 단 **쓴 SP는 봉인이 있어도
+        /// 0이 된다**: 원본이 `resetAllCharSp()`를 봉인 여부와 상관없이 부른다(확인창 문구는 "전문화 유지"라 헷갈리지만
+        /// 코드가 기준이다). 그래서 남긴 빌드는 SP를 안 치른 셈이 된다.
         ///
         /// 정복한 지역이 하나도 없으면 아무 일도 안 한다(원본 `if (gain &lt; 1) return`) —
         /// 얻을 게 없는데 진행만 날리는 걸 막는 안전장치다.
@@ -160,18 +201,16 @@ namespace YokaiFront.Core
             int keptTier = mageTier;
             var keptGunnerBranch = gunnerBranch;
             int keptGunnerTier = gunnerTier;
-            int keptSpUsed = spUsed;
 
             shards += gain;
             regressions++;
             stats.shardsEarned += gain;
 
-            level = 1;
-            exp = 0;
+            // 원본 `resetAllCharLevels()`(:6519) — **모든 캐릭터**의 레벨·경험치·쓴 SP를 비운다.
+            charProgress = NewCharProgress();
             gold = 0;
             upgrades = new UpgradeLevels();
             // 원본 doRebirth(:6509~) — **모든 무기**의 빌드를 비운다(`for (const w in meta.skills)`).
-            spUsed = 0;
             mageBranch = MageBranch.None;
             mageTier = 0;
             gunnerBranch = GunnerBranch.None;
@@ -188,14 +227,14 @@ namespace YokaiFront.Core
                 upgrades.atk = upgrades.hp = upgrades.ms = upgrades.atkSpeed = upgrades.crit = head;
             }
 
-            // 각인의 봉인 — 있으면 전문화가 유지된다(원본 `keepSpec` :6527).
+            // 각인의 봉인 — 있으면 빌드(갈래·층)가 유지된다(원본 `keepSpec` :6527). 쓴 SP는 위에서 0이 된 그대로다
+            // (원본 `resetAllCharSp()` :6524가 봉인과 상관없이 돈다 — 위 요약 주석 참고).
             if (items.Count("keepSpec") > 0)
             {
                 mageBranch = keptBranch;
                 mageTier = keptTier;
                 gunnerBranch = keptGunnerBranch;
                 gunnerTier = keptGunnerTier;
-                spUsed = keptSpUsed;
             }
 
             return gain;
@@ -222,12 +261,13 @@ namespace YokaiFront.Core
         /// </summary>
         public void AddExp(int amount)
         {
-            exp += amount;
+            var cp = Progress; // 지금 고른 캐릭터의 몫 — 원본 `const cp = charProg()`(:1441)
+            cp.exp += amount;
             bool leveled = false;
-            while (exp >= RequiredExp(level))
+            while (cp.exp >= RequiredExp(cp.level))
             {
-                exp -= RequiredExp(level);
-                level++;
+                cp.exp -= RequiredExp(cp.level);
+                cp.level++;
                 leveled = true;
             }
             if (leveled) LeveledUp?.Invoke();
@@ -272,7 +312,7 @@ namespace YokaiFront.Core
             }
         }
 
-        /// <summary>원본 `spTotal()`(project_test.html:1258) = 레벨-1. 1레벨엔 SP가 0이다.</summary>
+        /// <summary>원본 `spTotal()`(project_test.html:1258) = 레벨-1. 1레벨엔 SP가 0이다. 지금 고른 캐릭터 기준.</summary>
         public int SpTotal => level - 1;
         /// <summary>원본 `spAvail()`(project_test.html:1259).</summary>
         public int SpAvailable => SpTotal - spUsed;
@@ -324,6 +364,18 @@ namespace YokaiFront.Core
             spUsed += cost;
             return true;
         }
+    }
+
+    /// <summary>
+    /// 캐릭터 하나의 성장 — 원본 `meta.charProgress[캐릭터] = { level: 1, exp: 0, spUsed: 0 }`(project_test.html:1126).
+    /// 골드·강화처럼 같이 쓰는 것은 여기 넣지 않는다(원본도 `meta` 바로 아래에 둔다).
+    /// </summary>
+    [System.Serializable]
+    public class CharacterProgress
+    {
+        public int level = 1;
+        public int exp = 0;
+        public int spUsed = 0;
     }
 
     /// <summary>원본 마법사 빌드 갈래. move=폭발 계열, conv=중력 계열(project_test.html:900-913).</summary>

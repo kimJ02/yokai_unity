@@ -246,7 +246,11 @@ public class ItemAndGachaTests
         Assert.AreEqual(2, p.upgrades.crit);
     }
 
-    /// <summary>'각인의 봉인' — 회귀해도 전문화가 유지된다(원본 `keepSpec` :6527).</summary>
+    /// <summary>
+    /// '각인의 봉인' — 회귀해도 **빌드(갈래·층)**가 유지된다(원본 `keepSpec` :6527). 쓴 SP는 봉인이 있어도 0이 된다 —
+    /// 원본이 `resetAllCharSp()`(:6524)를 봉인 여부와 상관없이 부른다(2026-09-30 캐릭터별 성장 때 원본대로 바로잡음,
+    /// 예전 테스트는 SP가 남는다고 봤다).
+    /// </summary>
     [Test]
     public void KeepSpec_PreservesSpecializationAcrossRegression()
     {
@@ -268,7 +272,7 @@ public class ItemAndGachaTests
         p.DoRegression();
         Assert.AreEqual(MageBranch.Gravity, p.mageBranch, "봉인이 있는데 전문화가 날아갔다");
         Assert.AreEqual(3, p.mageTier);
-        Assert.AreEqual(6, p.spUsed);
+        Assert.AreEqual(0, p.spUsed, "원본은 봉인이 있어도 쓴 SP를 0으로 돌린다(resetAllCharSp)");
     }
 }
 

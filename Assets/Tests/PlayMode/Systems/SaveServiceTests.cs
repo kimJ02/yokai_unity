@@ -86,10 +86,10 @@ public class SaveServiceTests
     public void SaveThenLoad_RestoresProgress()
     {
         var p = ProfileService.Current;
+        p.character = CharacterId.Gunner; // 레벨·경험치·SP는 캐릭터별이라 캐릭터를 먼저 고른다(아래 값은 메카닉 칸)
         p.level = 7;
         p.exp = 123;
         p.gold = 4560;
-        p.character = CharacterId.Gunner;
         p.mageBranch = MageBranch.Gravity;
         p.mageTier = 3;
         p.spUsed = 6;
@@ -115,6 +115,51 @@ public class SaveServiceTests
         Assert.AreEqual(11, q.upgrades.atk);
         Assert.AreEqual(4, q.upgrades.crit);
         Assert.IsTrue(q.regionBossCleared[0]);
+    }
+
+    /// <summary>캐릭터별 성장이 저장·불러오기를 거쳐도 캐릭터마다 그대로 남는다(원본 `meta.charProgress`).</summary>
+    [Test]
+    public void SaveThenLoad_KeepsEachCharactersProgress()
+    {
+        var p = ProfileService.Current;
+        p.level = 5; p.exp = 40; p.spUsed = 2; // 마법사
+        p.character = CharacterId.Gunner;
+        p.level = 3; p.spUsed = 1;             // 메카닉(마지막으로 고른 캐릭터)
+        Assert.IsTrue(SaveService.Save());
+
+        ProfileService.Reset();
+        Assert.IsTrue(SaveService.Load());
+        var q = ProfileService.Current;
+
+        Assert.AreEqual(CharacterId.Gunner, q.character);
+        Assert.AreEqual(3, q.level);
+        Assert.AreEqual(1, q.spUsed);
+        var mage = q.ProgressOf(CharacterId.Mage);
+        Assert.AreEqual(5, mage.level, "다른 캐릭터(마법사) 레벨이 저장에서 빠졌다");
+        Assert.AreEqual(40, mage.exp);
+        Assert.AreEqual(2, mage.spUsed);
+    }
+
+    /// <summary>
+    /// 캐릭터별 성장 **이전** 세이브(레벨·경험치·SP가 맨 위에 하나) — 원본 `loadMeta`(:1234)처럼 **저장 당시 고른
+    /// 캐릭터**에게만 옮기고, 나머지는 1레벨부터. 안 옮기면 `JsonUtility`가 옛 값을 말없이 버려 레벨이 1로 돌아간다.
+    /// </summary>
+    [Test]
+    public void Load_MigratesSharedProgressIntoSavedCharacter()
+    {
+        // character 1 = 메카닉(CharacterId 순서) — JsonUtility는 enum을 정수로 쓴다.
+        File.WriteAllText(SaveService.SavePath,
+            @"{""level"":8,""exp"":77,""spUsed"":6,""gold"":300,""character"":1}");
+
+        Assert.IsTrue(SaveService.Load());
+        var p = ProfileService.Current;
+
+        Assert.AreEqual(CharacterId.Gunner, p.character);
+        Assert.AreEqual(8, p.level, "옛 레벨이 저장 당시 캐릭터에게 안 옮겨졌다");
+        Assert.AreEqual(77, p.exp);
+        Assert.AreEqual(6, p.spUsed);
+        Assert.AreEqual(1, p.ProgressOf(CharacterId.Mage).level, "다른 캐릭터는 1레벨부터 시작해야 한다(원본과 같게)");
+        Assert.AreEqual(300, p.gold, "골드는 모든 캐릭터가 같이 쓰는 값이라 그대로 남아야 한다");
     }
 
     /// <summary>

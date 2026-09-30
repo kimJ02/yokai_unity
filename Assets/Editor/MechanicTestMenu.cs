@@ -42,8 +42,8 @@ namespace YokaiFront.Editor
         }
 
         /// <summary>
-        /// 메카닉으로 바꾸고 빌드를 세팅한다. SP 장부도 맞춘다(원본 층 비용 1+…+N에 마법사가 이미 쓴 것을 더한 만큼
-        /// 쓴 것으로 치고, 레벨이 모자라면 올린다) — 안 맞추면 로비 전문화 탭의 SP가 음수로 보인다.
+        /// 메카닉으로 바꾸고 빌드를 세팅한다. **메카닉의** SP 장부도 맞춘다(원본 층 비용 1+…+N만큼 쓴 것으로 치고,
+        /// 레벨이 모자라면 올린다 — SP는 캐릭터마다 따로라 마법사 몫은 안 건드린다). 안 맞추면 전문화 탭 SP가 음수로 보인다.
         /// 충전 스택·부품·X 쿨다운은 사냥 시작처럼 새로 시작한다(설치기는 부품 1개, 원본 `resetPlayerForRun`).
         /// </summary>
         static void Set(GunnerBranch branch, int tier)
@@ -54,7 +54,8 @@ namespace YokaiFront.Editor
             p.gunnerBranch = tier >= 1 ? branch : GunnerBranch.None;
             p.gunnerTier = tier;
 
-            int spent = TierCostSum(p.mageTier) + TierCostSum(tier);
+            // 위에서 캐릭터를 메카닉으로 바꿨으므로 level·spUsed는 메카닉 칸이다(PlayerProfile.Progress).
+            int spent = TierCostSum(tier);
             p.spUsed = spent;
             p.level = Mathf.Max(p.level, spent + 1);
 

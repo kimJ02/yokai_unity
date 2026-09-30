@@ -61,6 +61,7 @@ namespace YokaiFront.Systems
                 var profile = new PlayerProfile(); // 기본값에서 시작 — 위 "기본값 위에 덮어쓰는 이유" 참고
                 JsonUtility.FromJsonOverwrite(json, profile);
                 MigrateLegacyRebirthFields(json, profile);
+                MigrateSharedProgress(json, profile);
                 ProfileService.Current = profile;
                 return true;
             }
@@ -94,13 +95,39 @@ namespace YokaiFront.Systems
                 profile.stats.shardsEarned = legacy.stats.rpEarned;
         }
 
-        /// <summary>개칭 전 필드 이름만 담은 읽기 전용 형태(위 <see cref="MigrateLegacyRebirthFields"/>용).</summary>
+        /// <summary>
+        /// 캐릭터별 성장(2026-09-30) **이전** 세이브를 살린다 — 그땐 레벨·경험치·쓴 SP가 맨 위에 하나씩만 있었다.
+        /// 지금은 그 이름이 프로퍼티라 `JsonUtility`가 옛 값을 **말없이 버린다**(위 개칭 때와 같은 종류의 손실).
+        ///
+        /// 원본 `loadMeta`와 같게(`if (!d.charProgress && d.level) meta.charProgress[지금 캐릭터] = {...}` :1234)
+        /// **저장할 때 고른 캐릭터**에게 옮기고, 나머지 캐릭터는 1레벨부터 시작한다. 새 형식(`charProgress`가 있는
+        /// 파일)에는 옛 키가 없으니 아무 일도 안 한다.
+        /// </summary>
+        static void MigrateSharedProgress(string json, PlayerProfile profile)
+        {
+            if (json.Contains("\"charProgress\"")) return; // 새 형식이면 그걸 믿는다
+            var legacy = JsonUtility.FromJson<LegacyProfile>(json);
+            if (legacy == null || legacy.level <= 0) return; // 옛 레벨 키도 없다 — 옮길 게 없다
+
+            var cp = profile.ProgressOf(profile.character);
+            cp.level = legacy.level;
+            cp.exp = legacy.exp;
+            cp.spUsed = legacy.spUsed;
+        }
+
+        /// <summary>
+        /// 옛 필드 이름만 담은 읽기 전용 형태 — 개칭 전(<see cref="MigrateLegacyRebirthFields"/>)과 캐릭터별 성장
+        /// 전(<see cref="MigrateSharedProgress"/>) 세이브용.
+        /// </summary>
         [System.Serializable]
         class LegacyProfile
         {
             public int rp;
             public int rebirths;
             public LegacyStats stats;
+            public int level; // 0이면 키가 없었다(옛 세이브는 늘 1 이상)
+            public int exp;
+            public int spUsed;
 
             [System.Serializable]
             public class LegacyStats { public int rpEarned; }

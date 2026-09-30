@@ -474,6 +474,7 @@ public class GunnerSkillTreeTests
     public void LearnGunnerTier_FollowsOriginalLearnSkillRules()
     {
         var p = ProfileService.Current;
+        p.character = CharacterId.Gunner; // SP는 캐릭터마다 따로 — 원본처럼 메카닉을 고른 채로 배운다
         p.level = 3; // SP 2
         Assert.IsTrue(p.TryLearnGunnerTier(GunnerBranch.Laser), "SP 2로 1층(비용 1)을 못 배웠다");
         Assert.AreEqual(GunnerBranch.Laser, p.gunnerBranch);

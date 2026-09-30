@@ -108,8 +108,9 @@ namespace YokaiFront.UI
             UiTheme.ShadowLabel(new Rect(Pad, 10f, 240f, 38f), "요괴전선", UiTheme.Title);
 
             float x = Pad + 175f;
+            // 레벨·SP는 지금 고른 캐릭터 것이다(캐릭터마다 따로, PlayerProfile.charProgress) — 누구 것인지 이름을 붙인다.
             UiTheme.ShadowLabel(new Rect(x, 12f, 900f, 22f),
-                $"Lv.<b>{profile.level}</b>    골드 <b>{profile.gold}</b> G    " +
+                $"{CharacterLabel(profile.character)} Lv.<b>{profile.level}</b>    골드 <b>{profile.gold}</b> G    " +
                 $"SP <b>{profile.SpAvailable}</b> (총 {profile.SpTotal})    " +
                 $"시간 회귀 <b>{profile.regressions}</b>회    ◈ <b>{profile.shards}</b>",
                 UiTheme.HeadStat);
@@ -192,7 +193,12 @@ namespace YokaiFront.UI
                 bool current = profile.character == id;
 
                 GUILayout.BeginHorizontal();
-                string label = CharacterLabel(id) + (current ? "   ← 선택됨" : "");
+                // 원본 캐릭터 카드처럼 캐릭터마다 자기 레벨을 보인다(`renderCharacterSelect` :6418 `'Lv.' + p.level`,
+                // SP는 정보 패널의 `cp.level - 1 - cp.spUsed` :6424). 레벨·SP가 캐릭터별이라 여기서 봐야 다른 캐릭터 진행을 안다.
+                var cp = profile.ProgressOf(id);
+                string label = CharacterLabel(id)
+                               + (implemented ? $"   Lv.{cp.level} · SP {cp.level - 1 - cp.spUsed}" : "")
+                               + (current ? "   ← 선택됨" : "");
                 if (!implemented) label += "   (미구현)";
 
                 GUI.enabled = implemented && !current;
@@ -208,6 +214,7 @@ namespace YokaiFront.UI
 
             GUILayout.Space(10f);
             GUILayout.Label("드루이드는 기획에서 빠져 고를 수 없다. 전문화(스킬트리)는 지금 고른 캐릭터 것이 전문화 탭에 뜬다.");
+            GUILayout.Label("레벨·경험치·SP는 캐릭터마다 따로 오른다. 골드·골드 강화·시간의 파편·유물은 모든 캐릭터가 같이 쓴다.");
         }
 
         static string CharacterLabel(CharacterId id) => id switch
@@ -366,7 +373,7 @@ namespace YokaiFront.UI
 
         void DrawSpecHeader(PlayerProfile profile, string branchNow, int tier)
         {
-            GUILayout.Label($"SP {profile.SpAvailable}개 사용 가능 (레벨 1당 1개). " +
+            GUILayout.Label($"{CharacterLabel(profile.character)} SP {profile.SpAvailable}개 사용 가능 (레벨 1당 1개, 캐릭터마다 따로). " +
                             "**한 갈래만 선택**하며, 각 층에서 Z 공격과 X 스킬이 함께 강화된다.");
 #if UNITY_EDITOR
             DrawTestSpButton(profile);
