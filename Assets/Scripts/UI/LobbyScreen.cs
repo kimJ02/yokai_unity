@@ -368,12 +368,41 @@ namespace YokaiFront.UI
         {
             GUILayout.Label($"SP {profile.SpAvailable}개 사용 가능 (레벨 1당 1개). " +
                             "**한 갈래만 선택**하며, 각 층에서 Z 공격과 X 스킬이 함께 강화된다.");
+#if UNITY_EDITOR
+            DrawTestSpButton(profile);
+#endif
             GUILayout.Space(4f);
             GUILayout.Label($"현재: {branchNow} · {tier}층");
             if (tier == 0)
                 GUILayout.Label("⚠️ 0층에서는 X 스킬이 나가지 않는다 — 원본도 `tier < 1`이면 막는다(:2169).");
             GUILayout.Space(8f);
         }
+
+#if UNITY_EDITOR
+        /// <summary>
+        /// **에디터 전용 테스트 버튼**(사용자 요청 2026-09-29 — 스킬을 한 층씩 찍어 보며 테스트하려고). 누를 때마다 SP 1개.
+        ///
+        /// SP는 원본처럼 레벨에서 나오므로(`spTotal() = level - 1`, project_test.html:1258) **레벨을 1 올린다** —
+        /// SP만 따로 더하는 칸을 세이브에 만들지 않으려는 것. 경험치는 그대로 두므로 다음 레벨 요구치 아래에 남는다.
+        /// 레벨이 오르면 몹 레벨 페널티가 줄고 경험치 구슬이 커지니, 밸런스를 볼 때는 쓰지 말 것.
+        ///
+        /// `#if UNITY_EDITOR`라 빌드에는 들어가지 않는다. CLAUDE.md의 "원본에 없던 임시 디버그 키를 되살리지 말 것"은
+        /// 실제 게임에 들어가는 것을 막는 규칙이라, 빌드에서 빠지는 에디터 전용 도구(`Editor/MechanicTestMenu`와 같은
+        /// 취급)는 해당하지 않는다. 전문화 탭 머리말(<see cref="DrawSpecHeader"/>)에 붙어서 트리가 있는 캐릭터마다 뜬다.
+        /// </summary>
+        void DrawTestSpButton(PlayerProfile profile)
+        {
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("SP +1 (테스트)", GUILayout.Height(24f), GUILayout.Width(140f)))
+            {
+                profile.level++;
+                SaveService.Save(); // 스킬을 찍을 때처럼 바로 저장 — 에디터를 끄기 전에 자동 저장이 안 돌아도 남는다
+                ShowToast($"SP +1 — 레벨 {profile.level}, 사용 가능 SP {profile.SpAvailable}");
+            }
+            GUILayout.Label("에디터 전용 — 레벨이 1 오른다(빌드한 게임엔 없다).");
+            GUILayout.EndHorizontal();
+        }
+#endif
 
         void DrawMageSpec(PlayerProfile profile)
         {
