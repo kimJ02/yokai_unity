@@ -1,85 +1,349 @@
+using System.Collections.Generic;
 using UnityEngine;
 using YokaiFront.Core;
 
 namespace YokaiFront.Characters
 {
     /// <summary>
-    /// 메카닉(원본 무기 "gunner") **0차 기본공격** — 원본 `gunnerFire()`(project_test.html:2188)의
-    /// `laserTier == 0` 분기를 그대로 옮겼다. Z를 누르고 있으면 쿨다운마다 총알이 정면으로 나간다
-    /// (마법사처럼 차지하지 않고, 위/아래 조준도 없다 — `vx: p.facing * spd, vy: 0`).
+    /// 메카닉(원본 무기 "gunner") 키트 — Z 기본공격(총알 / 레이저 빔)과 X 스킬(레이저 드론 / 설치기),
+    /// 충전 스택·부품, 설치기 링크·내부 장판까지. 원본 `gunnerFire`(project_test.html:2188)·
+    /// `updateGunnerBeam`(:2224)·`tryGunnerSkill`(:2390)·`addGunnerStack`(:1411)·`updateZones` 장판(:3766)을 옮겼다.
+    /// 수치는 전부 <see cref="GunnerSpecConfig"/>.
     ///
-    /// **0차에 없는 것**(전부 전문화 티어가 있어야 열린다 — `docs/worksplit.md` "0차" 정의):
-    /// - X 스킬(레이저 빔 / 설치기·드론)
-    /// - 레이저 강화(관통 증가·유도·탄속 변화)
-    /// - **스택 축적조차 안 된다**: 원본 `addGunnerStack`이 `if (!s.branch) return 0`으로
-    ///   갈래를 안 고른 상태에선 즉시 빠져나간다(`:1414`). 그래서 0차엔 스택 관련 코드가 아예 없다.
+    /// **빌드별 동작**
+    /// - 0차(갈래 없음): Z를 누르고 있으면 쿨다운마다 정면으로 총알. X 없음. 스택도 안 쌓인다(`addGunnerStack`이
+    ///   갈래가 없으면 즉시 빠진다, `:1414`).
+    /// - 레이저 빌드(`move`): Z를 누르는 동안 총알 대신 **관통 광선**(<see cref="GunnerLaserBeam"/>) — 적중마다 충전 스택 +1.
+    ///   X는 충전 스택을 전부 써서 **레이저 드론**(<see cref="GunnerDrone"/>) 소환(스택 1개당 지속 +0.32초).
+    /// - 설치기 빌드(`conv`): Z는 0차와 같은 총알이고, 적중 10회마다 **부품** 1개. 런 시작 시 부품 1개.
+    ///   X는 부품 1개로 **설치기**(<see cref="GunnerTurret"/>) 배치(한도 초과 시 가장 오래된 것 교체).
+    ///   설치기 2개 이상이 링크되면 연결선 위·닫힌 도형 안에 장판 피해(<see cref="GunnerField"/>).
     ///
     /// 이동은 마법사와 같은 즉시-속도 방식(원본 `updatePlayerCommon`의 bow/gunner 공통 분기).
+    ///
+    /// 빌드는 원본 `meta.skills.gunner = {branch, tier}`처럼 세이브(<see cref="PlayerProfile.gunnerBranch"/>/
+    /// <see cref="PlayerProfile.gunnerTier"/>)에 있고 로비 전문화 탭에서 SP로 배운다 — 이 키트는 매 프레임
+    /// 읽기만 한다(원본 `gunnerFire`가 `meta.skills.gunner`를 매번 새로 읽는 것과 같다).
     /// </summary>
-    public class GunnerAttack : MonoBehaviour, ICharacterKit, IRunResettable
+    public class GunnerAttack : MonoBehaviour, ICharacterKit, IRunResettable, ISkillSlotSource
     {
+        /// <summary>레이저·드론·설치기 연출색 — 원본 `#8fd8ff`.</summary>
+        public static readonly Color LaserColor = new Color(0x8f / 255f, 0xd8 / 255f, 1f);
+
         [Header("원본 CONFIG/gunnerFire 그대로 (거리·속도는 100px=1유닛 축척)")]
-        [Tooltip("표시용 현재 쿨다운. 매 프레임 BaseCooldownConst ÷ 공격속도 배수로 다시 계산된다.")]
+        [Tooltip("표시용 현재 쿨다운. 매 프레임 빌드별 기준값 ÷ 공격속도 배수 × 쿨감으로 다시 계산된다.")]
         public float cooldown = 0.24f;
-        [Tooltip("표시용 현재 피해량. statAtk × 0.82로 매 프레임 재계산된다.")]
+        [Tooltip("표시용 현재 피해량. statAtk × 빌드별 배수로 매 프레임 재계산된다.")]
         public float baseDamage = 8.2f;
 
-        const float BaseCooldownConst = 0.24f;   // 원본 laserTier 0일 때의 cd(project_test.html:2196)
-        const float DamageMult = 0.82f;          // 원본 dmg(:2203)
-        const float BulletSpeed = 13.2f;         // 원본 spd 1320 ÷100(:2192)
-        const float BulletLife = 0.62f;          // 원본 life(:2202)
-        const int BulletPierce = 1;              // 원본 pierceLeft(:2204)
-        const float BulletSize = 1f;             // 원본 size(:2205)
+        const float BulletSpeed = 13.2f;         // 원본 spd 1320 ÷100(:2192) — 레이저 빌드도 같은 탄속
         const float MuzzleForward = 0.30f;       // 원본 x: p.x + facing*30(:2199)
-        const float MuzzleHeight = 0.38f;        // 원본 y: p.y - 38 — 원본 Y+가 아래라 부호를 뒤집었다
+        /// <summary>원본 y: `p.y - 38`(:2199) — **발**에서 0.38 위(<see cref="FeetPosition"/>, <see cref="PlayerBody"/>).</summary>
+        const float MuzzleHeight = 0.38f;
 
         public Sprite bulletSprite;              // 런타임 AssetDatabase 호출을 피하려고 씬 빌더가 꽂아준다
         public Color bulletColor = new Color(1f, 0.92f, 0.63f);
 
         CharacterMover2D mover;
+        CircleCollider2D bodyCol;
+        GunnerLaserBeam beam;
         float cdTimer;
+        float ultCdTimer;
+        // 쿨다운을 **건 순간**의 최대치 — HUD 슬롯 덮개 비율의 분모. 원본 `p.gunnerCdMax`(:2196)·`p.ultCdMax`
+        // (:2399·:2414)도 발사·시전 때 정해진다.
+        float attackCdMax;
+        float ultCdMax;
+        float fieldTickTimer;                    // 원본 player.mechFieldTick
+
+        GameObject fieldVisualRoot;
+        readonly List<SpriteRenderer> linkVisuals = new List<SpriteRenderer>();
 
         public CharacterId Character => CharacterId.Gunner;
         /// <summary>메카닉은 마법사와 같은 즉시-속도 이동(관성은 섬영 전용).</summary>
         public CharacterMover2D.MoveMode RequiredMoveMode => CharacterMover2D.MoveMode.Instant;
 
-        public void OnSelected() => cdTimer = 0f;
-        public void OnDeselected() { }
+        /// <summary>지금 빌드 층수 — 원본 `meta.skills.gunner.tier`.</summary>
+        public int Tier => ProfileService.Current.gunnerTier;
+        /// <summary>
+        /// 실제로 적용되는 갈래 — 층수가 1 미만이면 없음. 원본은 갈래가 정해지는 순간 1층을 같이 배우므로
+        /// (`learnSkill`) "갈래는 있는데 0층"인 상태가 없다 — 세이브가 그런 값이어도 0차로 본다.
+        /// </summary>
+        public GunnerBranch Branch => Tier >= 1 ? ProfileService.Current.gunnerBranch : GunnerBranch.None;
+        public int LaserTier => GunnerSpecConfig.LaserTier(Branch, Tier);
+        public int InstallerTier => GunnerSpecConfig.InstallerTier(Branch, Tier);
 
-        /// <summary>새 사냥 시작 시 쿨다운 초기화 — 원본 `resetPlayerForRun()`의 `p.atkCds`(:1516).</summary>
-        public void ResetForRun() => OnSelected();
+        /// <summary>충전 스택(레이저) 또는 부품(설치기) — 원본 `player.gunnerStacks`.</summary>
+        public int Stacks { get; private set; }
+        /// <summary>설치기 빌드의 부품 충전용 적중 수(10이면 부품 1개) — 원본 `player.gunnerPartHits`.</summary>
+        public int PartHits { get; private set; }
+        /// <summary>원본 `gunnerStackMax()`.</summary>
+        public int StackMax => GunnerSpecConfig.StackMax(Branch, Tier);
+        /// <summary>X 스킬 남은 쿨다운(원본 `p.ultCd`).</summary>
+        public float UltCooldownRemaining => Mathf.Max(0f, ultCdTimer);
+        /// <summary>Z 레이저 광선 상태(레이저 빌드 전용).</summary>
+        public GunnerLaserBeam Beam => beam;
 
-        void Awake() => mover = GetComponent<CharacterMover2D>();
+        /// <summary>캐릭터가 보는 방향(원본 `p.facing`).</summary>
+        public int Facing => mover != null ? mover.Facing : 1;
+
+        // ---- HUD 스킬 슬롯 (원본 syncHUD 슬롯 부분 :6319~:6366, 버프 줄 :6312~:6317) ----
+
+        /// <summary>
+        /// Z 칸 — 원본 `clamp(p.atkCds.gunner / p.gunnerCdMax, 0, 1)`(:6322)과 남은 초. 레이저 빌드가 광선을 쏘는
+        /// 동안에는 총알 쿨다운이 안 걸려서 비어 있다(원본도 광선은 `atkCds.gunner`를 건드리지 않는다).
+        /// </summary>
+        public SkillSlotState AttackSlot => SkillSlotState.Cooldown(cdTimer, attackCdMax);
+
+        /// <summary>
+        /// X 칸 — 원본 `clamp(p.ultCd / p.ultCdMax, 0, 1)`(:6352). 갈래가 있으면 오른쪽 위에 충전 스택(레이저)
+        /// 또는 부품(설치기) `n/최대`(:6358), 설치기인데 부품이 0개면 `noStack`(:6364).
+        /// </summary>
+        public SkillSlotState SkillSlot
+        {
+            get
+            {
+                var b = Branch;
+                bool stackSkill = b != GunnerBranch.None;
+                return SkillSlotState.Cooldown(ultCdTimer, ultCdMax,
+                    stackSkill ? Stacks : 0, stackSkill ? StackMax : 0,
+                    noStack: b == GunnerBranch.Installer && Stacks <= 0);
+            }
+        }
+
+        /// <summary>
+        /// 원본 버프 줄의 메카닉 몫(:6312~:6317) — 레이저는 `충전 n/최대`, 설치기는
+        /// `부품 n/최대 · 적중 k/10 · 설치기 a/b · 링크 L`. 링크 거리는 원본이 보여주는 숫자 그대로(px, 우리 단위×100).
+        /// </summary>
+        public string BuffText
+        {
+            get
+            {
+                var b = Branch;
+                if (b == GunnerBranch.Laser) return $"충전 {Stacks}/{StackMax}";
+                if (b != GunnerBranch.Installer) return "";
+                int t = InstallerTier;
+                return $"부품 {Stacks}/{StackMax} · 적중 {PartHits}/{GunnerSpecConfig.PartHitsPerPart}" +
+                       $" · 설치기 {GunnerTurret.Active.Count}/{GunnerSpecConfig.TurretMax(t)}" +
+                       $" · 링크 {Mathf.RoundToInt(GunnerSpecConfig.LinkMax(t) * 100f)}";
+            }
+        }
+
+        /// <summary>
+        /// 발 위치 — 원본 `(p.x, p.y)`(<see cref="PlayerBody.Feet"/>). 원본의 `p.y - N` 꼴 높이
+        /// (총구·빔·설치기·드론)는 전부 여기서 잰다.
+        /// </summary>
+        public Vector2 FeetPosition => PlayerBody.Feet(transform, bodyCol);
+
+        public void OnSelected()
+        {
+            cdTimer = 0f;
+            ultCdTimer = 0f;
+        }
+
+        public void OnDeselected()
+        {
+            beam?.Stop();
+            if (fieldVisualRoot != null) fieldVisualRoot.SetActive(false);
+        }
+
+        /// <summary>
+        /// 새 사냥 시작 — 원본 `resetPlayerForRun()`(:1516~:1537): 쿨다운 초기화, 충전 스택 0,
+        /// **설치기 빌드는 부품 1개를 쥐고 시작**, 부품 적중 수 0.
+        /// </summary>
+        public void ResetForRun()
+        {
+            OnSelected();
+            Stacks = Branch == GunnerBranch.Installer ? 1 : 0;
+            PartHits = 0;
+        }
+
+        void Awake()
+        {
+            mover = GetComponent<CharacterMover2D>();
+            bodyCol = GetComponent<CircleCollider2D>();
+            beam = new GunnerLaserBeam(this, mover);
+        }
 
         void Update()
         {
             // 원본 statAtk()/statAs()가 호출마다 다시 계산되는 것과 같은 방식 — 필드 자기 자신이 아니라
             // 항상 프로필+상수에서 새로 굴리므로 매 프레임 곱해져 누적되는 버그가 없다.
             var profile = ProfileService.Current;
-            baseDamage = PlayerStatCalculator.ComputeAtk(profile) * DamageMult;
+            int laserTier = LaserTier;
+            baseDamage = PlayerStatCalculator.ComputeAtk(profile) * GunnerSpecConfig.BulletDamageMult(laserTier);
             // 원본 `p.gunnerCdMax = ... / statAs() * cdMult()`(:2196) — '시간의 조각'이 여기에도 붙는다.
-            cooldown = BaseCooldownConst / PlayerStatCalculator.ComputeAttackSpeedMultiplier(profile)
+            cooldown = GunnerSpecConfig.BulletBaseCooldown(laserTier)
+                       / PlayerStatCalculator.ComputeAttackSpeedMultiplier(profile)
                        * PlayerStatCalculator.ComputeCooldownMultiplier(profile);
 
-            cdTimer -= Time.deltaTime;
+            float dt = Time.deltaTime;
+            cdTimer -= dt;
+            ultCdTimer -= dt;
 
-            // 원본(:3538): `if (!updateGunnerBeam(...) && !p.attacking && p.atkCds.gunner <= 0 && (held || justAtk)) gunnerFire();`
-            // 0차엔 빔이 없어(`updateGunnerBeam`이 tier<=0에서 false) 누르고 있는 동안 쿨다운마다 연사된다.
-            if (GameInput.AttackHeld && cdTimer <= 0f)
+            if (GameInput.UltDown) TryUseSkill();
+
+            // 원본(:3538): `if (!updateGunnerBeam(dt, held) && !p.attacking && p.atkCds.gunner <= 0 && (held || justAtk)) gunnerFire();`
+            // 레이저 빌드는 누르고 있는 동안 광선이 켜져서 총알이 안 나간다.
+            bool held = GameInput.AttackHeld;
+            bool beamOn = UpdateBeam(dt, held);
+            if (!beamOn && cdTimer <= 0f && (held || GameInput.AttackDown))
             {
                 Fire();
-                cdTimer = cooldown;
+                cdTimer = attackCdMax = cooldown;
+            }
+
+            UpdateField(dt);
+        }
+
+        /// <summary>원본 `updateGunnerBeam(dt, held)` — 광선이 켜져 있으면 true.</summary>
+        bool UpdateBeam(float dt, bool held) => beam.Update(dt, held, LaserTier);
+
+        /// <summary>
+        /// 원본 `gunnerFire()` — 정면으로 총알 하나. 레이저 빌드 티어(`laserTier`)에 따라 피해·관통·수명·크기가
+        /// 바뀌고 5층은 유도탄이 된다. 적중마다 스택 +1(`stackOnHit: 1`, 갈래가 없으면 무시).
+        /// </summary>
+        void Fire()
+        {
+            int laserTier = LaserTier;
+            int facing = Facing;
+            Vector2 feet = FeetPosition;
+            Vector3 spawnPos = new Vector3(feet.x + facing * MuzzleForward, feet.y + MuzzleHeight, 0f);
+            Vector2 velocity = new Vector2(facing * BulletSpeed, 0f);
+
+            GunnerBullet.Spawn(spawnPos, velocity, baseDamage,
+                GunnerSpecConfig.BulletPierce(laserTier), GunnerSpecConfig.BulletLife(laserTier),
+                GunnerSpecConfig.BulletSize(laserTier), bulletSprite, laserTier > 0 ? LaserColor : bulletColor,
+                homing: GunnerSpecConfig.BulletHoming(laserTier),
+                seekRange: GunnerSpecConfig.BulletSeekRange(laserTier),
+                turnRate: GunnerSpecConfig.BulletTurnRate(laserTier),
+                stackOwner: this, stackOnHit: GunnerSpecConfig.BulletStackOnHit);
+        }
+
+        /// <summary>
+        /// 원본 `addGunnerStack(n)` — 갈래가 없으면 아무것도 안 한다.
+        /// - 레이저: 스택 += n (최대치에서 자른다).
+        /// - 설치기: 부품이 가득 차 있으면 세지 않는다. 적중 수를 더해 10마다 부품 +1, 가득 차면 적중 수를 0으로.
+        /// </summary>
+        /// <returns>갱신 후 스택(부품) 수.</returns>
+        public int AddStack(int n)
+        {
+            var b = Branch;
+            if (b == GunnerBranch.None) return 0;
+            int max = StackMax;
+            if (b == GunnerBranch.Installer)
+            {
+                if (Stacks >= max) return Stacks;
+                PartHits += n;
+                while (PartHits >= GunnerSpecConfig.PartHitsPerPart && Stacks < max)
+                {
+                    PartHits -= GunnerSpecConfig.PartHitsPerPart;
+                    Stacks = Mathf.Clamp(Stacks + 1, 0, max);
+                }
+                if (Stacks >= max) PartHits = 0;
+                return Stacks;
+            }
+            Stacks = Mathf.Clamp(Stacks + n, 0, max);
+            return Stacks;
+        }
+
+        /// <summary>
+        /// 원본 `tryGunnerSkill()` — X 스킬. 쿨다운 중이거나 빌드가 없으면 아무 일도 없다(쿨다운도 안 돈다).
+        /// </summary>
+        void TryUseSkill()
+        {
+            if (ultCdTimer > 0f) return;
+            var b = Branch;
+            if (b == GunnerBranch.None) return; // 원본: "메카닉 빌드를 먼저 습득하자"
+            int tier = Tier;
+            float cdMult = PlayerStatCalculator.ComputeCooldownMultiplier(ProfileService.Current);
+
+            if (b == GunnerBranch.Laser)
+            {
+                // 충전 스택은 소환하는 순간 전부 드론 지속시간으로 바뀐다(`consumeGunnerStacks`).
+                int stackSpend = Stacks;
+                Stacks = 0;
+                GunnerDrone.Summon(this, tier, stackSpend, bulletSprite);
+                ultCdTimer = ultCdMax = GunnerSpecConfig.DroneUltCooldown(tier) * cdMult;
+                return;
+            }
+
+            // 설치기 — 부품이 없으면 못 놓고, 쿨다운도 안 돈다(`consumeGunnerStackOne`이 0이면 return).
+            if (Stacks <= 0) return; // 원본: "부품 필요 · 공격 적중 10회로 충전"
+            Stacks--;
+            var turrets = GunnerTurret.Active;
+            if (turrets.Count >= GunnerSpecConfig.TurretMax(tier))
+            {
+                // 가장 오래된 것(`z.t`가 가장 큰 것)을 치운다.
+                GunnerTurret oldest = null;
+                foreach (var t in turrets)
+                    if (oldest == null || t.Age > oldest.Age) oldest = t;
+                oldest?.Remove();
+            }
+            // 원본 `placeGunnerTurret`는 `y: p.y` — 발 높이(바닥)에 놓는다.
+            GunnerTurret.Place(FeetPosition, Facing, tier, bulletSprite);
+            ultCdTimer = ultCdMax = GunnerSpecConfig.TurretUltCooldown(tier) * cdMult;
+        }
+
+        /// <summary>
+        /// 원본 `updateZones()` 앞부분(:3766~:3797) — 설치기 빌드에서 장판을 이루는 설치기가 2개 이상이면
+        /// 틱마다 링크·내부 장판 피해. 2개 미만이면 틱 누적을 0으로 되돌린다.
+        /// (원본은 무기가 메카닉일 때만 계산한다 — 이 키트가 꺼지면 Update 자체가 안 돌아서 같은 결과다.)
+        /// </summary>
+        void UpdateField(float dt)
+        {
+            int t = InstallerTier;
+            var fieldTurrets = GunnerField.FieldTurrets(t);
+            if (fieldTurrets.Count >= 2)
+            {
+                fieldTickTimer += dt;
+                float tick = GunnerSpecConfig.FieldTick(t);
+                var pts = GunnerField.FieldPoints(fieldTurrets);
+                var segs = GunnerField.LinkSegments(pts, GunnerSpecConfig.LinkMax(t));
+                if (fieldTickTimer >= tick)
+                {
+                    fieldTickTimer -= tick;
+                    GunnerField.DamageTick(t, pts, segs);
+                }
+                UpdateFieldVisual(segs);
+            }
+            else
+            {
+                fieldTickTimer = 0f;
+                if (fieldVisualRoot != null) fieldVisualRoot.SetActive(false);
             }
         }
 
-        void Fire()
+        // ---- 링크 표시(원본 drawMechanicField :5194의 최소한 — 연결선만 얇은 막대로) ----
+        void UpdateFieldVisual(List<GunnerField.Segment> segs)
         {
-            int facing = mover != null ? mover.Facing : 1;
-            Vector3 spawnPos = transform.position + new Vector3(facing * MuzzleForward, MuzzleHeight, 0f);
-            Vector2 velocity = new Vector2(facing * BulletSpeed, 0f);
-
-            GunnerBullet.Spawn(spawnPos, velocity, baseDamage, BulletPierce, BulletLife,
-                BulletSize, bulletSprite, bulletColor);
+            if (fieldVisualRoot == null)
+            {
+                fieldVisualRoot = new GameObject("GunnerFieldLinks");
+                fieldVisualRoot.AddComponent<RunTransient>(); // 설치기와 같이 런이 끝나면 치워진다
+                linkVisuals.Clear();
+            }
+            fieldVisualRoot.SetActive(true);
+            while (linkVisuals.Count < segs.Count)
+            {
+                var go = new GameObject("Link");
+                go.transform.SetParent(fieldVisualRoot.transform, false);
+                var sr = go.AddComponent<SpriteRenderer>();
+                sr.sprite = bulletSprite;
+                sr.color = new Color(LaserColor.r, LaserColor.g, LaserColor.b, 0.6f);
+                sr.sortingOrder = 3;
+                linkVisuals.Add(sr);
+            }
+            for (int i = 0; i < linkVisuals.Count; i++)
+            {
+                bool on = i < segs.Count;
+                linkVisuals[i].enabled = on;
+                if (!on) continue;
+                Vector2 a = segs[i].a, b = segs[i].b, v = b - a;
+                var tf = linkVisuals[i].transform;
+                tf.position = (a + b) * 0.5f;
+                tf.rotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(v.y, v.x) * Mathf.Rad2Deg);
+                tf.localScale = new Vector3(Mathf.Max(0.01f, v.magnitude), 0.06f, 1f);
+            }
         }
     }
 }

@@ -207,7 +207,7 @@ namespace YokaiFront.UI
             }
 
             GUILayout.Space(10f);
-            GUILayout.Label("섬영·드루이드는 팀원이 구현 중이라 아직 목록에 안 뜬다 — 키트를 붙이면 자동으로 나타난다.");
+            GUILayout.Label("드루이드는 기획에서 빠져 고를 수 없다. 전문화(스킬트리)는 지금 고른 캐릭터 것이 전문화 탭에 뜬다.");
         }
 
         static string CharacterLabel(CharacterId id) => id switch
@@ -222,7 +222,7 @@ namespace YokaiFront.UI
         static string CharacterHint(CharacterId id) => id switch
         {
             CharacterId.Mage => "Z 차지 마법탄 · X 전문화 스킬",
-            CharacterId.Gunner => "Z 자동 사격(누르고 있으면 연사)",
+            CharacterId.Gunner => "Z 에너지 탄(레이저 빌드는 광선) · X 전문화 스킬",
             CharacterId.Blade => "관성 이동 — 달릴수록 강해진다",
             CharacterId.Druid => "클로 3타 콤보 · 마나",
             _ => "",
@@ -347,54 +347,83 @@ namespace YokaiFront.UI
         // ────────────────────────── 전문화 ──────────────────────────
 
         /// <summary>
-        /// 원본 `renderSpecTab()`(project_test.html:6971) — SP로 빌드를 **찍는** 곳.
-        /// 갈래는 처음 찍을 때 고정되고 되돌릴 수 없으며, 반드시 1→5 순서로만 올라간다
-        /// (판정은 전부 `PlayerProfile.TryLearnMageTier`가 한다 — UI는 부르기만).
+        /// 원본 `renderSpecTab()`(project_test.html:6971) — SP로 빌드를 **찍는** 곳. **지금 고른 캐릭터**의
+        /// 트리를 보여준다(원본 `specWeapon = meta.weapon`). 갈래는 처음 찍을 때 고정되고 되돌릴 수 없으며,
+        /// 반드시 1→5 순서로만 올라간다(판정은 전부 `PlayerProfile.TryLearn*Tier`가 한다 — UI는 부르기만).
         /// </summary>
         void DrawSpecTab(PlayerProfile profile)
         {
-            if (profile.character != CharacterId.Mage)
+            switch (profile.character)
             {
-                GUILayout.Label($"{CharacterLabel(profile.character)}의 전문화는 아직 구현되지 않았다. " +
-                                "현재 스킬트리가 있는 캐릭터는 마법사뿐이다.");
-                return;
+                case CharacterId.Mage: DrawMageSpec(profile); break;
+                case CharacterId.Gunner: DrawGunnerSpec(profile); break;
+                default:
+                    GUILayout.Label($"{CharacterLabel(profile.character)}의 전문화는 아직 구현되지 않았다. " +
+                                    "현재 스킬트리가 있는 캐릭터는 마법사·메카닉이다.");
+                    break;
             }
+        }
 
+        void DrawSpecHeader(PlayerProfile profile, string branchNow, int tier)
+        {
             GUILayout.Label($"SP {profile.SpAvailable}개 사용 가능 (레벨 1당 1개). " +
                             "**한 갈래만 선택**하며, 각 층에서 Z 공격과 X 스킬이 함께 강화된다.");
             GUILayout.Space(4f);
-
-            string branchNow = profile.mageBranch == MageBranch.None
-                ? "아직 안 정함"
-                : (profile.mageBranch == MageBranch.Explosion ? "폭발 계열" : "중력 계열");
-            GUILayout.Label($"현재: {branchNow} · {profile.mageTier}층");
-            if (profile.mageTier == 0)
+            GUILayout.Label($"현재: {branchNow} · {tier}층");
+            if (tier == 0)
                 GUILayout.Label("⚠️ 0층에서는 X 스킬이 나가지 않는다 — 원본도 `tier < 1`이면 막는다(:2169).");
             GUILayout.Space(8f);
-
-            DrawBranch(profile, MageBranch.Explosion, "폭발 계열", ExplosionTiers);
-            GUILayout.Space(10f);
-            DrawBranch(profile, MageBranch.Gravity, "중력 계열", GravityTiers);
         }
 
-        void DrawBranch(PlayerProfile profile, MageBranch branch, string title, string[] tiers)
+        void DrawMageSpec(PlayerProfile profile)
         {
-            bool otherPicked = profile.mageBranch != MageBranch.None && profile.mageBranch != branch;
+            var b = profile.mageBranch;
+            string branchNow = b == MageBranch.None ? "아직 안 정함" : (b == MageBranch.Explosion ? "폭발 계열" : "중력 계열");
+            DrawSpecHeader(profile, branchNow, profile.mageTier);
 
+            DrawBranchRows(profile, "폭발 계열", ExplosionTiers, b == MageBranch.Explosion,
+                b != MageBranch.None && b != MageBranch.Explosion, profile.mageTier,
+                () => profile.TryLearnMageTier(MageBranch.Explosion));
+            GUILayout.Space(10f);
+            DrawBranchRows(profile, "중력 계열", GravityTiers, b == MageBranch.Gravity,
+                b != MageBranch.None && b != MageBranch.Gravity, profile.mageTier,
+                () => profile.TryLearnMageTier(MageBranch.Gravity));
+        }
+
+        /// <summary>메카닉 — 원본 `SPEC.gunner`(project_test.html:915): 캐릭터 레이저 빌드(move) / 설치기 빌드(conv).</summary>
+        void DrawGunnerSpec(PlayerProfile profile)
+        {
+            var b = profile.gunnerBranch;
+            string branchNow = b == GunnerBranch.None ? "아직 안 정함" : (b == GunnerBranch.Laser ? "레이저 빌드" : "설치기 빌드");
+            DrawSpecHeader(profile, branchNow, profile.gunnerTier);
+
+            DrawBranchRows(profile, "레이저 빌드", LaserTiers, b == GunnerBranch.Laser,
+                b != GunnerBranch.None && b != GunnerBranch.Laser, profile.gunnerTier,
+                () => profile.TryLearnGunnerTier(GunnerBranch.Laser));
+            GUILayout.Space(10f);
+            DrawBranchRows(profile, "설치기 빌드", InstallerTiers, b == GunnerBranch.Installer,
+                b != GunnerBranch.None && b != GunnerBranch.Installer, profile.gunnerTier,
+                () => profile.TryLearnGunnerTier(GunnerBranch.Installer));
+        }
+
+        /// <summary>갈래 하나의 1~5층 줄. 두 캐릭터 모두 층 비용이 1,2,3,4,5다(원본 `SPEC.*.tiers[].cost`).</summary>
+        void DrawBranchRows(PlayerProfile profile, string title, string[] tiers, bool thisBranch, bool otherPicked,
+            int tier, System.Func<bool> tryLearn)
+        {
             GUILayout.Label($"<b>{title}</b>{(otherPicked ? "   (다른 갈래를 골라서 잠김)" : "")}", RichLabel());
 
             for (int t = 1; t <= tiers.Length; t++)
             {
-                bool learned = profile.mageBranch == branch && profile.mageTier >= t;
-                bool isNext = !otherPicked && profile.mageTier == t - 1;
-                int cost = t; // 원본 SPEC.bow.*.tiers[].cost = 1,2,3,4,5
+                bool learned = thisBranch && tier >= t;
+                bool isNext = !otherPicked && tier == t - 1;
+                int cost = t;
 
                 GUILayout.BeginHorizontal();
                 GUI.enabled = isNext && profile.SpAvailable >= cost;
                 string mark = learned ? "✔" : (isNext ? "▶" : "·");
                 if (GUILayout.Button($"{mark} {t}층   (SP {cost})", GUILayout.Height(26f), GUILayout.Width(180f)))
                 {
-                    if (profile.TryLearnMageTier(branch))
+                    if (tryLearn())
                     {
                         ShowToast($"{title} {t}층 습득");
                         SaveService.Save(); // 원본 `learnSkill` 직후 저장(:7020)
@@ -405,6 +434,25 @@ namespace YokaiFront.UI
                 GUILayout.EndHorizontal();
             }
         }
+
+        // 원본 SPEC.gunner.move / SPEC.gunner.conv 의 티어 설명을 줄인 것(project_test.html:918~930).
+        static readonly string[] LaserTiers =
+        {
+            "레이저 코어 — Z가 관통 광선이 되고 적중마다 충전. X로 스스로 조준하는 레이저 드론 소환.",
+            "출력 증폭 — 광선 피해·충전 최대치 증가. 모은 충전은 소환 순간 드론 지속시간이 된다.",
+            "보정 렌즈 — 광선이 좁은 각도 안의 적에게 살짝 보정된다.",
+            "드론 냉각 회로 — 광선·드론 사격 간격과 X 쿨타임 감소, 드론 탄이 적을 추적.",
+            "오버클럭 유도 — 광선이 정면 70도 안의 적에게 휜다. 드론 2기, 드론 탄 관통 3회.",
+        };
+
+        static readonly string[] InstallerTiers =
+        {
+            "삼각 설치기 — 시작 시 부품 1개, 공격 적중 10회마다 부품 충전. X로 부품을 써서 설치기 배치.",
+            "연결 증폭 — 최대 3개까지 설치해 링크와 내부 피해장을 만든다. 연결 거리 증가.",
+            "광역 제어망 — 설치기 지속시간·원형 피해 범위 증가, 연결 거리 한 번 더 증가.",
+            "확장 받침대 — 동시 설치 4개, 연결 거리와 내부 피해 강화.",
+            "영구 과부하망 — 동시 설치 5개, 지속시간과 연결 거리가 크게 늘어난다.",
+        };
 
         // 원본 SPEC.bow.move / SPEC.bow.conv 의 티어 설명 그대로(project_test.html:900~913).
         static readonly string[] ExplosionTiers =

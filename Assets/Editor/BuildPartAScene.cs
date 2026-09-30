@@ -336,6 +336,9 @@ public static class BuildPartAScene
         tex.iconSkull = BuildUiTextures.Load("icon_skull");
         tex.iconShard = BuildUiTextures.Load("icon_shard");
         tex.menuPlate = BuildUiTextures.Load("menu_plate");
+        tex.skillSlotAttack = BuildUiTextures.Load("skill_slot_attack");
+        tex.skillSlotSkill = BuildUiTextures.Load("skill_slot_skill");
+        tex.skillSlotJump = BuildUiTextures.Load("skill_slot_jump");
 
         ui.AddComponent<TitleScreen>();
         ui.AddComponent<LobbyScreen>();
