@@ -112,5 +112,41 @@ namespace YokaiFront.World
         public static float PlatformLandingY(int index, float radius) => Platforms[index, 1] + PlatformThickness / 2f + radius;
         public static float PlatformLeftX(int index) => Platforms[index, 0] - Platforms[index, 2] / 2f;
         public static float PlatformRightX(int index) => Platforms[index, 0] + Platforms[index, 2] / 2f;
+        /// <summary>발판 i번의 윗면 높이 — 발이 서는 곳.</summary>
+        public static float PlatformTopY(int index) => Platforms[index, 1] + PlatformThickness / 2f;
+
+        /// <summary>
+        /// 원본 `groundYBelow(x, fromY)`(project_test.html:2181) — x 위치에서 **fromY 이하**(4px 여유)에 있는 가장 높은
+        /// 발판 윗면, 없으면 바닥. 발판 좌우 판정은 원본처럼 6px씩 넉넉하다(`pl.x - 6 … pl.x + pl.w + 6`).
+        /// 원본은 Y+가 아래라 부등호가 전부 뒤집혀 있다(`pl.y >= fromY - 4 && pl.y < gy`).
+        /// 마법사 순간이동 착지와 폭발탄 착탄이 쓴다 — 콜라이더가 아니라 이 데이터로 재는 게 원본과 같다.
+        /// </summary>
+        public static float SurfaceBelow(float x, float fromY)
+        {
+            float best = Core.FieldBounds.GroundY;
+            var p = Platforms;
+            for (int i = 0; i < p.GetLength(0); i++)
+            {
+                float top = PlatformTopY(i);
+                if (x > PlatformLeftX(i) - SurfaceEdgeSlack && x < PlatformRightX(i) + SurfaceEdgeSlack
+                    && top <= fromY + SurfaceFromSlack && top > best)
+                    best = top;
+            }
+            return best;
+        }
+
+        const float SurfaceEdgeSlack = 0.06f; // 원본 6px
+        const float SurfaceFromSlack = 0.04f; // 원본 `fromY - 4`
+
+        // ── 천장 — 원본 캔버스 위쪽 한계 ──
+        // 원본은 마법탄·중력탄이 `y < 64px`, 순간이동 도착이 `toY >= 120px`에서 막힌다(:3628·:3640·:2143). 둘 다 원본
+        // 맨 위 발판(y=185px)보다 각각 1.21·0.65 위다. 우리는 발판 층간을 1.35로 넓혀서(의도적 편차) 원본 절댓값
+        // (바닥 위 5.56·5.00)을 그대로 쓰면 천장이 우리 맨 위 발판 윗면(5.475)보다 낮아진다 — 그래서 **맨 위 발판
+        // 기준 거리**를 옮겼다. 보스 무대도 원본은 같은 캔버스라 같은 값을 쓴다.
+        static readonly float NormalTopSurfaceY = NormalPlatforms[12, 1] + PlatformThickness / 2f; // 4층 = 5.475
+        /// <summary>마법탄·중력탄 천장(원본 `y < 64`).</summary>
+        public static readonly float ProjectileCeilingY = NormalTopSurfaceY + 1.21f;
+        /// <summary>순간이동 도착 천장(원본 `toY >= 120`) — 발 높이 기준.</summary>
+        public static readonly float TeleportCeilingY = NormalTopSurfaceY + 0.65f;
     }
 }

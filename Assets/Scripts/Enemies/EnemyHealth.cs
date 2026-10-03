@@ -97,6 +97,10 @@ namespace YokaiFront.Enemies
             UpdateBurn(Time.deltaTime);
             // 원본 `e.vulnT = Math.max(0, e.vulnT - dt)`(project_test.html:1726).
             if (vulnRemaining > 0f) vulnRemaining = Mathf.Max(0f, vulnRemaining - Time.deltaTime);
+            // 원본 `e.gravityExpose = Math.max(0, e.gravityExpose - dt * 0.35)`(:1727) — 중력점에서 벗어나면 노출이 빠진다.
+            // 예전엔 이게 없어서, 한 번 끌려 본 적은 노출이 계속 남아 다음에 조금만 끌려도 바로 취약해졌다.
+            if (gravityExpose > 0f)
+                gravityExpose = Mathf.Max(0f, gravityExpose - Time.deltaTime * MageSpecConfig.GravityExposureDecayPerSecond);
         }
 
         // ---- IVulnerable (원본 vulnT, project_test.html:1663·:1726·:3818) ----

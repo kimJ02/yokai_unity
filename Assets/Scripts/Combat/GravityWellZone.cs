@@ -40,7 +40,10 @@ namespace YokaiFront.Combat
         public static GravityWellZone SpawnOrMerge(Vector2 pos, int tier, float chargeK)
         {
             if (tier <= 0) return null;
-            pos.y = Mathf.Min(pos.y, FieldBounds.GroundY - MageSpecConfig.GravityGroundClearance);
+            // 원본 `y = Math.min(y, groundY - 20)`(:2047)은 Y+가 아래인 캔버스에서 "바닥보다 아래로 못 간다"는 뜻이다.
+            // Unity는 Y+가 위라 `Max`여야 한다 — 예전엔 `Min`이라 중력점이 **몇 층에서 터지든 늘 바닥 아래(-0.2)**에
+            // 생겼다(2026-10-03 원본 대조에서 발견). 같은 실수를 `MageSkillEffects.DetonateGravityOrb`는 09-28에 고쳤다.
+            pos.y = Mathf.Max(pos.y, FieldBounds.GroundY + MageSpecConfig.GravityGroundClearance);
             int stackGain = MageSpecConfig.GravityStackGain(tier, chargeK);
 
             // 원본: 2티어부터만 "근처 기존 중력점에 중첩"이 가능하다(project_test.html:2050).

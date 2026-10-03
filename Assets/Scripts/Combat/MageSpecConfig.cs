@@ -83,6 +83,10 @@ namespace YokaiFront.Combat
         public const float TeleportInvuln = 0.22f;
         public static int TeleportTrailPoints(int tier) => tier >= 4 ? 6 : 4;
         public const float TeleportTrailPower = 1.05f;
+        /// <summary>도착 X는 맵 좌우 끝에서 이만큼 안쪽까지 — 원본 `clamp(toX, 28, mapW - 28)`.</summary>
+        public const float TeleportWallInset = 0.28f;
+        /// <summary>불길 줄 높이 — 원본 `spawnFlameLine(p.x, p.y - 28, …, p.y - 28)`, 출발·도착 모두 발에서 0.28 위.</summary>
+        public const float TeleportFlameLineHeight = 0.28f;
 
         // ---- 중력 충돌(폭발 지점 판정, gravityImpactRadius/Damage, project_test.html:2017) ----
         public static float GravityImpactRadius(int tier, float chargeK) => 0.86f + tier * 0.10f + (tier >= 3 ? 0.18f : 0f) + chargeK * 0.34f;
@@ -110,6 +114,8 @@ namespace YokaiFront.Combat
         public const float GravityExposureRatePerStack = 0.16f;
         /// <summary>이 누적치를 넘으면 취약이 걸린다. 원본 `gravityExpose >= 1.25`.</summary>
         public const float GravityVulnerableThreshold = 1.25f;
+        /// <summary>노출은 초당 이만큼 빠진다. 원본 `e.gravityExpose = Math.max(0, e.gravityExpose - dt * 0.35)`(:1727).</summary>
+        public const float GravityExposureDecayPerSecond = 0.35f;
         /// <summary>취약 지속시간. 원본 `Math.max(e.vulnT, 3.0)`.</summary>
         public const float VulnerableDuration = 3.0f;
 

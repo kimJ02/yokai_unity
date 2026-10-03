@@ -1,6 +1,7 @@
 using UnityEngine;
 using YokaiFront.Combat;
 using YokaiFront.Core;
+using YokaiFront.World;
 
 namespace YokaiFront.Characters
 {
@@ -169,14 +170,22 @@ public class MageAttack : MonoBehaviour, ICharacterKit, IRunResettable, ISkillSl
 
     void Fire(float chargeK, MageBranch branch, int tier)
     {
-        bool gravityOrb = MageSpecConfig.IsGravityOrb(branch, tier);
-        int fireTier = MageSpecConfig.FireTier(branch, tier);
-        int facing = mover != null ? mover.Facing : 1;
-
         // 원본: aimX=우-좌, aimY=아래-위(화면좌표). Unity는 Y+가 위라 아래-위 항을 뒤집어서
         // "위 화살표=+Y"가 되게 맞췄다(원본과 시각적으로 동일한 결과).
         float aimX = (GameInput.Right ? 1 : 0) - (GameInput.Left ? 1 : 0);
         float aimY = (GameInput.Up ? 1 : 0) - (GameInput.Down ? 1 : 0);
+        FireAimed(chargeK, branch, tier, aimX, aimY);
+    }
+
+    /// <summary>
+    /// 조준 방향을 받아서 쏜다(원본 `bowFire(chargeK, aimX, aimY)` 본체). 방향키를 읽는 <see cref="Fire"/>와 나눈 건
+    /// 테스트가 위·아래 조준을 재현하려고 — 키 입력은 테스트에서 흉내 낼 수 없다.
+    /// </summary>
+    void FireAimed(float chargeK, MageBranch branch, int tier, float aimX, float aimY)
+    {
+        bool gravityOrb = MageSpecConfig.IsGravityOrb(branch, tier);
+        int fireTier = MageSpecConfig.FireTier(branch, tier);
+        int facing = mover != null ? mover.Facing : 1;
 
         // 원본(project_test.html:1951-1954) — 중력 계열에서 방향키 없이 "아래"만 누르면(우리 좌표계는
         // 아래=aimY<0), 발사와 별개로 그 자리에 즉시 중력점을 하나 터뜨린다.
@@ -188,7 +197,11 @@ public class MageAttack : MonoBehaviour, ICharacterKit, IRunResettable, ISkillSl
 
         if (aimX == 0f && aimY == 0f) aimX = facing;
         Vector2 aim = new Vector2(aimX, aimY).normalized;
-        if (Mathf.Abs(aim.x) > 0.1f && mover != null) mover.SetFacing(aim.x > 0f ? 1 : -1); // 원본 :1959
+        if (Mathf.Abs(aim.x) > 0.1f)
+        {
+            facing = aim.x > 0f ? 1 : -1; // 원본 :1959 `p.facing = Math.sign(aimX)` — 아래 탄 위치도 이 값을 쓴다
+            if (mover != null) mover.SetFacing(facing);
+        }
 
         float dmg = MageSpecConfig.BowDamage(branch, tier, chargeK, chargeDmgMult, baseDamage);
         int pierce = MageSpecConfig.BowPierce(branch, tier, chargeK, basePierce, chargePierce);
@@ -200,8 +213,10 @@ public class MageAttack : MonoBehaviour, ICharacterKit, IRunResettable, ISkillSl
         float explosionPower = MageSpecConfig.BowExplosionPower(chargeK);
         bool charged = chargeK >= 0.5f;
 
-        // 원본 `y: p.y - 36`(:1965) — 발에서 0.36 위. 몸 중심에서 재면 키 0.5짜리 오니 머리 위로 지나간다.
-        Vector3 spawnPos = new Vector3(feet.x + (aim.x >= 0 ? 0.26f : -0.26f), feet.y + 0.36f, 0f);
+        // 원본 `x: p.x + p.facing * 26, y: p.y - 36`(:1965) — 발에서 0.36 위, 좌우는 **바라보는 방향** 쪽. 위·아래로
+        // 똑바로 쏠 때도 바라보는 쪽에서 나간다 — 예전엔 조준의 x 부호를 써서 수직 조준이면 늘 오른쪽에서 나갔다.
+        // 높이는 몸 중심에서 재면 키 0.5짜리 오니 머리 위로 지나간다(발 기준, PlayerBody).
+        Vector3 spawnPos = new Vector3(feet.x + facing * 0.26f, feet.y + 0.36f, 0f);
         MageProjectile.Spawn(spawnPos, aim * spd, dmg, pierce, life, sizeMul, boltSprite, boltColor,
             inf, charged, explosive, explosionPower, gravityOrb, chargeK, tier, transform.position, facing);
     }
@@ -230,30 +245,51 @@ public class MageAttack : MonoBehaviour, ICharacterKit, IRunResettable, ISkillSl
     /// 순간이동하고, 지나온 경로에 불길 장판을 남긴다.</summary>
     void FireTeleportDash(int tier, int facing)
     {
-        if (mover == null) return;
-        Vector3 fromPos = transform.position;
-
         float dx = (GameInput.Right ? 1 : 0) - (GameInput.Left ? 1 : 0);
         float dy = (GameInput.Up ? 1 : 0) - (GameInput.Down ? 1 : 0);
+        TeleportTowards(dx, dy, tier, facing);
+    }
+
+    /// <summary>
+    /// 원본 `mageFireTeleport()`(project_test.html:2132~:2152) 본체 — 방향(dx, dy, Unity라 위가 +)으로 순간이동하고
+    /// 지나온 길에 불길을 깐다. 전부 **발** 기준이다(원본 `p.y`).
+    ///
+    /// 착지(원본 :2141~:2146): 도착 X는 맵 안(28px), 도착 높이는 천장 아래이면서 **도착 X에서 "지금 발 높이 이하"의
+    /// 가장 가까운 발판·바닥**보다 위다 — 그래서 밟고 있는 발판을 뚫고 내려가지 않는다. 그 높이 밑의 발판·바닥보다
+    /// 낮으면 그 위에 세운다. 예전엔 바닥 아래만 막고 나머지는 물리에 맡겨서, 발판 속으로 들어가거나 위로 쓰면
+    /// 화면 밖까지 올라갔다.
+    /// </summary>
+    void TeleportTowards(float dx, float dy, int tier, int facing)
+    {
+        if (mover == null) return;
+        Vector2 feet = PlayerBody.Feet(transform, bodyCol);
+        float bodyOffset = transform.position.y - feet.y; // 몸 중심 = 발 + 반지름
+
         if (dx == 0f && dy == 0f) dx = facing;
         Vector2 dir = new Vector2(dx, dy).normalized;
         if (Mathf.Abs(dir.x) > 0.1f) mover.SetFacing(dir.x > 0f ? 1 : -1);
 
-        Vector3 toPos = fromPos + new Vector3(dir.x * MageSpecConfig.TeleportDistanceX, dir.y * MageSpecConfig.TeleportDistanceY, 0f);
-        toPos.x = Mathf.Clamp(toPos.x, FieldBounds.MinX, FieldBounds.MaxX);
-        // 원본은 착지 지형까지 정밀 계산(groundYBelow)해서 발판 위에 정확히 세우지만, 우리는 실제
-        // Physics2D 콜라이더가 있어 순간이동 직후 겹침이 생겨도 물리가 바로 풀어준다 — Y는 바닥 아래로만
-        // 안 내려가게 최소한만 막는다.
-        toPos.y = Mathf.Max(toPos.y, FieldBounds.GroundY);
+        float toX = Mathf.Clamp(feet.x + dir.x * MageSpecConfig.TeleportDistanceX,
+            FieldBounds.MinX + MageSpecConfig.TeleportWallInset, FieldBounds.MaxX - MageSpecConfig.TeleportWallInset);
+        float toY = feet.y + dir.y * MageSpecConfig.TeleportDistanceY;
+        const float onePixel = 0.01f; // 원본 `groundYBelow(...) - 1`
+        float floorFromHere = FieldLayout.SurfaceBelow(toX, feet.y);
+        toY = Mathf.Clamp(toY, floorFromHere + onePixel, FieldLayout.TeleportCeilingY);
+        float floorY = FieldLayout.SurfaceBelow(toX, toY);
+        if (toY < floorY + onePixel) toY = floorY + onePixel;
 
-        mover.Teleport(toPos);
+        Vector2 lineFrom = feet + new Vector2(0f, MageSpecConfig.TeleportFlameLineHeight);
+        Vector2 lineTo = new Vector2(toX, toY + MageSpecConfig.TeleportFlameLineHeight);
+
+        mover.Teleport(new Vector3(toX, toY + bodyOffset, transform.position.z)); // 원본 vx = vy = 0 — Teleport가 속도를 비운다
         health?.GrantInvuln(MageSpecConfig.TeleportInvuln); // 원본 :2149
 
+        // 원본 spawnFlameLine(:2008) — 출발·도착 사이를 n등분한 n+1곳에 불길.
         int trailPoints = MageSpecConfig.TeleportTrailPoints(tier);
         for (int i = 0; i <= trailPoints; i++)
         {
             float t = trailPoints <= 0 ? 1f : (float)i / trailPoints;
-            FireTrailZone.Spawn(Vector3.Lerp(fromPos, toPos, t), tier, MageSpecConfig.TeleportTrailPower);
+            FireTrailZone.Spawn(Vector2.Lerp(lineFrom, lineTo, t), tier, MageSpecConfig.TeleportTrailPower);
         }
     }
 

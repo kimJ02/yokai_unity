@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using YokaiFront.Combat;
 using YokaiFront.Core;
+using YokaiFront.World;
 
 namespace YokaiFront.Characters
 {
@@ -12,12 +13,27 @@ namespace YokaiFront.Characters
 ///
 /// 판정 크기: 원본은 `rectsOverlap(w.x-20*size, w.y-15*size, 40*size, 30*size, ...)` — 40×30px
 /// (=0.4×0.3유닛, 차지 0이면) 직사각형이고 `size=1+chargeK*0.9(+티어5 폭발보너스)`로 차지할수록 커진다.
+///
+/// **지형과는 탄 종류마다 다르게 부딪힌다**(원본 :3624~:3648 — 2026-10-03 원본대로 바로잡음):
+/// - 중력탄: 좌우 벽·천장·**바닥**에 닿으면 그 자리에서 터진다. **발판은 지나간다** — 원본에 발판 판정이 없다.
+/// - 폭발탄: 좌우 벽·천장, 그리고 발판·바닥(원본 `groundYBelow`)에 닿으면 터진다.
+/// - 갈래 없는 탄(0차): 지형과 부딪히지 않는다 — 수명이 다하거나 맵 밖으로 멀리 나가야 사라진다.
+/// 예전엔 셋 다 지형 콜라이더(Ground 레이어)에 닿는 순간 터지거나 사라져서, 중력탄이 발판 위에서 터지고
+/// 0차 탄이 발판에 막혔다. 판정은 콜라이더가 아니라 원본처럼 좌표(<see cref="FieldLayout.SurfaceBelow"/>)로 잰다.
 /// </summary>
 public class MageProjectile : MonoBehaviour
 {
     // 원본 hitRect 절반 크기(20px, 15px → 0.2, 0.15유닛). sizeMul을 곱해서 실제 콜라이더 크기를 만든다.
     const float BaseHalfWidth = 0.2f;
     const float BaseHalfHeight = 0.15f;
+
+    // ── 원본 지형·경계 수치(÷100) ──
+    const float WallInset = 0.24f;            // 원본 `w.x < 24` / `w.x > mapW - 24`
+    const float GroundAnchorHeight = 0.12f;   // 원본 중력탄 `w.y >= groundY - 12`
+    const float SurfaceImpactHeight = 0.10f;  // 원본 폭발탄 `w.y >= gy - 10`
+    const float SurfaceLookahead = 0.08f;     // 원본 `fromY = w.y - |vy|*dt - 8`
+    const float RemoveMargin = 0.80f;         // 원본 `w.x < -80 || w.x > mapW + 80 || w.y > groundY + 80`
+    const float RemoveAboveCeiling = 1.44f;   // 원본 `w.y < -80` — 천장(64px)보다 144px 위
 
     float damage;
     int pierceLeft;
@@ -40,6 +56,7 @@ public class MageProjectile : MonoBehaviour
     Vector2 casterPos;
     int casterFacing;
 
+    Rigidbody2D rb;
     readonly HashSet<Collider2D> alreadyHit = new HashSet<Collider2D>();
 
     public static MageProjectile Spawn(Vector3 pos, Vector2 velocity, float damage, int pierce, float life, float sizeMul,
@@ -68,6 +85,7 @@ public class MageProjectile : MonoBehaviour
         rb.linearVelocity = velocity;
 
         var proj = go.AddComponent<MageProjectile>();
+        proj.rb = rb;
         proj.damage = damage;
         proj.pierceLeft = pierce;
         proj.life = life;
@@ -80,46 +98,83 @@ public class MageProjectile : MonoBehaviour
         proj.tier = tier;
         proj.casterPos = casterPos;
         proj.casterFacing = casterFacing;
-        proj.hitKnockbackDirSign = Mathf.Approximately(velocity.x, 0f) ? casterFacing : Mathf.Sign(velocity.x);
+        // 원본 `kbDir: Math.sign(w.vx)` — 위·아래로 똑바로 쏜 탄은 0이라 **옆으로 밀지 않는다**(예전엔 바라보는 쪽으로 밀었다).
+        proj.hitKnockbackDirSign = Mathf.Approximately(velocity.x, 0f) ? 0f : Mathf.Sign(velocity.x);
         return proj;
     }
 
     void Update()
     {
-        // 원본 맵 좌우 경계 충돌(project_test.html:3626-3639) — 벽에 닿으면 관통 여부와 무관하게 터진다.
-        if (transform.position.x <= FieldBounds.MinX || transform.position.x >= FieldBounds.MaxX)
+        float dt = Time.deltaTime;
+        Vector2 pos = transform.position;
+
+        if (gravityOrb && TryAnchorGravityOrb(ref pos))
         {
-            ResolveWallImpact();
+            MageSkillEffects.DetonateGravityOrb(pos, tier, gravityCharge, casterFacing);
+            Destroy(gameObject);
+            return;
+        }
+        if (explosive && TryImpactExplosive(ref pos, dt))
+        {
+            MageSkillEffects.SpawnFireExplosion(pos, tier, explosionPower, casterPos, casterFacing);
+            Destroy(gameObject);
             return;
         }
 
         if (!infinitePierce)
         {
-            life -= Time.deltaTime;
+            life -= dt;
             if (life <= 0f)
             {
                 // 원본 `!w.inf && w.t >= w.life` (project_test.html:3688) — 중력탄만 수명이 다하면 자동 폭발한다.
-                if (gravityOrb) MageSkillEffects.DetonateGravityOrb(transform.position, tier, gravityCharge, casterFacing);
+                if (gravityOrb) MageSkillEffects.DetonateGravityOrb(pos, tier, gravityCharge, casterFacing);
                 Destroy(gameObject);
+                return;
             }
         }
+
+        // 원본 :3691 — 맵 밖으로 멀리 나가면 지운다(벽에서 안 멈추는 0차 탄과 무한 관통 탄 몫).
+        if (pos.x < FieldBounds.MinX - RemoveMargin || pos.x > FieldBounds.MaxX + RemoveMargin
+            || pos.y < FieldBounds.GroundY - RemoveMargin || pos.y > FieldLayout.ProjectileCeilingY + RemoveAboveCeiling)
+            Destroy(gameObject);
     }
 
-    void ResolveWallImpact()
+    /// <summary>원본 중력탄 고정(:3624~:3634) — 좌우 벽·천장·바닥이면 그 자리로 붙여 세우고 true. 발판은 안 본다.</summary>
+    static bool TryAnchorGravityOrb(ref Vector2 pos)
     {
-        if (gravityOrb) MageSkillEffects.DetonateGravityOrb(transform.position, tier, gravityCharge, casterFacing);
-        else if (explosive) MageSkillEffects.SpawnFireExplosion(transform.position, tier, explosionPower, casterPos, casterFacing);
-        Destroy(gameObject);
+        bool anchor = ClampToWalls(ref pos);
+        if (pos.y > FieldLayout.ProjectileCeilingY) { pos.y = FieldLayout.ProjectileCeilingY; anchor = true; }
+        else if (pos.y <= FieldBounds.GroundY + GroundAnchorHeight) { pos.y = FieldBounds.GroundY + GroundAnchorHeight; anchor = true; }
+        return anchor;
+    }
+
+    /// <summary>
+    /// 원본 폭발탄 착탄(:3636~:3648) — 좌우 벽·천장, 그리고 "지금 높이(한 프레임 이동분 + 0.08 위까지) 이하의 가장 가까운
+    /// 발판·바닥"보다 0.10 위까지 내려오면 터진다. 위로 쏜 탄도 발판 바로 밑에 오면 이 여유분 때문에 걸리고,
+    /// 터지는 자리는 원본처럼 발판 위(0.10)로 맞춘다.
+    /// </summary>
+    bool TryImpactExplosive(ref Vector2 pos, float dt)
+    {
+        bool impact = ClampToWalls(ref pos);
+        if (pos.y > FieldLayout.ProjectileCeilingY) { pos.y = FieldLayout.ProjectileCeilingY; impact = true; }
+        float vy = rb != null ? rb.linearVelocity.y : 0f;
+        float fromY = Mathf.Min(FieldLayout.ProjectileCeilingY, pos.y + Mathf.Abs(vy) * dt + SurfaceLookahead);
+        float gy = FieldLayout.SurfaceBelow(pos.x, fromY);
+        if (pos.y <= gy + SurfaceImpactHeight) { pos.y = gy + SurfaceImpactHeight; impact = true; }
+        return impact;
+    }
+
+    /// <summary>원본 `if (w.x < 24) { w.x = 24; … } else if (w.x > mapW - 24) { … }` — 좌우 벽에 닿았으면 붙이고 true.</summary>
+    static bool ClampToWalls(ref Vector2 pos)
+    {
+        if (pos.x < FieldBounds.MinX + WallInset) { pos.x = FieldBounds.MinX + WallInset; return true; }
+        if (pos.x > FieldBounds.MaxX - WallInset) { pos.x = FieldBounds.MaxX - WallInset; return true; }
+        return false;
     }
 
     void OnTriggerEnter2D(Collider2D other)
     {
-        if (other.gameObject.layer == LayerMask.NameToLayer("Ground"))
-        {
-            ResolveWallImpact();
-            return;
-        }
-
+        // 지형(발판·바닥 콜라이더)은 여기서 안 본다 — 탄 종류별 규칙은 Update가 좌표로 잰다(클래스 주석 참고).
         if (!other.CompareTag("Enemy")) return;
         // 원본은 `if (e.spawnInvuln > 0) continue`로 스폰 직후 무적 대상을 hitSet에 아예 안 넣는다
         // — pierce도 안 깎이고, 무적이 풀린 뒤 다시 판정에 걸릴 수 있다. 그대로 이식.
