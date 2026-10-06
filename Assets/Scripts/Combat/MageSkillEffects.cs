@@ -159,6 +159,10 @@ namespace YokaiFront.Combat
                     target.TakeDamageWithKnockback(dmg, null, dir, kb);
                 }
 
+                // 원본 `zones.push({ kind: 'gravityBurst', x: cx, y: cy, r, life: 0.42 + idx * 0.04, critical })`(:2114) — 그림만.
+                GravityBurstRing.Spawn(cx, r, MageSpecConfig.CollapseBurstLife + idx * MageSpecConfig.CollapseBurstLifeStep,
+                                       critical, ringOnly: false);
+
                 if (critical)
                 {
                     float r2 = r * MageSpecConfig.CollapseCriticalRingMult(tier);
@@ -177,6 +181,8 @@ namespace YokaiFront.Combat
                         if (Mathf.Approximately(dir, 0f)) dir = playerFacing;
                         target.TakeDamageWithKnockback(dmg2, null, dir, MageSpecConfig.CollapseCriticalRingKnockback);
                     }
+                    // 원본 `zones.push({ kind: 'gravityBurst', r: r2, life: 0.58, critical: true, ringOnly: true })`(:2123).
+                    GravityBurstRing.Spawn(cx, r2, MageSpecConfig.CollapseCriticalRingLife, critical: true, ringOnly: true);
                 }
 
                 if (well != null)
