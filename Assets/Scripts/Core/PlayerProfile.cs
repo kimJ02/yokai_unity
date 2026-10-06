@@ -31,7 +31,7 @@ namespace YokaiFront.Core
         /// <see cref="ProgressOf"/>로 읽는다. 세이브(`JsonUtility`)는 프로퍼티를 안 쓰고 <see cref="charProgress"/>만 쓴다.
         /// </summary>
         public int level { get => Progress.level; set => Progress.level = value; }
-        public int exp { get => Progress.exp; set => Progress.exp = value; }
+        public long exp { get => Progress.exp; set => Progress.exp = value; }
 
         public int gold = 0;
 
@@ -259,10 +259,11 @@ namespace YokaiFront.Core
         /// 트랙 A(처치 보상)가 호출. 원본 `gainExpMeta()`(project_test.html:1440) 그대로 —
         /// 초과분을 이월하며 한 번의 호출로 여러 레벨이 오를 수 있다.
         /// </summary>
-        public void AddExp(int amount)
+        public void AddExp(long amount)
         {
             var cp = Progress; // 지금 고른 캐릭터의 몫 — 원본 `const cp = charProg()`(:1441)
-            cp.exp += amount;
+            // `long` 끝에서 넘치면 음수가 돼 아래 반복이 끝나지 않는다 — 최댓값에서 멈춘다.
+            cp.exp = amount > 0 && cp.exp > long.MaxValue - amount ? long.MaxValue : cp.exp + amount;
             bool leveled = false;
             while (cp.exp >= RequiredExp(cp.level))
             {
@@ -273,8 +274,19 @@ namespace YokaiFront.Core
             if (leveled) LeveledUp?.Invoke();
         }
 
-        /// <summary>원본 `CONFIG.expCurve(l) = floor(700 × 1.8^(l-1))`(project_test.html:706).</summary>
-        public static int RequiredExp(int level) => Mathf.FloorToInt(700f * Mathf.Pow(1.8f, level - 1));
+        /// <summary>
+        /// 원본 `CONFIG.expCurve(l) = floor(700 × 1.8^(l-1))`(project_test.html:706) — **원본(JS)처럼 double로 계산하고
+        /// `long`으로 돌려준다**(2026-10-06). 예전엔 `float` 계산·`int` 결과였는데, 27레벨(30억)에서 `int`를 넘어 음수가
+        /// 되면 <see cref="AddExp"/>의 반복이 끝나지 않아 게임이 멈췄다(SP +1로 마법사 32레벨 → 대붕괴 처치 순간).
+        /// `float`는 3레벨이 2267(원본 2268)이었고 15레벨부터 수~수천씩 어긋났다.
+        /// `long`도 넘는 65레벨부터는 `long` 최댓값에서 멈춘다 — 원본은 계속 커지지만 구슬이 필요량의 25%라
+        /// 레벨업 속도는 같다. 1레벨 미만(깨진 세이브)은 1레벨로 친다 — 필요량이 0이면 위 반복이 끝나지 않는다.
+        /// </summary>
+        public static long RequiredExp(int level)
+        {
+            double need = System.Math.Floor(700.0 * System.Math.Pow(1.8, System.Math.Max(level, 1) - 1));
+            return need >= long.MaxValue ? long.MaxValue : (long)need;
+        }
 
         public int GetUpgradeLevel(UpgradeStat stat) => stat switch
         {
@@ -374,7 +386,7 @@ namespace YokaiFront.Core
     public class CharacterProgress
     {
         public int level = 1;
-        public int exp = 0;
+        public long exp = 0; // 원본은 JS 실수 — 27레벨부터 필요량이 `int`를 넘는다(<see cref="PlayerProfile.RequiredExp"/>)
         public int spUsed = 0;
     }
 

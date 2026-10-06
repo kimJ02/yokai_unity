@@ -117,7 +117,7 @@ public class OriginalFidelityTests
 
         yield return CollectOneOrb();
 
-        int gained = RunState.ExpEarned;
+        long gained = RunState.ExpEarned;
         Assert.AreEqual(Mathf.RoundToInt(plain * mult), gained, 1,
             "구슬 경험치에 배수가 안 곱해졌다");
     }

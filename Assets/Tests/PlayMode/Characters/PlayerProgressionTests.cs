@@ -47,8 +47,8 @@ public class PlayerProgressionTests
     public void AddExp_CarriesOverAndCanLevelUpMultipleTimesInOneCall()
     {
         var p = new PlayerProfile();
-        int need1 = PlayerProfile.RequiredExp(1); // 700
-        int need2 = PlayerProfile.RequiredExp(2); // 1260
+        long need1 = PlayerProfile.RequiredExp(1); // 700
+        long need2 = PlayerProfile.RequiredExp(2); // 1260
 
         p.AddExp(need1 + need2 + 50); // 2레벨을 한 번에 넘기고 50 남아야 함
 

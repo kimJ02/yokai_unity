@@ -116,7 +116,7 @@ namespace YokaiFront.UI
                 UiTheme.HeadStat);
 
             // 원본 `#lobbyExpbar` 180×10(`:90`).
-            int need = PlayerProfile.RequiredExp(profile.level);
+            long need = PlayerProfile.RequiredExp(profile.level);
             UiTheme.Bar(new Rect(x, 40f, 180f, 10f),
                         need > 0 ? profile.exp / (float)need : 0f, UiTheme.ExpFill);
             UiTheme.ShadowLabel(new Rect(x + 190f, 34f, 400f, 20f),

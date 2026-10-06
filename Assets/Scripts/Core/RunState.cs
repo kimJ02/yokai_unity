@@ -55,7 +55,7 @@ namespace YokaiFront.Core
 
         /// <summary>이번 런에서 번 골드/경험치(결과 화면 표시용). 원본 `run.goldEarned`/`run.expEarned`.</summary>
         public static int GoldEarned { get; private set; }
-        public static int ExpEarned { get; private set; }
+        public static long ExpEarned { get; private set; } // 27레벨부터 구슬 하나가 `int`를 넘는다(`PlayerProfile.RequiredExp`)
 
         /// <summary>런이 끝났는지. 원본 `run.over` — true면 갱신도 추가 피해도 멈춘다(:1881, :7169).</summary>
         public static bool Over { get; private set; }
@@ -112,7 +112,7 @@ namespace YokaiFront.Core
         }
 
         /// <summary>결과 화면에 쓸 런 누적 보상. 원본 `run.goldEarned`/`run.expEarned` 누산(:1816, :1820).</summary>
-        public static void RegisterReward(int gold, int exp)
+        public static void RegisterReward(int gold, long exp)
         {
             GoldEarned += gold;
             ExpEarned += exp;

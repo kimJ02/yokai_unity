@@ -107,7 +107,7 @@ namespace YokaiFront.UI
             }
             y += BarGap;
 
-            int need = PlayerProfile.RequiredExp(profile.level);
+            long need = PlayerProfile.RequiredExp(profile.level);
             UiTheme.Bar(new Rect(LeftX, y, BarWidth, BarHeight),
                         need > 0 ? profile.exp / (float)need : 0f, UiTheme.ExpFill,
                         $"EXP {profile.exp} / {need}");

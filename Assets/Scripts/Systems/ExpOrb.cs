@@ -114,9 +114,11 @@ namespace YokaiFront.Systems
             // 원본 `max(10, round(curExpNeed() * 0.25))` — **현재 레벨의 필요 경험치 기준**이라
             // 레벨이 오를수록 구슬 하나의 가치도 같이 커진다.
             // 수행의 굴레 — 구슬에도 경험치 배수가 붙는다(원본 `curExpNeed() * expPct * expMultAll()` :4466).
-            int exp = Mathf.Max(MinExp,
-                Mathf.RoundToInt(PlayerProfile.RequiredExp(profile.level) * ExpPercent
-                                 * CombatModifiers.ExpMultiplier));
+            // 27레벨부터 `int`를 넘으니 `long`(`PlayerProfile.RequiredExp`). `round`는 JS 식(.5는 올림) — C# 반올림은
+            // .5를 짝수 쪽으로 보내서 4레벨 구슬(4082 × 0.25 = 1020.5)이 1020이었다(원본 1021).
+            double raw = System.Math.Floor(PlayerProfile.RequiredExp(profile.level) * (double)ExpPercent
+                                           * CombatModifiers.ExpMultiplier + 0.5);
+            long exp = System.Math.Max(MinExp, raw >= long.MaxValue ? long.MaxValue : (long)raw);
 
             profile.AddExp(exp);
             RunState.RegisterReward(0, exp); // 결과 화면 집계
