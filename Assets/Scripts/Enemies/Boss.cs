@@ -16,11 +16,15 @@ namespace YokaiFront.Enemies
     ///
     /// 수평 이동은 <see cref="IEnemyMotion"/>으로 `EnemyMove`에 넘겨서 중력·경계·넉백을 공유한다.
     /// 원본도 보스가 `enemies` 배열 안에 있고 갱신 분기만 따로다.
+    ///
+    /// **소유권 예외(2026-09-30, 팀원 추가)**: `IGrabExempt` 구현은 섬영 칼날폭풍 4층 "강제 연행"이
+    /// 보스를 붙잡지 못하게 막으려고 팀원이 추가했다(원본 `e.boss` 제외, project_test.html:2694).
+    /// 사용자 확인 받음 — `Core/IGrabExempt.cs` 주석과 PROGRESS.md 참고, 팀장 확인 필요.
     /// </summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(EnemyMove))]
     [RequireComponent(typeof(EnemyHealth))]
-    public class Boss : MonoBehaviour, IEnemyMotion, IEnemyContactDamageModifier
+    public class Boss : MonoBehaviour, IEnemyMotion, IEnemyContactDamageModifier, IGrabExempt
     {
         enum State { Idle, Walk, SlamTele, SlamRecover, SpitTele, SpitRecover, ChargeTele, Charge }
 

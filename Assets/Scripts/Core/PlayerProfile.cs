@@ -39,6 +39,24 @@ namespace YokaiFront.Core
         public MageBranch mageBranch = MageBranch.None;
         public int mageTier = 0;
 
+        /// <summary>
+        /// 섬영(블레이드) 전문화 — 원본 `meta.skills.blade = {branch, tier}`(project_test.html:1140).
+        ///
+        /// ⚠️ **팀원 추가(2026-09-28), 팀장 확인 필요**: `docs/worksplit.md` 7절·9절, `HANDOFF.md`는
+        /// "캐릭터별 SP/branch/tier 일반화는 단계 2에서 메카닉 스킬트리와 같이 처리한다"고 명시하고
+        /// `Core/` 전체를 팀원에게 "읽기만" 허용한다 — 이 필드들은 그 문서상 순서를 벗어난 예외다.
+        /// 사용자 확인(2026-09-28: "내가 PlayerProfile에 섬영 전용 필드 추가")으로 최소 침습적으로
+        /// (마법사 필드는 전혀 안 건드리고) 추가만 했다. 팀장이 실제 일반화(캐릭터별 `PlayerProfile`
+        /// 분리 등) 작업을 할 때 이 필드들은 그 구조로 흡수/정리될 걸 전제로 한다 — 지금은 마법사와
+        /// 같은 패턴(전용 필드 + 전용 SP 풀)을 그대로 복제한 임시 형태.
+        ///
+        /// SP 풀은 마법사와 **별도**로 관리한다(<see cref="bladeSpUsed"/>) — 원본이 캐릭터마다
+        /// `charProg(key).spUsed`를 따로 두는 것과 같은 의도이나, 레벨(`SpTotal`)은 아직 공유값이다.
+        /// </summary>
+        public BladeBranch bladeBranch = BladeBranch.None;
+        public int bladeTier = 0;
+        public int bladeSpUsed = 0;
+
         public UpgradeLevels upgrades = new UpgradeLevels();
 
         /// <summary>시간의 파편 — 가챠 재화. 원본 `meta.shards`(project_test.html:1147). **회귀해도 안 없어진다.**</summary>
@@ -151,6 +169,9 @@ namespace YokaiFront.Core
             var keptBranch = mageBranch;
             int keptTier = mageTier;
             int keptSpUsed = spUsed;
+            var keptBladeBranch = bladeBranch;
+            int keptBladeTier = bladeTier;
+            int keptBladeSpUsed = bladeSpUsed;
 
             shards += gain;
             regressions++;
@@ -163,6 +184,9 @@ namespace YokaiFront.Core
             spUsed = 0;
             mageBranch = MageBranch.None;
             mageTier = 0;
+            bladeSpUsed = 0;
+            bladeBranch = BladeBranch.None;
+            bladeTier = 0;
 
             regionKills = new int[RegionConfig.Count];
             regionBossUnlocked = new bool[RegionConfig.Count];
@@ -181,6 +205,9 @@ namespace YokaiFront.Core
                 mageBranch = keptBranch;
                 mageTier = keptTier;
                 spUsed = keptSpUsed;
+                bladeBranch = keptBladeBranch;
+                bladeTier = keptBladeTier;
+                bladeSpUsed = keptBladeSpUsed;
             }
 
             return gain;
@@ -285,10 +312,40 @@ namespace YokaiFront.Core
             spUsed += cost;
             return true;
         }
+
+        /// <summary>원본 `spAvail()`(:1259)와 같은 식이나 섬영 전용 SP 풀(<see cref="bladeSpUsed"/>)을 쓴다.</summary>
+        public int BladeSpAvailable => SpTotal - bladeSpUsed;
+
+        /// <summary>
+        /// 섬영 빌드 티어당 SP 비용. 원본 `SPEC.blade.move/conv.tiers[].cost`(project_test.html:936-949) —
+        /// 마법사와 마찬가지로 두 갈래 모두 1,2,3,4,5로 동일하다.
+        /// </summary>
+        static readonly int[] BladeTierCost = { 1, 2, 3, 4, 5 };
+
+        /// <summary>
+        /// 섬영 다음 티어를 습득한다 — <see cref="TryLearnMageTier"/>와 동일한 규칙(갈래 최초 고정,
+        /// 1→2→3→4→5 순서만, SP 부족하면 거부)을 섬영 전용 필드·SP 풀에 대해 그대로 적용한다.
+        /// </summary>
+        public bool TryLearnBladeTier(BladeBranch branch)
+        {
+            if (branch == BladeBranch.None) return false;
+            if (bladeBranch != BladeBranch.None && bladeBranch != branch) return false;
+            int nextTier = bladeTier + 1;
+            if (nextTier > BladeTierCost.Length) return false;
+            int cost = BladeTierCost[nextTier - 1];
+            if (BladeSpAvailable < cost) return false;
+            bladeBranch = branch;
+            bladeTier = nextTier;
+            bladeSpUsed += cost;
+            return true;
+        }
     }
 
     /// <summary>원본 마법사 빌드 갈래. move=폭발 계열, conv=중력 계열(project_test.html:900-913).</summary>
     public enum MageBranch { None, Explosion, Gravity }
+
+    /// <summary>원본 섬영 빌드 갈래. move=집중 계열, conv=칼날폭풍 계열(project_test.html:936-949).</summary>
+    public enum BladeBranch { None, Focus, Storm }
 
     /// <summary>
     /// 골드 강화 5종의 현재 단계. 원본 `CONFIG.upgrades`(project_test.html:731)와 이름을 맞췄으나
