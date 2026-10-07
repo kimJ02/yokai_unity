@@ -40,6 +40,14 @@ namespace YokaiFront.Core
         public int mageTier = 0;
 
         /// <summary>
+        /// 메카닉 빌드 — 원본 `meta.skills.gunner = {branch, tier}`(project_test.html:1139).
+        /// 마법사와 같은 방식으로 **SP는 위의 `spUsed`를 같이 쓴다** — 캐릭터별 SP·레벨 분리(원본
+        /// `charProgress`)는 아직이다(위 `character` 주석 참고).
+        /// </summary>
+        public GunnerBranch gunnerBranch = GunnerBranch.None;
+        public int gunnerTier = 0;
+
+        /// <summary>
         /// 섬영(블레이드) 전문화 — 원본 `meta.skills.blade = {branch, tier}`(project_test.html:1140).
         ///
         /// ⚠️ **팀원 추가(2026-09-28), 팀장 확인 필요**: `docs/worksplit.md` 7절·9절, `HANDOFF.md`는
@@ -52,6 +60,12 @@ namespace YokaiFront.Core
         ///
         /// SP 풀은 마법사와 **별도**로 관리한다(<see cref="bladeSpUsed"/>) — 원본이 캐릭터마다
         /// `charProg(key).spUsed`를 따로 두는 것과 같은 의도이나, 레벨(`SpTotal`)은 아직 공유값이다.
+        ///
+        /// ⚠️ **병합 시점 주의(2026-10-07, `feature/blade-tier1` ← `main` 병합)**: 메카닉
+        /// (`gunnerBranch`/`gunnerTier`, 위)은 `spUsed`를 마법사와 **공유**하는데 섬영은 **전용 풀**
+        /// (`bladeSpUsed`)을 따로 둔다 — 같은 날짜대에 독립적으로 추가되면서 두 캐릭터가 서로 다른
+        /// SP 정책으로 들어왔다는 뜻이다. 팀장이 캐릭터별 `PlayerProfile` 일반화를 할 때 이 불일치를
+        /// 한 번에 정리해야 한다(아래 "확인 필요" 참고, 지금은 동작에 문제없어 그대로 둠).
         /// </summary>
         public BladeBranch bladeBranch = BladeBranch.None;
         public int bladeTier = 0;
@@ -168,6 +182,8 @@ namespace YokaiFront.Core
             // '각인의 봉인'이 있으면 되돌려줄 값을 미리 잡아둔다(아래에서 복구).
             var keptBranch = mageBranch;
             int keptTier = mageTier;
+            var keptGunnerBranch = gunnerBranch;
+            int keptGunnerTier = gunnerTier;
             int keptSpUsed = spUsed;
             var keptBladeBranch = bladeBranch;
             int keptBladeTier = bladeTier;
@@ -181,12 +197,15 @@ namespace YokaiFront.Core
             exp = 0;
             gold = 0;
             upgrades = new UpgradeLevels();
+            // 원본 doRebirth(:6509~) — **모든 무기**의 빌드를 비운다(`for (const w in meta.skills)`).
             spUsed = 0;
             mageBranch = MageBranch.None;
             mageTier = 0;
-            bladeSpUsed = 0;
+            gunnerBranch = GunnerBranch.None;
+            gunnerTier = 0;
             bladeBranch = BladeBranch.None;
             bladeTier = 0;
+            bladeSpUsed = 0;
 
             regionKills = new int[RegionConfig.Count];
             regionBossUnlocked = new bool[RegionConfig.Count];
@@ -204,6 +223,8 @@ namespace YokaiFront.Core
             {
                 mageBranch = keptBranch;
                 mageTier = keptTier;
+                gunnerBranch = keptGunnerBranch;
+                gunnerTier = keptGunnerTier;
                 spUsed = keptSpUsed;
                 bladeBranch = keptBladeBranch;
                 bladeTier = keptBladeTier;
@@ -313,6 +334,30 @@ namespace YokaiFront.Core
             return true;
         }
 
+        /// <summary>
+        /// 메카닉 빌드 티어당 SP 비용. 원본 `SPEC.gunner.move/conv.tiers[].cost`(project_test.html:918-930) —
+        /// 두 갈래 모두 1,2,3,4,5로 마법사와 같다.
+        /// </summary>
+        static readonly int[] GunnerTierCost = { 1, 2, 3, 4, 5 };
+
+        /// <summary>
+        /// 메카닉 다음 티어 습득 — 원본 `learnSkill('gunner', branch, tier)`(project_test.html:7011). 규칙은 마법사와 같다:
+        /// 갈래는 처음 배울 때 고정, 1층부터 순서대로만, SP가 모자라면 실패.
+        /// </summary>
+        public bool TryLearnGunnerTier(GunnerBranch branch)
+        {
+            if (branch == GunnerBranch.None) return false;
+            if (gunnerBranch != GunnerBranch.None && gunnerBranch != branch) return false;
+            int nextTier = gunnerTier + 1;
+            if (nextTier > GunnerTierCost.Length) return false;
+            int cost = GunnerTierCost[nextTier - 1];
+            if (SpAvailable < cost) return false;
+            gunnerBranch = branch;
+            gunnerTier = nextTier;
+            spUsed += cost;
+            return true;
+        }
+
         /// <summary>원본 `spAvail()`(:1259)와 같은 식이나 섬영 전용 SP 풀(<see cref="bladeSpUsed"/>)을 쓴다.</summary>
         public int BladeSpAvailable => SpTotal - bladeSpUsed;
 
@@ -343,6 +388,9 @@ namespace YokaiFront.Core
 
     /// <summary>원본 마법사 빌드 갈래. move=폭발 계열, conv=중력 계열(project_test.html:900-913).</summary>
     public enum MageBranch { None, Explosion, Gravity }
+
+    /// <summary>원본 메카닉 빌드 갈래. move=캐릭터 레이저 빌드, conv=설치기 빌드(project_test.html:915-932).</summary>
+    public enum GunnerBranch { None, Laser, Installer }
 
     /// <summary>원본 섬영 빌드 갈래. move=집중 계열, conv=칼날폭풍 계열(project_test.html:936-949).</summary>
     public enum BladeBranch { None, Focus, Storm }

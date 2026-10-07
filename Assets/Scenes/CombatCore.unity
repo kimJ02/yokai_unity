@@ -219,6 +219,9 @@ MonoBehaviour:
   iconSkull: {fileID: 2800000, guid: e17546b9169336b46a0cf54d2581801b, type: 3}
   iconShard: {fileID: 2800000, guid: 70afc98ff5737804db407c1dcca02f68, type: 3}
   menuPlate: {fileID: 2800000, guid: 4c7a356f4fdf4124ca803cea0df06aea, type: 3}
+  skillSlotAttack: {fileID: 2800000, guid: fa72453572364a12ad5486ccf3e50804, type: 3}
+  skillSlotSkill: {fileID: 2800000, guid: bdcba0a490b14104b11c7cc6f466f270, type: 3}
+  skillSlotJump: {fileID: 2800000, guid: 6292b692c4c84732b32e12c650cb8acc, type: 3}
 --- !u!4 &17630909
 Transform:
   m_ObjectHideFlags: 0

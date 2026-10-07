@@ -16,7 +16,7 @@ namespace YokaiFront.Characters
 ///
 /// PlayerAttack(범용 근접 판정)을 대체한다 — 이 캐릭터를 쓰는 동안은 씬에 둘 다 안 붙인다.
 /// </summary>
-public class MageAttack : MonoBehaviour, ICharacterKit, IRunResettable
+public class MageAttack : MonoBehaviour, ICharacterKit, IRunResettable, ISkillSlotSource
 {
     public CharacterId Character => CharacterId.Mage;
     /// <summary>마법사는 원본 `updatePlayerCommon`의 즉시-속도 이동을 쓴다(관성은 섬영 전용).</summary>
@@ -48,6 +48,30 @@ public class MageAttack : MonoBehaviour, ICharacterKit, IRunResettable
         if (mover != null) mover.SpeedMultiplier = 1f;
     }
 
+    // ---- HUD 스킬 슬롯 (원본 syncHUD 슬롯 부분 :6319~:6352) ----
+
+    /// <summary>Z 칸 — 원본 `clamp(p.atkCds.bow / p.bowCdMax, 0, 1)`(:6321)과 남은 초.</summary>
+    public SkillSlotState AttackSlot => SkillSlotState.Cooldown(cdTimer, attackCdMax);
+
+    /// <summary>X 칸 — 원본 `clamp(p.ultCd / p.ultCdMax, 0, 1)`(:6352). 빌드가 없으면 X가 안 나가서 늘 비어 있다.</summary>
+    public SkillSlotState SkillSlot => SkillSlotState.Cooldown(ultCdTimer, ultCdMax);
+
+    /// <summary>
+    /// 원본 버프 줄의 마법사 몫 — 차지 중이면 차지율(`:6291`), 폭발 빌드면 그 표시(`:6292`, 원본은 층을 안 보고
+    /// 갈래만 본다). 원본 차지 앞 글자 '満'은 뺐다 — 일본 신자체라 한국어 윈도 기본 글꼴에 없어 네모로 뜰 수 있다
+    /// (HUD의 다른 줄도 원본의 '殺'·'⚔'를 빼고 쓴다).
+    /// </summary>
+    public string BuffText
+    {
+        get
+        {
+            string s = charging ? $"차지 {Mathf.RoundToInt(chargeT / chargeMax * 100f)}%" : "";
+            if (ProfileService.Current.mageBranch == MageBranch.Explosion)
+                s += (s.Length > 0 ? "   " : "") + "폭발탄 · 불길 이동";
+            return s;
+        }
+    }
+
     [Header("원본 CONFIG.bow 그대로 (거리·속도는 100px=1유닛 축척)")]
     // cooldown/baseDamage는 매 프레임 Core.PlayerStatCalculator + MageSpecConfig에서 다시 계산되는
     // "표시용 현재값"이다 — 인스펙터에서 수정해도 다음 프레임에 덮어써진다(BaseCooldownConst만 진짜 기준값).
@@ -67,16 +91,22 @@ public class MageAttack : MonoBehaviour, ICharacterKit, IRunResettable
     public Color boltColor = new Color(0.55f, 0.8f, 1f);
 
     CharacterMover2D mover;
+    CircleCollider2D bodyCol;
     PlayerHealth health;
     float cdTimer;
     bool charging;
     float chargeT;
     float ultCdTimer;
+    // 쿨다운을 **건 순간**의 최대치 — HUD 슬롯 덮개 비율의 분모. 원본 `p.bowCdMax`(:1942)·`p.ultCdMax`(:2177)도
+    // 발사·시전 때 정해진다(`cooldown`은 매 프레임 다시 계산되므로 분모로 쓰면 도중에 스탯이 바뀔 때 튄다).
+    float attackCdMax;
+    float ultCdMax;
     SpriteRenderer chargeIndicator;
 
     void Awake()
     {
         mover = GetComponent<CharacterMover2D>();
+        bodyCol = GetComponent<CircleCollider2D>();
         health = GetComponent<PlayerHealth>();
 
         var ind = new GameObject("ChargeIndicator");
@@ -132,7 +162,7 @@ public class MageAttack : MonoBehaviour, ICharacterKit, IRunResettable
                 Fire(k, branch, tier);
                 charging = false;
                 chargeIndicator.gameObject.SetActive(false);
-                cdTimer = cooldown;
+                cdTimer = attackCdMax = cooldown;
             }
         }
     }
@@ -149,9 +179,12 @@ public class MageAttack : MonoBehaviour, ICharacterKit, IRunResettable
         float aimY = (GameInput.Up ? 1 : 0) - (GameInput.Down ? 1 : 0);
 
         // 원본(project_test.html:1951-1954) — 중력 계열에서 방향키 없이 "아래"만 누르면(우리 좌표계는
-        // 아래=aimY<0), 발사와 별개로 현재 위치 바로 아래에 즉시 중력점을 하나 터뜨린다.
+        // 아래=aimY<0), 발사와 별개로 그 자리에 즉시 중력점을 하나 터뜨린다.
+        // 위치는 원본 `(p.x, p.y - 34)` — p.y는 **발**이라 발에서 0.34 **위**다(PlayerBody 참고).
+        // 예전엔 몸 중심에서 0.34 아래로 옮겨져 있었다(원본 Y+가 아래인 걸 "아래"로 잘못 읽음).
+        Vector2 feet = PlayerBody.Feet(transform, bodyCol);
         if (gravityOrb && aimY < 0f && aimX == 0f)
-            MageSkillEffects.DetonateGravityOrb(transform.position + new Vector3(0f, -0.34f, 0f), tier, chargeK, facing);
+            MageSkillEffects.DetonateGravityOrb(feet + new Vector2(0f, 0.34f), tier, chargeK, facing);
 
         if (aimX == 0f && aimY == 0f) aimX = facing;
         Vector2 aim = new Vector2(aimX, aimY).normalized;
@@ -167,7 +200,8 @@ public class MageAttack : MonoBehaviour, ICharacterKit, IRunResettable
         float explosionPower = MageSpecConfig.BowExplosionPower(chargeK);
         bool charged = chargeK >= 0.5f;
 
-        Vector3 spawnPos = transform.position + new Vector3(aim.x >= 0 ? 0.26f : -0.26f, 0.36f, 0f);
+        // 원본 `y: p.y - 36`(:1965) — 발에서 0.36 위. 몸 중심에서 재면 키 0.5짜리 오니 머리 위로 지나간다.
+        Vector3 spawnPos = new Vector3(feet.x + (aim.x >= 0 ? 0.26f : -0.26f), feet.y + 0.36f, 0f);
         MageProjectile.Spawn(spawnPos, aim * spd, dmg, pierce, life, sizeMul, boltSprite, boltColor,
             inf, charged, explosive, explosionPower, gravityOrb, chargeK, tier, transform.position, facing);
     }
@@ -188,7 +222,7 @@ public class MageAttack : MonoBehaviour, ICharacterKit, IRunResettable
             MageSkillEffects.GravityCollapse(tier, transform.position, facing, nearest);
         }
         // 원본 `p.ultCdMax = ... * cdMult()`(:2177) — 궁극기 쿨타임에도 '시간의 조각'이 붙는다.
-        ultCdTimer = MageSpecConfig.UltCooldown(branch, tier)
+        ultCdTimer = ultCdMax = MageSpecConfig.UltCooldown(branch, tier)
                      * PlayerStatCalculator.ComputeCooldownMultiplier(ProfileService.Current); // 원본 :2177
     }
 

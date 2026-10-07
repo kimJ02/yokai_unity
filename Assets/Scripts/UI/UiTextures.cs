@@ -33,6 +33,14 @@ namespace YokaiFront.UI
         [Tooltip("메뉴 버튼 플레이트 256×64. 모서리가 깎인 형태라 9-슬라이스로 늘린다.")]
         public Texture2D menuPlate;
 
+        [Header("전투 HUD 스킬 슬롯 (Figma \"보스 HUD\" 124:3 — 181:2~181:4)")]
+        [Tooltip("Z 기본공격 칸 32×32 — 회색 틀 + 칼")]
+        public Texture2D skillSlotAttack;
+        [Tooltip("X 전문화 스킬 칸 32×32 — 회색 틀 + 마법진")]
+        public Texture2D skillSlotSkill;
+        [Tooltip("C 점프 칸 32×32 — 회색 틀 + 위 화살표")]
+        public Texture2D skillSlotJump;
+
         void Awake() => UiTheme.SetTextures(this);
     }
 }

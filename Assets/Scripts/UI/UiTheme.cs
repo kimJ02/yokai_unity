@@ -136,6 +136,26 @@ namespace YokaiFront.UI
         /// <summary>타이틀 메뉴 위·아래 구분선. Figma(63:4 · 63:5).</summary>
         public static readonly Color TitleDivider = Color.black;
 
+        // ── 전투 HUD 스킬 슬롯 — 틀·아이콘은 Figma 그림(181:2~181:4), 쿨다운 표시는 원본 CSS(`.slot` :60~:73) ──
+        /// <summary>슬롯 안쪽 바탕(푸른 회색). Figma 슬롯 그림에서 뽑은 값 — 아이콘을 흐리게 할 때 이 색을 덮는다.</summary>
+        public static readonly Color SlotFill  = Hex(0x92, 0xa1, 0xb9);
+        /// <summary>슬롯 안쪽 테두리(남색). Figma 슬롯 그림.</summary>
+        public static readonly Color SlotInset = Hex(0x03, 0x19, 0x3f);
+        /// <summary>슬롯 틀(밝은 회색). Figma 슬롯 그림.</summary>
+        public static readonly Color SlotFrame = Hex(0xb4, 0xb4, 0xb4);
+        /// <summary>슬롯 바깥 윤곽(어두운 회색). Figma 슬롯 그림.</summary>
+        public static readonly Color SlotEdge  = Hex(0x3d, 0x3d, 0x3d);
+        /// <summary>쿨다운 덮개. 원본 `.slot .cd { background:rgba(0,0,10,.75) }`(`:64`).</summary>
+        public static readonly Color SlotCooldownVeil = Hex(0x00, 0x00, 0x0a, 0.75f);
+        /// <summary>쿨다운 숫자. 원본 `.slot .cdnum { color:#fff0b8 }`(`:65`).</summary>
+        public static readonly Color SlotCooldownText = Hex(0xff, 0xf0, 0xb8);
+        /// <summary>키 글자(Z·X·C). 원본 `.slot .key { color:#c8b890 }`(`:63`).</summary>
+        public static readonly Color SlotKeyText = Hex(0xc8, 0xb8, 0x90);
+        /// <summary>스택 글자. 원본 `.slot .stk { color:#8ef0c8 }`(`:71`).</summary>
+        public static readonly Color SlotStackText = Hex(0x8e, 0xf0, 0xc8);
+        /// <summary>쓸 자원이 없을 때의 스택 글자. 원본 `.slot.noStack .stk { color:#ff8a7a }`(`:73`).</summary>
+        public static readonly Color SlotNoStackText = Hex(0xff, 0x8a, 0x7a);
+
         /// <summary>타이틀 메뉴 글자(굵은 검정 — 양피지 위라 흰색은 안 읽힌다).</summary>
         public static GUIStyle MenuLabel { get; private set; }
         /// <summary>회귀창 통계 라벨(작은 흰 글씨).</summary>
@@ -157,6 +177,9 @@ namespace YokaiFront.UI
         public static Texture2D IconSkull => textures != null ? textures.iconSkull : null;
         public static Texture2D IconShard => textures != null ? textures.iconShard : null;
         public static Texture2D MenuPlate => textures != null ? textures.menuPlate : null;
+        public static Texture2D SkillSlotAttack => textures != null ? textures.skillSlotAttack : null;
+        public static Texture2D SkillSlotSkill => textures != null ? textures.skillSlotSkill : null;
+        public static Texture2D SkillSlotJump => textures != null ? textures.skillSlotJump : null;
 
         static Texture2D barBg, white;
 
