@@ -94,10 +94,11 @@ namespace YokaiFront.Core
             A("boss5",     "보스 헌터",     "보스 5종 처치",          p => p.stats.bosses >= 5),
             A("boss9",     "백귀 토벌자",   "보스 9종 처치",          p => p.stats.bosses >= 9),
             // 원본 :819~:823 — spec1/specAll은 "어느 캐릭터든"이다(섬영 항은 트리가 생기면 추가).
-            A("spec1",     "전문화 입문",   "캐릭터 빌드 1층 개방",   p => p.mageTier >= 1 || p.gunnerTier >= 1),
-            A("specAll",   "숙련된 전투가", "캐릭터 빌드 5층 완성",   p => p.mageTier >= 5 || p.gunnerTier >= 5),
+            A("spec1",     "전문화 입문",   "캐릭터 빌드 1층 개방",   p => p.mageTier >= 1 || p.gunnerTier >= 1 || p.bladeTier >= 1),
+            A("specAll",   "숙련된 전투가", "캐릭터 빌드 5층 완성",   p => p.mageTier >= 5 || p.gunnerTier >= 5 || p.bladeTier >= 5),
             A("mage5",     "대마법사",      "마법사 빌드 5층 완성",   p => p.mageTier >= 5),
             A("mechanic5", "전장의 설계자", "메카닉 빌드 5층 완성",   p => p.gunnerTier >= 5),
+            A("blade5",    "질풍의 극의",   "섬영 빌드 5층 완성",     p => p.bladeTier >= 5), // 원본 :823 (2026-10-14)
             A("reborn1",   "회귀의 시작",   "첫 시간 회귀",                p => p.regressions >= 1),
             A("reborn3",   "세 번째 삶",    "회귀 3회",               p => p.regressions >= 3),
             A("reborn5",   "거듭된 회귀",   "회귀 5회",               p => p.regressions >= 5),

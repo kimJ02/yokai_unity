@@ -364,9 +364,10 @@ namespace YokaiFront.UI
             {
                 case CharacterId.Mage: DrawMageSpec(profile); break;
                 case CharacterId.Gunner: DrawGunnerSpec(profile); break;
+                case CharacterId.Blade: DrawBladeSpec(profile); break;
                 default:
                     GUILayout.Label($"{CharacterLabel(profile.character)}의 전문화는 아직 구현되지 않았다. " +
-                                    "현재 스킬트리가 있는 캐릭터는 마법사·메카닉이다.");
+                                    "현재 스킬트리가 있는 캐릭터는 마법사·메카닉·섬영이다.");
                     break;
             }
         }
@@ -442,7 +443,46 @@ namespace YokaiFront.UI
                 () => profile.TryLearnGunnerTier(GunnerBranch.Installer));
         }
 
-        /// <summary>갈래 하나의 1~5층 줄. 두 캐릭터 모두 층 비용이 1,2,3,4,5다(원본 `SPEC.*.tiers[].cost`).</summary>
+        /// <summary>
+        /// 섬영 — 원본 `SPEC.blade`(project_test.html:933): 집중 빌드(move) / 칼날폭풍 빌드(conv). 2026-10-14 병합 때 추가 —
+        /// 그전엔 섬영 1~5층이 다 있는데 게임 안에서 배울 방법이 없었다. SP는 섬영 칸(`PlayerProfile.BladeSpAvailable`)이고,
+        /// 이 탭은 섬영을 고른 동안에만 보이니 머리말의 `SpAvailable`(지금 캐릭터 몫)과 같은 값이다.
+        /// </summary>
+        void DrawBladeSpec(PlayerProfile profile)
+        {
+            var b = profile.bladeBranch;
+            string branchNow = b == BladeBranch.None ? "아직 안 정함" : (b == BladeBranch.Focus ? "집중 빌드" : "칼날폭풍 빌드");
+            DrawSpecHeader(profile, branchNow, profile.bladeTier);
+
+            DrawBranchRows(profile, "집중 빌드", FocusTiers, b == BladeBranch.Focus,
+                b != BladeBranch.None && b != BladeBranch.Focus, profile.bladeTier,
+                () => profile.TryLearnBladeTier(BladeBranch.Focus));
+            GUILayout.Space(10f);
+            DrawBranchRows(profile, "칼날폭풍 빌드", StormTiers, b == BladeBranch.Storm,
+                b != BladeBranch.None && b != BladeBranch.Storm, profile.bladeTier,
+                () => profile.TryLearnBladeTier(BladeBranch.Storm));
+        }
+
+        // 원본 SPEC.blade.move / SPEC.blade.conv 의 티어 설명을 줄인 것(project_test.html:936~949).
+        static readonly string[] FocusTiers =
+        {
+            "집중 — X로 잠깐 가속이 크게 오르고, 달린 경로에 궤적이 남아 위의 적에게 지속 피해. 다시 누르면 중단.",
+            "예리한 감각 — 집중 중 가속이 더 커진다. 최고 속도일 땐 충돌 피해를 안 받는다(상시).",
+            "짙은 잔영 — 궤적이 더 오래·굵게·아프게 남는다. 지속 +45%, 피해 +80%, 판정 폭 +30%.",
+            "즉시 가속 — 집중을 쓰면 바로 최고 속도. 궤적이 사라질 때 찢어지며 위의 적에게 큰 피해.",
+            "무한 질주 — 최고 속도로 적을 통과할 때마다 집중 쿨타임 감소. 궤적이 남았을 때 집중을 쓰면 기존 궤적이 바로 찢어진다.",
+        };
+
+        static readonly string[] StormTiers =
+        {
+            "칼날폭풍 — 공중에서 X로 회전베기를 유지한 채 비스듬히 아래로 활공. 발판을 뚫고 가속, 다시 누르거나 벽에 닿으면 끝.",
+            "낙하 충격 — 칼날폭풍으로 바닥에 닿으면 착지 지점에 강한 광역 공격이 터진다.",
+            "벽 타기 — 벽에 부딪혀도 끝나지 않고 속도를 유지한 채 방향이 꺾인다. 최고 속도일 땐 충돌 피해를 안 받는다(상시).",
+            "강제 연행 — 부딪히는 적을 붙잡아 끌고 간다. 붙잡힌 적은 발판을 무시하고 떨어져 바닥에 닿을 때 피해.",
+            "곡예비행 — 칼날폭풍 중 점프키를 누르면 끝내는 대신 속도에 비례해 위로 도약하고 쿨타임을 돌려받는다.",
+        };
+
+        /// <summary>갈래 하나의 1~5층 줄. 세 캐릭터 모두 층 비용이 1,2,3,4,5다(원본 `SPEC.*.tiers[].cost`).</summary>
         void DrawBranchRows(PlayerProfile profile, string title, string[] tiers, bool thisBranch, bool otherPicked,
             int tier, System.Func<bool> tryLearn)
         {
