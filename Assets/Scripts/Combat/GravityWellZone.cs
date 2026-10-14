@@ -43,6 +43,7 @@ namespace YokaiFront.Combat
             // 원본 `y = Math.min(y, groundY - 20)`(:2047)은 Y+가 아래인 캔버스에서 "바닥보다 아래로 못 간다"는 뜻이다.
             // Unity는 Y+가 위라 `Max`여야 한다 — 예전엔 `Min`이라 중력점이 **몇 층에서 터지든 늘 바닥 아래(-0.2)**에
             // 생겼다(2026-10-03 원본 대조에서 발견). 같은 실수를 `MageSkillEffects.DetonateGravityOrb`는 09-28에 고쳤다.
+            // (팀원도 10/07에 따로 찾아 같은 줄로 고쳤다 — 2026-10-14 병합 때 하나로 합침.)
             pos.y = Mathf.Max(pos.y, FieldBounds.GroundY + MageSpecConfig.GravityGroundClearance);
             int stackGain = MageSpecConfig.GravityStackGain(tier, chargeK);
 

@@ -57,6 +57,27 @@ namespace YokaiFront.Core
         public GunnerBranch gunnerBranch = GunnerBranch.None;
         public int gunnerTier = 0;
 
+        /// <summary>
+        /// 섬영(블레이드) 전문화 — 원본 `meta.skills.blade = {branch, tier}`(project_test.html:1140).
+        ///
+        /// ⚠️ **팀원 추가(2026-09-28), 팀장 확인 필요**: `docs/worksplit.md` 7절·9절, `HANDOFF.md`는
+        /// "캐릭터별 SP/branch/tier 일반화는 단계 2에서 메카닉 스킬트리와 같이 처리한다"고 명시하고
+        /// `Core/` 전체를 팀원에게 "읽기만" 허용한다 — 이 필드들은 그 문서상 순서를 벗어난 예외다.
+        /// 사용자 확인(2026-09-28: "내가 PlayerProfile에 섬영 전용 필드 추가")으로 최소 침습적으로
+        /// (마법사 필드는 전혀 안 건드리고) 추가만 했다. 팀장이 실제 일반화(캐릭터별 `PlayerProfile`
+        /// 분리 등) 작업을 할 때 이 필드들은 그 구조로 흡수/정리될 걸 전제로 한다 — 지금은 마법사와
+        /// 같은 패턴(전용 필드 + 전용 SP 풀)을 그대로 복제한 임시 형태.
+        ///
+        /// SP는 **섬영 자신의 성장 칸**(`ProgressOf(CharacterId.Blade)`)의 레벨·쓴 SP로 센다 — 원본 `charProg('blade')`.
+        /// (예전엔 레벨은 공유하고 SP만 전용 풀이었다 — 2026-10-14 병합 때 캐릭터별 성장 칸으로 옮겼다.)
+        ///
+        /// ✅ 2026-10-14 병합: 마법사·메카닉·섬영 모두 캐릭터별 성장 칸(레벨·경험치·쓴 SP)을 쓴다(`docs/worksplit.md` 7절).
+        /// </summary>
+        public BladeBranch bladeBranch = BladeBranch.None;
+        public int bladeTier = 0;
+        /// <summary>섬영이 쓴 SP — 섬영 성장 칸의 `spUsed`(예전 전용 필드, 2026-10-14 병합 때 이름 그대로 프로퍼티로).</summary>
+        public int bladeSpUsed { get => ProgressOf(CharacterId.Blade).spUsed; set => ProgressOf(CharacterId.Blade).spUsed = value; }
+
         public UpgradeLevels upgrades = new UpgradeLevels();
 
         /// <summary>시간의 파편 — 가챠 재화. 원본 `meta.shards`(project_test.html:1147). **회귀해도 안 없어진다.**</summary>
@@ -201,6 +222,8 @@ namespace YokaiFront.Core
             int keptTier = mageTier;
             var keptGunnerBranch = gunnerBranch;
             int keptGunnerTier = gunnerTier;
+            var keptBladeBranch = bladeBranch;
+            int keptBladeTier = bladeTier;
 
             shards += gain;
             regressions++;
@@ -215,6 +238,8 @@ namespace YokaiFront.Core
             mageTier = 0;
             gunnerBranch = GunnerBranch.None;
             gunnerTier = 0;
+            bladeBranch = BladeBranch.None;
+            bladeTier = 0;
 
             regionKills = new int[RegionConfig.Count];
             regionBossUnlocked = new bool[RegionConfig.Count];
@@ -235,6 +260,8 @@ namespace YokaiFront.Core
                 mageTier = keptTier;
                 gunnerBranch = keptGunnerBranch;
                 gunnerTier = keptGunnerTier;
+                bladeBranch = keptBladeBranch;
+                bladeTier = keptBladeTier;
             }
 
             return gain;
@@ -376,6 +403,36 @@ namespace YokaiFront.Core
             spUsed += cost;
             return true;
         }
+
+        /// <summary>원본 `spAvail()`(:1259) — **섬영 칸**의 레벨·쓴 SP로 센다(지금 고른 캐릭터와 상관없이).</summary>
+        public int BladeSpAvailable
+        {
+            get { var cp = ProgressOf(CharacterId.Blade); return cp.level - 1 - cp.spUsed; }
+        }
+
+        /// <summary>
+        /// 섬영 빌드 티어당 SP 비용. 원본 `SPEC.blade.move/conv.tiers[].cost`(project_test.html:936-949) —
+        /// 마법사와 마찬가지로 두 갈래 모두 1,2,3,4,5로 동일하다.
+        /// </summary>
+        static readonly int[] BladeTierCost = { 1, 2, 3, 4, 5 };
+
+        /// <summary>
+        /// 섬영 다음 티어를 습득한다 — <see cref="TryLearnMageTier"/>와 동일한 규칙(갈래 최초 고정,
+        /// 1→2→3→4→5 순서만, SP 부족하면 거부)을 섬영 전용 필드·SP 풀에 대해 그대로 적용한다.
+        /// </summary>
+        public bool TryLearnBladeTier(BladeBranch branch)
+        {
+            if (branch == BladeBranch.None) return false;
+            if (bladeBranch != BladeBranch.None && bladeBranch != branch) return false;
+            int nextTier = bladeTier + 1;
+            if (nextTier > BladeTierCost.Length) return false;
+            int cost = BladeTierCost[nextTier - 1];
+            if (BladeSpAvailable < cost) return false;
+            bladeBranch = branch;
+            bladeTier = nextTier;
+            bladeSpUsed += cost;
+            return true;
+        }
     }
 
     /// <summary>
@@ -395,6 +452,9 @@ namespace YokaiFront.Core
 
     /// <summary>원본 메카닉 빌드 갈래. move=캐릭터 레이저 빌드, conv=설치기 빌드(project_test.html:915-932).</summary>
     public enum GunnerBranch { None, Laser, Installer }
+
+    /// <summary>원본 섬영 빌드 갈래. move=집중 계열, conv=칼날폭풍 계열(project_test.html:936-949).</summary>
+    public enum BladeBranch { None, Focus, Storm }
 
     /// <summary>
     /// 골드 강화 5종의 현재 단계. 원본 `CONFIG.upgrades`(project_test.html:731)와 이름을 맞췄으나

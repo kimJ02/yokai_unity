@@ -16,10 +16,14 @@ namespace YokaiFront.Enemies
     ///
     /// 적 목록에 들어가는 게 아니라 <see cref="EnemyHealth"/>를 그대로 쓰고 <see cref="EnemyMove"/>만
     /// 꺼서 만든다 — 원본도 `enemies` 배열에 넣고 이동 분기에서만 건너뛴다.
+    ///
+    /// **소유권 예외(2026-09-30, 팀원 추가)**: `IGrabExempt` 구현은 섬영 칼날폭풍 4층 "강제 연행"이
+    /// 성소를 붙잡지 못하게 막으려고 팀원이 추가했다(원본 `e.shrine` 제외, project_test.html:2694).
+    /// 사용자 확인 받음 — `Core/IGrabExempt.cs` 주석과 PROGRESS.md 참고, 팀장 확인 필요.
     /// </summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(EnemyHealth))]
-    public class Shrine : MonoBehaviour
+    public class Shrine : MonoBehaviour, IGrabExempt
     {
         // 원본 CONFIG.shrine(project_test.html:698)
         /// <summary>기본 체력. 원본 `hp: 70`.</summary>
