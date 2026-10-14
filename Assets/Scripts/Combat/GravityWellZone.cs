@@ -40,7 +40,14 @@ namespace YokaiFront.Combat
         public static GravityWellZone SpawnOrMerge(Vector2 pos, int tier, float chargeK)
         {
             if (tier <= 0) return null;
-            pos.y = Mathf.Min(pos.y, FieldBounds.GroundY - MageSpecConfig.GravityGroundClearance);
+            // ⚠️ 버그 수정(2026-10-07): MageSkillEffects.DetonateGravityOrb(2026-09-28)와 **완전히 같은
+            // 버그**가 여기 따로 복사돼 있었다 — 원본 `y = Math.min(y, groundY - 20)`은 Y+가 아래인
+            // 캔버스 좌표계 기준인데, 부호를 안 뒤집고 그대로 Mathf.Min을 써서 "중력점이 항상 맨 밑바닥
+            // 아래로 끌려 내려가는" 현상이 났다. 피해 판정은 DetonateGravityOrb가 이미 고친 위치에서
+            // 일어나지만, 실제로 보이는 중력점 오브젝트는 이 줄이 다시 덮어써서 여전히 땅 밑에 생겼다.
+            // 같은 수정(Mathf.Max, 부호 반전)을 그대로 적용한다 — "바닥보다 아래로는 못 내려간다"는
+            // 의도는 유지된다.
+            pos.y = Mathf.Max(pos.y, FieldBounds.GroundY + MageSpecConfig.GravityGroundClearance);
             int stackGain = MageSpecConfig.GravityStackGain(tier, chargeK);
 
             // 원본: 2티어부터만 "근처 기존 중력점에 중첩"이 가능하다(project_test.html:2050).

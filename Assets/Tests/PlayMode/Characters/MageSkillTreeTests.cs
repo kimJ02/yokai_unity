@@ -139,6 +139,21 @@ public class MageSkillTreeTests
     }
 
     [UnityTest]
+    public IEnumerator GravityWellZone_SpawnsAtHitFloorHeight_NotPulledToBottom()
+    {
+        // 회귀 테스트(2026-10-07) — MageSkillEffects.DetonateGravityOrb(2026-09-28)와 똑같은
+        // "Y+가 위인데 Math.min을 그대로 써서 바닥 아래로 끌려감" 버그가 GravityWellZone.SpawnOrMerge에
+        // 따로 복사돼 있었다. 3층 발판(y≈2.7) 높이에서 터뜨렸는데 결과 중력점이 맨 밑으로 끌려가면
+        // 이 버그가 되돌아온 것이다.
+        const float platformY = 2.7f;
+        var well = GravityWellZone.SpawnOrMerge(new Vector3(5f, platformY, 0f), tier: 2, chargeK: 0f);
+        yield return null;
+
+        Assert.AreEqual(platformY, well.transform.position.y, 0.01f,
+            "중력점이 맞은 높이가 아니라 다른 Y에 생겼다 — 바닥 클램프 방향이 또 뒤집힌 것으로 의심된다");
+    }
+
+    [UnityTest]
     public IEnumerator GravityWellZone_PullsNearbyEnemyCloser()
     {
         var enemy = NewEnemy(new Vector3(6.5f, 0.36f, 0f)); // 중력점 반경 안, 충분히 떨어진 위치

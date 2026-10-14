@@ -110,6 +110,12 @@ git checkout main            # 진행 중: 섬영 1~5층 main 병합(feature/bla
 
 ## 확인 필요 / 막힌 것
 
+- **[팀원, 소유권 밖 수정, 미병합] `Assets/Editor/BuildEnemyData.cs`에 `SpriteEnabledTypes`
+  조건 추가(2026-10-07) — 팀장 확인 필요.** 오니·도깨비불만 정식 아트(사용자 제공)를 쓰도록 1줄
+  조건부 변경, 나머지 5종은 그대로 도형. `Enemies/`는 팀장 담당 영역이라 동작엔 문제없지만 병합 전
+  확인 바람. 자세한 경위·새로 만든 `ApplyCharacterArt.cs`(캐릭터 그림 적용 메뉴)는 아래 로그
+  10-07 (1) 참고.
+
 - **[팀원, 소유권 밖 수정, 미병합] `Core/PlayerProfile.cs`에 섬영 전용 필드 추가(2026-09-29,
   `feature/blade-tier1`) — 팀장 확인 필요.** `docs/worksplit.md`/`HANDOFF.md`는 "캐릭터별 SP/
   branch/tier 일반화는 단계2에서 메카닉 스킬트리와 같이 처리한다"고 정해 뒀고 `Core/`는 팀원에게
@@ -202,6 +208,45 @@ git checkout main            # 진행 중: 섬영 1~5층 main 병합(feature/bla
 (2026-10-07 `main` 병합 중 재정렬: 09-29·09-30 날짜는 두 브랜치가 각자 (1)(2)...로 번호를
 매겨서 겹쳤다 — 아래서 하나의 순서로 다시 번호 붙였다. 내용은 전부 그대로 보존, 번호만 바뀜.
 09-28 이전은 원래부터 충돌이 없었다.)
+
+- **2026-10-07 (2)** — **[팀원] 중력장(GravityWellZone) 위치 버그 재발견 + 수정.**
+  사용자가 플레이 테스트 중 "전에 중력장이 맞은 몬스터 위치가 아니라 땅에서 생성되는 거 고쳤었는데
+  지금 보니까 안 고쳐졌다"고 보고. 원인 추적: 09-28에 `MageSkillEffects.DetonateGravityOrb`에서
+  고친 것과 **완전히 같은 버그**(원본 `y=Math.min(y,groundY-20)`을 Y+가 위인 이 포트에서 부호 반전
+  없이 그대로 옮겨서, 어느 층에서 터뜨리든 중력점이 맵 맨 밑바닥 아래로 끌려가던 것)가
+  `GravityWellZone.SpawnOrMerge`(`Combat/GravityWellZone.cs:43`)에 **별도로 복사돼 있었는데 그쪽은
+  안 고쳐진 채** 남아 있었다 — 그래서 피해 판정(OverlapCircle)은 맞는 위치에서 일어나는데, 실제로
+  보이는 중력점 오브젝트만 계속 땅 밑에 생겼다. `DetonateGravityOrb`와 같은 수정(`Mathf.Min`→
+  `Mathf.Max`, 부호 반전)을 적용. 기존 중력장 테스트들은 전부 Y좌표를 직접 비교하지 않아서 이 버그를
+  못 잡았었다 — 회귀 방지용 테스트 `GravityWellZone_SpawnsAtHitFloorHeight_NotPulledToBottom`
+  (`Tests/PlayMode/Characters/MageSkillTreeTests.cs`) 추가, 3층 발판 높이에서 터뜨렸을 때 중력점이
+  그 높이 그대로 생기는지 검증.
+
+- **2026-10-07 (1)** — **[팀원, 소유권 밖 수정] 캐릭터·오니·도깨비불 정식 아트 교체 + 적용 경로 신설.**
+  사용자가 실제 캐릭터/몬스터 그림 파일을 구해 와서 교체 요청. `Assets/Sprites/Prototype/`의
+  `char_mage`·`char_gunner`·`char_blade`·`char_druid`·`enemy_oni`·`enemy_wisp` PNG를 같은 파일명으로
+  덮어쓰는 것까진 `docs/prototype-sprites.md` 절차 그대로였는데, **PNG만 바꿔선 게임에 반영되지
+  않음을 발견** — `PlayerRig.characterSprites`(4칸)와 `EnemyData.sprite`가 2026-09-16 결정("일단
+  스킨 씌우지 말고 네모 세모 동그라미로만")으로 코드에서 강제로 비워져 있었다
+  (`PlayerRig.ApplySprite`는 배열이 비면 아무것도 안 함, `BuildEnemyData.Build()`는 매번
+  `asset.sprite = null`을 강제 적용).
+  - **[소유권 밖, 팀장 확인 필요] `Assets/Editor/BuildEnemyData.cs`**: `asset.sprite = null` 고정을
+    `SpriteEnabledTypes`(HashSet) 조건부로 바꿔서, 정식 아트가 들어온 종류(지금은 오니·도깨비불)만
+    `BuildPrototypeSprites.Load(...)`를 쓰고 나머지 5종(대오니·돌진귀·사수귀·분열귀·새끼)은 기존대로
+    도형+색을 쓰게 했다. 한 종류 더 켜려면 그 HashSet에 `EnemyType.___` 한 줄만 추가하면 된다.
+    `Enemies/`는 `docs/worksplit.md`상 팀장 담당이라 — 동작 자체는 메뉴(`YokaiFront/Build Enemy
+    Data`) 재실행만 하면 되는 1줄짜리 조건 변경이지만, 병합 전 팀장이 봐 줘야 한다.
+  - **새 파일 `Assets/Editor/ApplyCharacterArt.cs`**: `PlayerRig.characterSprites`는 씬
+    (`CombatCore.unity`)에 직렬화된 값이라 스크립트만 고쳐선 못 채운다. `BuildPartAScene.Build()`를
+    다시 돌리면 씬 전체(바닥·발판·카메라·스포너·RunController까지)를 통째로 새로 지어 덮어쓰므로
+    과하다고 판단해서, 열려 있는 씬의 Player만 찾아 `characterSprites` 4칸(마법사·메카닉·섬영·
+    드루이드)을 `Assets/Sprites/Prototype/`의 `char_*` 그림으로 채우는 전용 메뉴
+    `YokaiFront/Apply Character Art (Player)`를 새로 만들었다. 실행 후 씬 저장(Ctrl+S) 필요 —
+    `PlayerRig.Awake()`가 Play 시작마다 `characterSprites` 값으로 SpriteRenderer를 덮어쓰기 때문에,
+    SpriteRenderer에 직접 드래그하는 방식은 Play를 누르는 순간 되돌아간다(실제로 사용자가 겪음).
+  - **남은 것**: 대오니·돌진귀·사수귀·분열귀·새끼 5종은 아직 도형 그대로. 그림이 생기면
+    `BuildEnemyData.cs`의 `SpriteEnabledTypes`에 한 줄씩 추가 + 해당 PNG를 같은 파일명으로
+    덮어쓰면 된다.
 
 - **2026-09-30 (5)** — **[팀원] 섬영 tier5(곡예비행·쿨타임 환급) 구현. `feature/blade-tier1`에
   이어 커밋, `main` 미병합. PlayMode 264/264 검증 완료(254 + 신규 10, 회귀 없음) — 이걸로 섬영

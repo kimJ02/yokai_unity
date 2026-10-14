@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
@@ -19,6 +20,17 @@ namespace YokaiFront.Editor
     public static class BuildEnemyData
     {
         const string DataFolder = "Assets/Data/Enemies";
+
+        /// <summary>
+        /// 정식 아트가 들어온 종류만 여기 추가한다 — 나머지는 사용자 지시(2026-09-16)대로 도형+색을 쓴다.
+        /// 한 종류가 끝날 때마다 이 줄에 `EnemyType.___`만 추가하고 `YokaiFront/Build Enemy Data`를
+        /// 다시 실행하면 된다(그림 파일은 같은 이름으로 `Assets/Sprites/Prototype/`에 미리 덮어쓸 것).
+        /// </summary>
+        static readonly HashSet<EnemyType> SpriteEnabledTypes = new HashSet<EnemyType>
+        {
+            EnemyType.Oni,   // 2026-10-07, 멧돼지 그림 — 사용자 제공
+            EnemyType.Wisp,  // 2026-10-07, 사용자 제공
+        };
 
         /// <summary>
         /// 원본 한 줄에 대응하는 정의. `w`/`h`는 원본 픽셀 크기(환산 근거로만 기록)이고,
@@ -99,11 +111,14 @@ namespace YokaiFront.Editor
                 asset.knockbackMultiplier = row.knockbackMul;
                 asset.colliderRadius = RadiusFor(row.h);
                 asset.color = row.color;
-                // ⚠️ 프로토타입 그림은 **일부러 비워 둔다** — 사용자 지시(2026-09-16)
-                // "일단 스킨 씌우지 말고 네모 세모 동그라미로만". 대신 아래 도형을 종류색으로 칠한다.
-                // 되돌리려면 이 줄을 `BuildPrototypeSprites.Load(SpriteNameFor(row.type))`로 바꾸면 된다
+                // ⚠️ 프로토타입 그림은 **정식 아트가 들어온 종류만** 교체한다 — 아래 SpriteEnabledTypes 참고.
+                // 나머지는 사용자 지시(2026-09-16) "일단 스킨 씌우지 말고 네모 세모 동그라미로만"가
+                // 아직 유효해서 도형+색을 그대로 쓴다. 전부 되돌리려면 이 줄을 조건 없이
+                // `BuildPrototypeSprites.Load(SpriteNameFor(row.type))`로 바꾸면 된다
                 // (구운 파일은 `Assets/Sprites/Prototype/`에 그대로 있다).
-                asset.sprite = null;
+                asset.sprite = SpriteEnabledTypes.Contains(row.type)
+                    ? BuildPrototypeSprites.Load(SpriteNameFor(row.type))
+                    : null;
                 asset.shape = row.shape;
                 asset.originalWidthPx = row.w;
                 asset.originalHeightPx = row.h;
