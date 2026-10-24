@@ -14,6 +14,7 @@ namespace YokaiFront.World
     ///   발판 오브젝트의 자식이라 보스 무대로 바뀔 때(`PlatformSet.Activate`) 같이 켜지고 꺼진다.
     /// - **배경**: 원본 640×360을 정수 3배로 깔고 카메라를 따라가되 천천히 움직인다(시차). 카메라가 필드 끝에서 끝까지
     ///   가도 그림 가장자리가 안 보이게, 카메라 위치를 그림 안쪽 범위로 옮겨 계산한다(<see cref="BackgroundRawCenter"/>).
+    /// - **보스 포탈**: Figma 포탈 그림(1배)으로 바꾼다 — <see cref="BossPortal.ApplyArt"/>.
     /// 그림은 `Resources/Art/Figma/Stage1/`(가져오기 설정은 `Editor/FigmaArtImporter`).
     /// </summary>
     [DefaultExecutionOrder(100)] // 카메라(`CameraFollow2D.LateUpdate`)가 움직인 뒤에 배경을 맞춘다
@@ -52,6 +53,7 @@ namespace YokaiFront.World
             var dirt = Resources.Load<Sprite>(ArtFolder + "ground_dirt");
             var plat = Resources.Load<Sprite>(ArtFolder + "platform_tile");
             var bg = Resources.Load<Sprite>(ArtFolder + "bg_forest");
+            var portal = Resources.Load<Sprite>(ArtFolder + "portal");
             if (top == null || dirt == null || plat == null || bg == null)
             {
                 Debug.LogWarning("[StageVisuals] 1스테이지 그림을 못 찾았다 — Resources/" + ArtFolder);
@@ -66,6 +68,10 @@ namespace YokaiFront.World
                     BuildPlatform(child, plat);
 
             if (background == null) BuildBackground(bg);
+
+            if (portal != null)
+                foreach (var p in FindObjectsByType<BossPortal>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                    p.ApplyArt(portal);
         }
 
         void BuildGround(GameObject ground, Sprite top, Sprite dirt)

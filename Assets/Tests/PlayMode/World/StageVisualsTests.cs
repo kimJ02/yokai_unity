@@ -219,6 +219,28 @@ public class StageVisualsTests
         AssertSprite("ground_dirt", 64f, new Vector2(0.5f, 0.5f));
         AssertSprite("platform_tile", 128f, new Vector2(0.125f, 0.125f));
         AssertSprite("bg_forest", 128f, new Vector2(5f, 2.8125f));
+        AssertSprite("portal", 128f, new Vector2(0.25f, 0.5f));
+    }
+
+    [Test]
+    public void Portal_GetsFigmaArt_OneToOne_StandingOnGround_KeepsItsArtColors()
+    {
+        var go = new GameObject("TestPortal");
+        go.transform.position = new Vector3(FieldLayout.BossPortalX, FieldBounds.GroundY + FieldLayout.BossPortalHeight / 2f, 0f);
+        go.transform.localScale = new Vector3(0.7f, 1.56f, 1f); // 예전 흰 원을 문 모양으로 늘린 배율
+        go.AddComponent<SpriteRenderer>();
+        var portal = go.AddComponent<BossPortal>();
+        var art = Resources.Load<Sprite>(StageVisuals.ArtFolder + "portal");
+
+        portal.ApplyArt(art);
+
+        var sr = go.GetComponent<SpriteRenderer>();
+        Assert.AreSame(art, sr.sprite);
+        Assert.AreEqual(Vector3.one, go.transform.localScale, "그림을 늘리면 도트가 번진다 — 1배여야 한다");
+        Assert.AreEqual(FieldBounds.GroundY, go.transform.position.y - art.bounds.size.y / 2f, 1e-4f, "포탈이 땅 위에 안 서 있다");
+        Assert.AreEqual(FieldLayout.BossPortalX, go.transform.position.x, 1e-4f);
+        Assert.AreEqual(Color.white, portal.unlockedColor, "열린 포탈은 그림 색 그대로(밝기만 깜빡) — 보라를 곱하면 탁해진다");
+        Assert.AreEqual(BossPortal.LockedArtColor, portal.lockedColor);
     }
 
     static void AssertSprite(string name, float ppu, Vector2 size)

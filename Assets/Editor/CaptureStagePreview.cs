@@ -38,11 +38,54 @@ namespace YokaiFront.Editor
             EditorApplication.Exit(0);
         }
 
-        static void Shot(Camera cam, StageVisuals visuals, GameObject player, string dir, string name, float x, float feetY)
+        /// <summary>
+        /// 발판 위 카메라 높이 안 3가지를 1층·2층에서 찍고, 포탈(잠김·열림)도 찍는다 — 사용자가 고르기 전 비교용(2026-10-24).
+        /// ① 지금(서 있는 높이로 다 따라감) ② 1층까지는 그대로(그 위부터 따라감) ③ 절반만 따라감.
+        /// </summary>
+        public static void RunCameraOptions()
+        {
+            string outDir = ArgValue("-captureOut") ?? Path.Combine(Directory.GetCurrentDirectory(), "Temp", "StageCapture");
+            Directory.CreateDirectory(outDir);
+            EditorSceneManager.OpenScene("Assets/Scenes/CombatCore.unity", OpenSceneMode.Single);
+            FieldLayout.SetBossArena(false);
+            var cam = Camera.main;
+            var player = GameObject.Find("Player");
+            FitPlayerSprite(player);
+            var visuals = new GameObject("StageVisuals").AddComponent<StageVisuals>();
+            visuals.Build();
+
+            float l1 = FieldLayout.PlatformTopY(0), l2 = FieldLayout.PlatformTopY(4);
+            float x1 = FieldLayout.Platforms[0, 0], x2 = FieldLayout.Platforms[4, 0];
+            float off = StageArtConfig.CameraYOffset, min = CameraFollow2D.MinY;
+            float Rule2(float f) => Mathf.Max(min, f + off - l1);
+            float Rule3(float f) => min + 0.5f * (f - FieldBounds.GroundY);
+            Shot(cam, visuals, player, outDir, "A1_지금_1층", x1, l1);
+            Shot(cam, visuals, player, outDir, "A2_지금_2층", x2, l2);
+            Shot(cam, visuals, player, outDir, "B1_1층까지그대로_1층", x1, l1, Rule2(l1));
+            Shot(cam, visuals, player, outDir, "B2_1층까지그대로_2층", x2, l2, Rule2(l2));
+            Shot(cam, visuals, player, outDir, "C1_절반만_1층", x1, l1, Rule3(l1));
+            Shot(cam, visuals, player, outDir, "C2_절반만_2층", x2, l2, Rule3(l2));
+
+            var portal = Object.FindFirstObjectByType<BossPortal>();
+            if (portal != null)
+            {
+                var sr = portal.GetComponent<SpriteRenderer>();
+                float px = FieldLayout.BossPortalX - 1.2f;
+                sr.color = portal.lockedColor;
+                Shot(cam, visuals, player, outDir, "P1_포탈_잠김", px, FieldBounds.GroundY);
+                sr.color = portal.unlockedColor;
+                Shot(cam, visuals, player, outDir, "P2_포탈_열림", px, FieldBounds.GroundY);
+            }
+            Debug.Log("[CaptureStagePreview] 저장: " + outDir);
+            EditorApplication.Exit(0);
+        }
+
+        static void Shot(Camera cam, StageVisuals visuals, GameObject player, string dir, string name, float x, float feetY,
+                         float? camYOverride = null)
         {
             if (player != null) player.transform.position = new Vector3(x, feetY + EntitySizeConfig.PlayerRadius, 0f);
             float camX = Mathf.Clamp(x, FieldBounds.MinX + StageArtConfig.ViewHalfWidth, FieldBounds.MaxX - StageArtConfig.ViewHalfWidth);
-            cam.transform.position = new Vector3(camX, CameraFollow2D.DesiredY(feetY), -10f);
+            cam.transform.position = new Vector3(camX, camYOverride ?? CameraFollow2D.DesiredY(feetY), -10f);
             cam.orthographicSize = StageArtConfig.ViewHalfHeight;
             visuals.transform.Find("Background").position = StageVisuals.BackgroundPosition(camX, cam.transform.position.y);
 

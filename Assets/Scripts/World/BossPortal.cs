@@ -96,6 +96,27 @@ namespace YokaiFront.World
             sr.color = new Color(unlockedColor.r * t, unlockedColor.g * t, unlockedColor.b * t, 1f);
         }
 
+        /// <summary>
+        /// Figma 포탈 그림으로 바꾼다(2026-10-24, `StageVisuals`가 부른다). 그림은 늘리지 않고 1배(32×64px = 0.25×0.5유닛 —
+        /// Figma처럼 캐릭터와 키가 같다)로 땅 위에 세운다. 입장 범위(<see cref="interactRadius"/>)는 그대로다.
+        /// 색은 그림 색 그대로 두고 밝기로만 상태를 보인다 — 예전 흰 원에 쓰던 보라색을 곱하면 파란 소용돌이가 탁해진다.
+        /// </summary>
+        public void ApplyArt(Sprite art)
+        {
+            if (art == null) return;
+            if (sr == null) sr = GetComponent<SpriteRenderer>();
+            if (sr == null) return;
+            sr.sprite = art;
+            transform.localScale = Vector3.one;
+            Vector3 p = transform.position;
+            transform.position = new Vector3(p.x, FieldBounds.GroundY + art.bounds.size.y / 2f, p.z);
+            lockedColor = LockedArtColor;
+            unlockedColor = Color.white; // 실제 색은 다음 Update의 UpdateTint가 상태에 맞춰 칠한다
+        }
+
+        /// <summary>Figma 그림을 입혔을 때 잠긴 색 — 어둡고 살짝 비친다.</summary>
+        public static readonly Color LockedArtColor = new Color(0.42f, 0.42f, 0.48f, 0.8f);
+
         bool IsPlayerInRange()
         {
             if (player == null || !player.gameObject.activeInHierarchy)
