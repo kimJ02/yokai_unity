@@ -134,6 +134,30 @@ public class PixelUiTests
         Assert.IsFalse(hud.IsShown, "로비에선 HUD 없음(원본도 로비에서 숨긴다)");
     }
 
+    [UnityTest]
+    public IEnumerator Title_ShowsOnTitle_LoadNeedsSave_PopupConfirmRunsCallback()
+    {
+        GameState.Set(GameScene.Title);
+        var title = pc.GetComponent<TitleMenu>();
+        yield return null;
+        Assert.IsTrue(title.IsShown, "타이틀 화면");
+        Assert.AreEqual(0, title.NavIndex, "처음엔 '새 원정'");
+
+        var popup = pc.GetComponent<CommonPopup>();
+        bool confirmed = false;
+        CommonPopup.Confirm("새 원정", "지울까요?", () => confirmed = true, "시작");
+        yield return null;
+        Assert.IsTrue(popup.IsShown, "공용 팝업이 뜬다");
+        Assert.IsTrue(UiModal.OwnsEscape, "팝업이 떠 있으면 ESC는 팝업 몫");
+        PxButton ok = null;
+        foreach (var b in popup.Root.GetComponentsInChildren<PxButton>()) if (b.name == "Ok") ok = b;
+        Assert.IsNotNull(ok);
+        ok.Click();
+        Assert.IsTrue(confirmed, "확인을 누르면 콜백");
+        yield return null;
+        Assert.IsFalse(popup.IsShown, "누르면 닫힌다");
+    }
+
     [Test]
     public void FigmaArt_AndFont_AreInResources()
     {
@@ -141,7 +165,7 @@ public class PixelUiTests
         foreach (var path in new[] { "Pause/band", "Common/title_plate", "Common/icon_frame", "Common/window_frame",
                                      "Common/button", "Common/button_small", "Icons/play", "Icons/gear", "Icons/exit",
                                      "Icons/close", "Hud/status_frame", "Hud/slot_frame", "Hud/icon_attack",
-                                     "Hud/icon_skill", "Hud/icon_jump", "Hud/boss_bar", "Hud/portrait" })
+                                     "Hud/icon_skill", "Hud/icon_jump", "Hud/boss_bar", "Hud/portrait", "Common/cursor" })
         {
             var s = PxArt.Get(path);
             Assert.IsNotNull(s, path);

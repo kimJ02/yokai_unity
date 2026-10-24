@@ -71,6 +71,7 @@ namespace YokaiFront.UI
         void OnGUI()
         {
             if (GameState.Current != GameScene.Title) return;
+            if (PxScreens.Has<TitleMenu>()) return; // Figma 타이틀이 그린다(2026-10-24)
             if (run == null) run = Object.FindFirstObjectByType<RunController>();
 
             // ⚠️ 배경은 **화면 좌표로** 덮는다. 설계 좌표(1920×1080)로 채우면 16:9가 아닌 화면에서

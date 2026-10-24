@@ -117,6 +117,8 @@ namespace YokaiFront.UI
             canvas.AddComponent<CombatHud>();
             canvas.AddComponent<PauseMenu>();
             canvas.AddComponent<SettingsWindow>();
+            canvas.AddComponent<TitleMenu>();
+            canvas.AddComponent<CommonPopup>();
         }
 
         /// <summary>그 Figma 화면이 들어와 있는가 — 예전 IMGUI 화면이 같은 화면을 또 그리지 않게 묻는다.</summary>

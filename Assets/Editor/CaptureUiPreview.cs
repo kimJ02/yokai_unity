@@ -64,6 +64,16 @@ namespace YokaiFront.Editor
             Shot(pc, cam, outDir, "일시정지", sel => pause.ShowForCapture(sel));
             Shot(pc, cam, outDir, "설정", sel => { pause.ShowForCapture(false); settings.ShowForCapture(sel); });
 
+            var title = pc.GetComponent<TitleMenu>();
+            var popup = pc.GetComponent<CommonPopup>();
+            Shot(pc, cam, outDir, "타이틀", sel => title.ShowForCapture(sel));
+            Shot(pc, cam, outDir, "공용팝업", sel =>
+            {
+                title.ShowForCapture(false);
+                CommonPopup.Confirm("새 원정", "지금까지의 기록이 모두 지워집니다.\n처음부터 새로 시작할까요?", null, "시작");
+                popup.ShowForCapture(sel);
+            });
+
             Debug.Log("[CaptureUiPreview] 저장: " + outDir);
             EditorApplication.Exit(0);
         }
