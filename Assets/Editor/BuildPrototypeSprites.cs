@@ -26,6 +26,8 @@ namespace YokaiFront.Editor
         public const string Folder = "Assets/Sprites/Prototype";
         public const float PixelsPerUnit = 100f;
         public const float FigmaPixelsPerUnit = 128f;
+        /// <summary>캐릭터 그림 피벗 높이 — 64px 그림에서 가운데(32)보다 3px 위 = 그림이 3px 아래에 그려진다.</summary>
+        public const float CharacterPivotY = (32f + 3f) / 64f;
 
         [MenuItem("YokaiFront/Import Prototype Sprites")]
         public static void Apply()
@@ -61,6 +63,13 @@ namespace YokaiFront.Editor
                 var settings = new TextureImporterSettings();
                 importer.ReadTextureSettings(settings);
                 settings.spriteAlignment = (int)SpriteAlignment.Center;
+                if (pixelArt)
+                {
+                    // 캐릭터는 그림을 3px 아래로(피벗을 3px 위로) — 그림 아래 투명 2px + Figma처럼 발이 풀 속으로 1px
+                    // (Figma "스테이지 HUD"에서 캐릭터 그림 바닥이 타일 윗면보다 3px 아래, 2026-10-24). 판정(콜라이더)은 그대로.
+                    settings.spriteAlignment = (int)SpriteAlignment.Custom;
+                    settings.spritePivot = new Vector2(0.5f, CharacterPivotY);
+                }
                 importer.SetTextureSettings(settings);
 
                 importer.SaveAndReimport();

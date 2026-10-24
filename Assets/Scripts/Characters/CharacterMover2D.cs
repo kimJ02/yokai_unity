@@ -288,9 +288,18 @@ public class CharacterMover2D : MonoBehaviour, Core.IRunResettable
             return;
         }
 
-        if (!GameInput.Down || !grounded) return;
+        if (GameInput.Down) TryStartDropThrough();
+    }
+
+    /// <summary>
+    /// 지금 밟고 있는 원웨이 발판을 통과하기 시작한다 — 아래키를 누른 것과 같은 동작(테스트도 이걸 부른다, 2026-10-24).
+    /// 공중·맨 바닥·이미 통과 중이면 아무것도 안 한다. 시작했으면 true.
+    /// </summary>
+    public bool TryStartDropThrough()
+    {
+        if (dropTimer > 0f || !grounded) return false;
         // 맨 바닥에 서 있으면 통과할 발판이 없다(원본 `y < groundY - 2`).
-        if (transform.position.y <= FieldBounds.GroundY + col.bounds.extents.y + 0.05f) return;
+        if (transform.position.y <= FieldBounds.GroundY + col.bounds.extents.y + 0.05f) return false;
 
         // 지금 밟고 있는 발판(원웨이 이펙터가 붙은 것)만 골라 무시한다.
         var hits = Physics2D.OverlapCircleAll(
@@ -301,11 +310,12 @@ public class CharacterMover2D : MonoBehaviour, Core.IRunResettable
             Physics2D.IgnoreCollision(col, hit, true);
             ignoredPlatforms.Add(hit);
         }
-        if (ignoredPlatforms.Count == 0) return;
+        if (ignoredPlatforms.Count == 0) return false;
 
         dropTimer = dropThroughTime;
         rb.linearVelocity = new Vector2(rb.linearVelocity.x, -dropThroughSpeed);
         grounded = false;
+        return true;
     }
 
     void RestoreDroppedPlatforms()
