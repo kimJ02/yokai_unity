@@ -217,7 +217,10 @@ namespace YokaiFront.UI
             Paint(Tab.onHover, TabOnBg, TabOnBorder, TabOnText);
             Paint(Tab.onActive, TabOnBg, TabOnBorder, TabOnText);
 
-            var label = new GUIStyle(GUI.skin.label) { richText = true, fontSize = 14, wordWrap = true };
+            // 칸보다 큰 글자는 잘리지 않고 넘쳐 그린다 — 기본(GUI.skin.label)은 칸 밖을 잘라서, 칸이 글자보다 낮은 곳
+            // (회귀 결과 창 통계 이름·HUD 줄)에서 **받침이 잘려 글자가 깨져 보였다**(2026-10-24 사용자 지적).
+            var label = new GUIStyle(GUI.skin.label)
+            { richText = true, fontSize = 14, wordWrap = true, clipping = TextClipping.Overflow };
             label.normal.textColor = TextColor;
             label.hover.textColor = TextColor;
 

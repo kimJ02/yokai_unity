@@ -251,6 +251,40 @@ public class HitFeelTests
         yield return new WaitForSeconds(0.4f);
         Assert.IsTrue(sr.enabled, "무적이 끝났는데 캐릭터가 안 보인다");
     }
+
+    [Test]
+    public void Blink_OnlyForOneShotInvuln_NotPerFrameImmunity()
+    {
+        var hit = NewPlayer();
+        hit.TakeDamage(1f, null);
+        Assert.AreEqual(hit.invulnTime, hit.BlinkRemaining, 1e-4f, "맞은 뒤 무적은 깜빡인다(원본 :1907)");
+
+        var tele = NewPlayer();
+        tele.GrantInvuln(MageSpecConfig.TeleportInvuln);
+        Assert.AreEqual(MageSpecConfig.TeleportInvuln, tele.BlinkRemaining, 1e-4f, "순간이동 무적은 깜빡인다(원본 :2149)");
+
+        var blade = NewPlayer();
+        blade.GrantInvuln(2f / 60f); // BladeCombat이 방향키를 누르는 동안 매 프레임 주는 양
+        Assert.Greater(blade.InvulnRemaining, 0f, "상시 무적도 피해는 막는다");
+        Assert.AreEqual(0f, blade.BlinkRemaining, "매 프레임 갱신하는 상시 무적(섬영)은 깜빡이지 않는다(원본 :1889)");
+    }
+
+    [UnityTest]
+    public IEnumerator BladeStyleSustainedImmunity_BlocksHits_WithoutBlinking()
+    {
+        var p = NewPlayer();
+        var sr = p.GetComponent<SpriteRenderer>();
+        yield return null; // Start(최대 체력 계산) 뒤에 잰다
+        float hp = p.CurrentHp;
+        for (float t = 0f; t < 0.4f; t += Time.deltaTime)
+        {
+            p.GrantInvuln(2f / 60f);
+            p.TakeDamage(5f, null);
+            yield return null;
+            Assert.IsTrue(sr.enabled, "섬영 상시 무적 중에 캐릭터가 깜빡였다");
+        }
+        Assert.AreEqual(hp, p.CurrentHp, "상시 무적인데 맞았다");
+    }
 }
 
 }

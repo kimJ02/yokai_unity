@@ -73,6 +73,8 @@ public class EnemyMove : MonoBehaviour, ISpawnProtectable, IGravityAffectable
     Rigidbody2D rb;
     CircleCollider2D col;
     float spawnProtectTimer;
+    SpriteRenderer body;   // 스폰 보호 중 반투명으로 그릴 몸(원본 "반투명 유령 상태")
+    float bodyAlpha = -1f; // 스포너가 칠한 원래 알파 — 보호 중 첫 Update에서 잡는다(Awake 땐 아직 안 칠했다)
     Transform target;
     // 종류 전용 이동 스크립트(있으면 기본 보행 대신 이쪽에 물어본다). 원본 updateEnemies의 타입 분기.
     IEnemyMotion motion;
@@ -90,6 +92,7 @@ public class EnemyMove : MonoBehaviour, ISpawnProtectable, IGravityAffectable
         rb = GetComponent<Rigidbody2D>();
         rb.freezeRotation = true;
         col = GetComponent<CircleCollider2D>();
+        body = GetComponent<SpriteRenderer>();
         RefreshTypeBehaviour();
         spawnProtectTimer = spawnProtectDuration;
         wanderTimer = Random.Range(wanderIntervalRange.x, wanderIntervalRange.y);
@@ -125,6 +128,25 @@ public class EnemyMove : MonoBehaviour, ISpawnProtectable, IGravityAffectable
         spawnProtectTimer = seconds;
     }
 
+    /// <summary>
+    /// 스폰 보호 중 몸의 불투명도 — 원본 "스폰 보호 중: 반투명 유령 상태"
+    /// `if (e.spawnInvuln > 0) ctx.globalAlpha = 0.4 + 0.1 * Math.sin(state.time * 10)`(project_test.html:4772~4773).
+    /// 이 연출이 빠져 있어서 무적인 몹이 그냥 서 있는 것처럼 보였다(2026-10-24 사용자 "적 스폰 중일 때 효과").
+    /// </summary>
+    public static float SpawnGhostAlpha(float time) => 0.4f + 0.1f * Mathf.Sin(time * 10f);
+
+    // 색(흰색·종류색)은 스포너가 칠한 그대로 두고 알파만 바꾼다.
+    void ApplySpawnGhost(bool ghost)
+    {
+        if (body == null) return;
+        Color c = body.color;
+        if (bodyAlpha < 0f) bodyAlpha = c.a;
+        float a = ghost ? bodyAlpha * SpawnGhostAlpha(Time.time) : bodyAlpha;
+        if (Mathf.Approximately(c.a, a)) return;
+        c.a = a;
+        body.color = c;
+    }
+
     void Update()
     {
         // 원본은 스폰 보호 중이면 적 갱신을 통째로 건너뛴다 — 주석 그대로 "상호 무적: 움직이지도,
@@ -133,6 +155,7 @@ public class EnemyMove : MonoBehaviour, ISpawnProtectable, IGravityAffectable
         if (spawnProtectTimer > 0f)
         {
             spawnProtectTimer -= Time.deltaTime;
+            ApplySpawnGhost(spawnProtectTimer > 0f);
             return;
         }
 

@@ -75,6 +75,7 @@ namespace YokaiFront.Characters
         void Update()
         {
             if (InvulnRemaining > 0f) InvulnRemaining -= Time.deltaTime;
+            if (BlinkRemaining > 0f) BlinkRemaining -= Time.deltaTime;
             UpdateBlink();
             UpdateRegen(Time.deltaTime);
         }
@@ -86,11 +87,12 @@ namespace YokaiFront.Characters
         /// <summary>
         /// 원본 무적 깜빡임 — `blink = run && invuln > 0 && floor(time × 14) % 2 == 0`이면 캐릭터를 안 그린다(:6195~:6196).
         /// 시간은 게임 시간(히트스톱·일시정지에 멈춤)이라 원본 `state.time`과 같다.
+        /// 원본 `p.invuln`에 해당하는 건 <see cref="BlinkRemaining"/>다 — 섬영의 상시 무적은 안 깜빡인다(<see cref="GrantInvuln"/>).
         /// </summary>
         void UpdateBlink()
         {
             if (sprite == null) return;
-            bool blink = GameState.Current == GameScene.Run && InvulnRemaining > 0f && !IsDead
+            bool blink = GameState.Current == GameScene.Run && BlinkRemaining > 0f && !IsDead
                          && Mathf.FloorToInt(Time.time * 14f) % 2 == 0;
             if (sprite.enabled == blink) sprite.enabled = !blink;
         }
@@ -123,7 +125,7 @@ namespace YokaiFront.Characters
             var profile = ProfileService.Current;
             maxHp = PlayerStatCalculator.ComputeMaxHp(profile);
             CurrentHp = maxHp;
-            InvulnRemaining = 0f; // 원본 `p.invuln = 0`
+            InvulnRemaining = BlinkRemaining = 0f; // 원본 `p.invuln = 0`
 
             // 아이템에서 오는 **런 한정** 자원 — 원본 `startRun`이 매 런 다시 채운다(:4310).
             guardLeft = Mathf.RoundToInt(profile.items.Pow("guard"));
@@ -146,8 +148,26 @@ namespace YokaiFront.Characters
         /// 남은 무적시간을 최소 이 값까지 늘린다(줄이지는 않는다). 원본 `p.invuln = Math.max(p.invuln, 0.22)`
         /// (project_test.html:2149, 불길 이동 텔레포트 직후 무적)에 대응 — 다른 무적(피격 직후 0.9초 등)이
         /// 이미 더 길게 남아있으면 그대로 둔다.
+        ///
+        /// **몇 프레임만 덮는 무적은 깜빡이지 않는다**(2026-10-24). 섬영의 방향키 무적·최고 속도 충돌 무적은 원본에선
+        /// 타이머가 아니라 맞는 순간의 조건 검사라 캐릭터가 깜빡이지 않는데(:1883·:1889), 우리는 `BladeCombat`이
+        /// 매 프레임 2프레임어치씩 이 함수로 갱신한다 — 그대로 깜빡임에 넣으면 방향키를 누르는 내내 깜빡였다
+        /// (사용자 "섬영 기본 공격할 때 캐릭터가 깜빡인다").
         /// </summary>
-        public void GrantInvuln(float duration) => InvulnRemaining = Mathf.Max(InvulnRemaining, duration);
+        public void GrantInvuln(float duration)
+        {
+            InvulnRemaining = Mathf.Max(InvulnRemaining, duration);
+            if (duration > SustainedGrantMax) BlinkRemaining = Mathf.Max(BlinkRemaining, duration);
+        }
+
+        /// <summary>이 길이 이하로 주는 무적은 "매 프레임 갱신하는 상시 무적"으로 보고 깜빡이지 않는다(20fps 2프레임 = 0.1초).</summary>
+        public const float SustainedGrantMax = 0.1f;
+
+        /// <summary>깜빡임이 남은 시간 — 원본 `p.invuln`. 맞은 뒤·부활·순간이동처럼 한 번에 주는 무적만 여기 들어간다.</summary>
+        public float BlinkRemaining { get; private set; }
+
+        /// <summary>맞았을 때(영혼의 그릇으로 막은 것 포함)의 무적 — 깜빡임도 같은 길이(원본 `p.invuln = invulnTime + iframe`).</summary>
+        void SetHitInvuln(float duration) => InvulnRemaining = BlinkRemaining = duration;
 
         /// <summary>
         /// 체력을 회복한다(최대체력을 넘지 않게 자른다). 원본엔 이 이름의 공용 함수가 따로 없고,
@@ -180,7 +200,7 @@ namespace YokaiFront.Characters
             if (guardLeft > 0)
             {
                 guardLeft--;
-                InvulnRemaining = invulnTime + profile.items.Pow("iframe");
+                SetHitInvuln(invulnTime + profile.items.Pow("iframe"));
                 return;
             }
 
@@ -190,7 +210,7 @@ namespace YokaiFront.Characters
             int applied = Mathf.Max(1, Mathf.RoundToInt(amount * dr * UnityEngine.Random.Range(0.9f, 1.1f)));
             CurrentHp -= applied;
             // 불굴의 껍질 — 피격 후 무적시간 연장(원본 `invulnTime + itemPow('iframe')` :1907).
-            InvulnRemaining = invulnTime + profile.items.Pow("iframe");
+            SetHitInvuln(invulnTime + profile.items.Pow("iframe"));
             HitFeel.PlayerHurt(); // 원본 `state.redFlash = 0.35; shake(7, 0.22)`(:1912~:1913)
 
             // 원본 `p.vx = sign(p.x - srcX) * 260; p.vy = min(p.vy, -220); p.onGround = false;`(:1908~1910)
@@ -217,7 +237,7 @@ namespace YokaiFront.Characters
                 {
                     reviveLeft--;
                     CurrentHp = Mathf.Round(maxHp * ReviveHpRatio);
-                    InvulnRemaining = Mathf.Max(InvulnRemaining, ReviveInvuln);
+                    GrantInvuln(ReviveInvuln);
                     HitFeel.Shake(12f, 0.4f); // 원본 :1922
                     return;
                 }
