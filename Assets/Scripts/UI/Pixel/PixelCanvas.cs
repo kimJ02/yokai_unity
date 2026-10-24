@@ -114,6 +114,7 @@ namespace YokaiFront.UI
     {
         public static void AddAll(GameObject canvas)
         {
+            canvas.AddComponent<CombatHud>();
             canvas.AddComponent<PauseMenu>();
             canvas.AddComponent<SettingsWindow>();
         }

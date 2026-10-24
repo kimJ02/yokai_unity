@@ -35,6 +35,31 @@ namespace YokaiFront.Editor
             var pc = PixelCanvas.Create(cam);
             var pause = pc.GetComponent<PauseMenu>();
             var settings = pc.GetComponent<SettingsWindow>();
+            var hud = pc.GetComponent<CombatHud>();
+            hud.Preview = new CombatHud.PreviewState
+            {
+                Hp = 72f, MaxHp = 100f, ExpRatio = 0.62f, TimeLeft = 47f, Combo = 32, Kills = 37,
+                Attack = default,
+                Skill = YokaiFront.Characters.SkillSlotState.Cooldown(1.2f, 3f),
+                Player = new Vector2(4f, FieldBounds.GroundY),
+                Enemies = new[] { new Vector2(7f, 0f), new Vector2(9.5f, 1.35f), new Vector2(15f, 0f), new Vector2(18.6f, 2.7f), new Vector2(22f, 4.05f) },
+            };
+
+            Shot(pc, cam, outDir, "전투HUD", sel => hud.ShowForCapture(sel));
+            // Figma 그림과 같은 값(남은 10초·COMBO 32·체력 가득) — 글자 자리를 1:1로 잰다
+            hud.Preview = new CombatHud.PreviewState
+            {
+                Hp = 100f, MaxHp = 100f, ExpRatio = 0f, TimeLeft = 10f, Combo = 32, Kills = 0,
+                Player = new Vector2(4f, FieldBounds.GroundY),
+            };
+            Shot(pc, cam, outDir, "전투HUD_Figma값", sel => hud.ShowForCapture(sel));
+            hud.Preview = new CombatHud.PreviewState
+            {
+                Hp = 18f, MaxHp = 100f, ExpRatio = 0.9f, TimeLeft = 8f, Combo = 0, Kills = 100,
+                Skill = YokaiFront.Characters.SkillSlotState.Cooldown(0f, 3f, 0, 3, noStack: true),
+                Player = new Vector2(24.8f, FieldBounds.GroundY), PortalInRange = true, PortalUnlocked = true, BossRatio = 0.55f,
+            };
+            Shot(pc, cam, outDir, "전투HUD_보스바·포탈", sel => hud.ShowForCapture(sel));
 
             Shot(pc, cam, outDir, "일시정지", sel => pause.ShowForCapture(sel));
             Shot(pc, cam, outDir, "설정", sel => { pause.ShowForCapture(false); settings.ShowForCapture(sel); });

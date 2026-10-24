@@ -60,6 +60,41 @@ namespace YokaiFront.UI
             return t;
         }
 
+        static readonly Dictionary<(Sprite, string), Sprite> derived = new Dictionary<(Sprite, string), Sprite>();
+
+        /// <summary>
+        /// 원본 그림의 픽셀 색만 바꾼 그림(원본 파일은 그대로) — 예: HUD 틀에서 빨간 체력 칸만 남긴 그림, 칸을 비운 그림.
+        /// 막대처럼 값에 따라 달라져야 하는 부분을 원본 그림 모양 그대로 그리려고 쓴다. <paramref name="key"/>로 캐시한다.
+        /// </summary>
+        public static Sprite Derive(Sprite s, string key, System.Func<Color32, Color32> map)
+        {
+            if (s == null || !s.texture.isReadable) return s;
+            if (derived.TryGetValue((s, key), out var d) && d != null) return d;
+            Rect r = s.textureRect;
+            int w = Mathf.RoundToInt(r.width), h = Mathf.RoundToInt(r.height);
+            var src = s.texture.GetPixels32();
+            int texW = s.texture.width;
+            var px = new Color32[w * h];
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                    px[y * w + x] = map(src[(y + Mathf.RoundToInt(r.y)) * texW + x + Mathf.RoundToInt(r.x)]);
+            var tex = new Texture2D(w, h, TextureFormat.RGBA32, false)
+            {
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Clamp,
+                name = s.name + "_" + key,
+            };
+            tex.SetPixels32(px);
+            tex.Apply();
+            var pivot = new Vector2(s.pivot.x / s.rect.width, s.pivot.y / s.rect.height);
+            d = Sprite.Create(tex, new Rect(0, 0, w, h), pivot, s.pixelsPerUnit, 0, SpriteMeshType.FullRect, s.border);
+            d.name = tex.name;
+            derived[(s, key)] = d;
+            return d;
+        }
+
+        public static bool Same(Color32 a, Color32 b) => a.r == b.r && a.g == b.g && a.b == b.b && a.a > 0;
+
         public static Color Apply(Color c, Tone tone)
         {
             if (c.a <= 0f) return c;

@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.TestTools;
 using YokaiFront.Core;
 using YokaiFront.UI;
+using YokaiFront.World;
 
 namespace YokaiFront.Tests.PlayMode
 {
@@ -106,13 +107,41 @@ public class PixelUiTests
         Assert.IsFalse(UiModal.OwnsEscape);
     }
 
+    [UnityTest]
+    public IEnumerator CombatHud_RedCellIsHp_ExpAtBottom_FollowsGameScene()
+    {
+        var hud = pc.GetComponent<CombatHud>();
+        hud.Preview = new CombatHud.PreviewState { Hp = 50f, MaxHp = 100f, ExpRatio = 0.5f, TimeLeft = 47.2f, Combo = 0 };
+        yield return null;
+        Assert.IsTrue(hud.IsShown, "사냥 중엔 HUD");
+        Assert.AreEqual((66f + 62f) / 192f, hud.HpFillAmount, 1e-4f, "빨간 칸(틀 그림 x 66~188)을 체력 비율만큼, 도트 단위로");
+        Assert.AreEqual("50/100", hud.HpLabel);
+        Assert.AreEqual("48", hud.TimerLabel, "남은 초는 올림(원본 `Math.ceil`)");
+        Assert.AreEqual(319f, hud.ExpFillWidth, 1e-4f, "경험치 = 맨 아래 바(안쪽 638도트)의 비율만큼");
+        Assert.IsFalse(hud.ComboShown, "콤보 0이면 숨김(원본)");
+        Assert.IsFalse(hud.BossBarShown, "보스가 없으면 보스 체력바 없음");
+        Assert.AreEqual(FieldLayout.Platforms.GetLength(0) + 1, hud.MinimapLineCount, "미니맵 = 발판마다 한 줄 + 땅");
+        Assert.IsTrue(PxScreens.Has<CombatHud>(), "예전 IMGUI HUD는 이걸 보고 안 그린다");
+
+        hud.Preview = new CombatHud.PreviewState { Hp = 0f, MaxHp = 100f, Combo = 12, BossRatio = 0.3f };
+        yield return null;
+        Assert.AreEqual(66f / 192f, hud.HpFillAmount, 1e-4f, "체력 0이면 빨간 칸이 하나도 안 남는다");
+        Assert.IsTrue(hud.ComboShown);
+        Assert.IsTrue(hud.BossBarShown);
+
+        GameState.Set(GameScene.Lobby);
+        yield return null;
+        Assert.IsFalse(hud.IsShown, "로비에선 HUD 없음(원본도 로비에서 숨긴다)");
+    }
+
     [Test]
     public void FigmaArt_AndFont_AreInResources()
     {
         Assert.IsNotNull(Px.Font, "DNF Bit Bit v2 글꼴");
         foreach (var path in new[] { "Pause/band", "Common/title_plate", "Common/icon_frame", "Common/window_frame",
                                      "Common/button", "Common/button_small", "Icons/play", "Icons/gear", "Icons/exit",
-                                     "Icons/close" })
+                                     "Icons/close", "Hud/status_frame", "Hud/slot_frame", "Hud/icon_attack",
+                                     "Hud/icon_skill", "Hud/icon_jump", "Hud/boss_bar", "Hud/portrait" })
         {
             var s = PxArt.Get(path);
             Assert.IsNotNull(s, path);

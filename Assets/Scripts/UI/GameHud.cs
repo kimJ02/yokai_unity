@@ -88,6 +88,7 @@ namespace YokaiFront.UI
         {
             // 로비·타이틀에서는 HUD가 없다(원본도 `#hud`를 로비에서 숨긴다).
             if (GameState.Current == GameScene.Lobby || GameState.Current == GameScene.Title) return;
+            if (PxScreens.Has<CombatHud>()) return; // Figma 전투 HUD가 그린다(2026-10-24)
             if (health == null) FindPlayer();
             DrawHurtFlash(); // 화면 전체라 배율(Scaled) 밖에서
 
