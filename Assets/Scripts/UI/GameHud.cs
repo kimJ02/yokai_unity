@@ -73,11 +73,23 @@ namespace YokaiFront.UI
             rig = player.GetComponent<PlayerRig>();
         }
 
+        /// <summary>원본 `state.redFlash`(:6203~:6204) — 플레이어가 맞으면 화면 전체가 잠깐 붉어진다(`Core/HitFeel`).</summary>
+        static void DrawHurtFlash()
+        {
+            float r = HitFeel.RedFlash;
+            if (r <= 0f || Event.current.type != EventType.Repaint) return;
+            var prev = GUI.color;
+            GUI.color = new Color(1f, 30f / 255f, 10f / 255f, r * HitFeel.RedFlashAlphaScale);
+            GUI.DrawTexture(new Rect(0f, 0f, Screen.width, Screen.height), Texture2D.whiteTexture);
+            GUI.color = prev;
+        }
+
         void OnGUI()
         {
             // 로비·타이틀에서는 HUD가 없다(원본도 `#hud`를 로비에서 숨긴다).
             if (GameState.Current == GameScene.Lobby || GameState.Current == GameScene.Title) return;
             if (health == null) FindPlayer();
+            DrawHurtFlash(); // 화면 전체라 배율(Scaled) 밖에서
 
             using var scaled = UiTheme.Scaled();
 

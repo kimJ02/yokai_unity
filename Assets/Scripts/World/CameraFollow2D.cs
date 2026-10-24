@@ -25,6 +25,13 @@ namespace YokaiFront.World
         float velocityY;
         float followY;
         bool snapped;
+        Vector3 basePos; // 흔들림을 뺀, 따라가는 위치 — 흔들림이 다음 프레임 따라가기에 섞이지 않게 따로 둔다
+
+        /// <summary>이번 프레임 흔들림 오프셋(월드). 테스트가 읽는다.</summary>
+        public Vector3 LastShakeOffset { get; private set; }
+
+        /// <summary>원본 흔들림 px → 우리 월드 유닛. 화면 높이 대비 같은 비율(원본 720px ↔ 우리 4.22유닛).</summary>
+        public const float ShakePxToUnits = StageArtConfig.ViewHalfHeight * 2f / HitFeel.OriginalViewHeightPx;
         Rigidbody2D targetBody;
 
         void Awake()
@@ -55,19 +62,21 @@ namespace YokaiFront.World
             if (!snapped) followY = DesiredY(feetY);
             followY = NextFollowY(followY, feetY, standing);
 
-            Vector3 p = transform.position;
             if (!snapped)
             {
-                p.x = desiredX;
-                p.y = followY;
+                basePos = new Vector3(desiredX, followY, transform.position.z);
                 snapped = true;
             }
             else
             {
-                p.x = Mathf.SmoothDamp(p.x, desiredX, ref velocityX, smoothTime);
-                p.y = Mathf.SmoothDamp(p.y, followY, ref velocityY, StageArtConfig.CameraSmoothTimeY);
+                basePos.x = Mathf.SmoothDamp(basePos.x, desiredX, ref velocityX, smoothTime);
+                basePos.y = Mathf.SmoothDamp(basePos.y, followY, ref velocityY, StageArtConfig.CameraSmoothTimeY);
             }
-            transform.position = p;
+
+            // 원본 `updateShake(rawDt)` — 히트스톱 중에도 흔들린다(실제 시간).
+            float m = HitFeel.TickShake(Time.unscaledDeltaTime) * ShakePxToUnits;
+            LastShakeOffset = m > 0f ? new Vector3(Random.Range(-m, m), Random.Range(-m, m), 0f) : Vector3.zero;
+            transform.position = basePos + LastShakeOffset;
         }
 
         /// <summary>카메라 중심 높이의 아래·위 한계 — 땅에 설 때가 아래 끝, 가장 높은 발판에 설 때가 위 끝.</summary>

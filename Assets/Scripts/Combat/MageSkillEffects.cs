@@ -39,11 +39,12 @@ namespace YokaiFront.Combat
                 int dmg = DamageCalculator.Roll(atk * dmgMult, critChance, out _);
                 float dir = Mathf.Sign(col.transform.position.x - playerPos.x);
                 if (Mathf.Approximately(dir, 0f)) dir = playerFacing;
-                target.TakeDamageWithKnockback(dmg, null, dir, 2.60f); // 원본 kb:260(:1987)
+                target.TakeDamageWithKnockback(dmg, null, dir, 2.60f, HitFeel.HitstopSkill); // 원본 kb:260, hitstop: skill(:1987)
 
                 var afflictable = col.GetComponent<IElementAfflictable>();
                 afflictable?.ApplyBurn(burnStacks);
             }
+            HitFeel.Shake(hit ? 7f : 4f, 0.18f); // 원본 :1992
             return hit;
         }
 
@@ -84,7 +85,7 @@ namespace YokaiFront.Combat
                 int dmg = DamageCalculator.Roll(atk * dmgMult, critChance, out _);
                 float dir = Mathf.Sign(col.transform.position.x - pos.x);
                 if (Mathf.Approximately(dir, 0f)) dir = playerFacing;
-                target.TakeDamageWithKnockback(dmg, null, dir, MageSpecConfig.GravityImpactKnockback);
+                target.TakeDamageWithKnockback(dmg, null, dir, MageSpecConfig.GravityImpactKnockback, HitFeel.HitstopNone); // 원본 noHitstop(:2036)
             }
 
             GravityWellZone.SpawnOrMerge(pos, tier, chargeK);
@@ -156,7 +157,8 @@ namespace YokaiFront.Combat
                     int dmg = DamageCalculator.Roll(atk * dmgMult, critChance, out _);
                     float dir = Mathf.Sign(col.transform.position.x - cx.x);
                     if (Mathf.Approximately(dir, 0f)) dir = playerFacing;
-                    target.TakeDamageWithKnockback(dmg, null, dir, kb);
+                    // 원본 `hitstop: critical ? CONFIG.hitstop.skill : 0.03`(:2112)
+                    target.TakeDamageWithKnockback(dmg, null, dir, kb, critical ? HitFeel.HitstopSkill : HitFeel.HitstopLight);
                 }
 
                 // 원본 `zones.push({ kind: 'gravityBurst', x: cx, y: cy, r, life: 0.42 + idx * 0.04, critical })`(:2114) — 그림만.
@@ -179,7 +181,7 @@ namespace YokaiFront.Combat
                         // 원본은 이 2차 링에 kbDir을 지정하지 않는다 — 기본값(플레이어 위치 기준)을 그대로 쓴다(:2120).
                         float dir = Mathf.Sign(col.transform.position.x - playerPos.x);
                         if (Mathf.Approximately(dir, 0f)) dir = playerFacing;
-                        target.TakeDamageWithKnockback(dmg2, null, dir, MageSpecConfig.CollapseCriticalRingKnockback);
+                        target.TakeDamageWithKnockback(dmg2, null, dir, MageSpecConfig.CollapseCriticalRingKnockback, HitFeel.HitstopLight); // 원본 hitstop: 0.03(:2120)
                     }
                     // 원본 `zones.push({ kind: 'gravityBurst', r: r2, life: 0.58, critical: true, ringOnly: true })`(:2123).
                     GravityBurstRing.Spawn(cx, r2, MageSpecConfig.CollapseCriticalRingLife, critical: true, ringOnly: true);
@@ -192,6 +194,7 @@ namespace YokaiFront.Combat
                 }
             }
 
+            HitFeel.Shake(anyCritical ? 9f : 5f, anyCritical ? 0.24f : 0.16f); // 원본 :2128
             return (totalCount, anyCritical, centers.Count);
         }
     }

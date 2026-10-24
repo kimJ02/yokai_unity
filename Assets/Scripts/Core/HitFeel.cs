@@ -1,0 +1,95 @@
+using UnityEngine;
+
+namespace YokaiFront.Core
+{
+    /// <summary>
+    /// 타격감 — 원본 기준 **히트스톱 길이 · 화면 흔들림 · 플레이어 피격 시 화면 붉어짐**(2026-10-24 사용자 지시).
+    ///
+    /// - **히트스톱**: 실제로 멈추는 건 `Systems/RunController.Hitstop`(`timeScale`을 만지는 유일한 곳)이고, 여기는 길이 값과
+    ///   요청 통로(<see cref="CombatEvents.RequestHitstop"/>)만 둔다. 원본은 공격마다 길이가 다르다 — `dealDamage`의
+    ///   `hitstop`/`noHitstop`(project_test.html:1683). 예전엔 직접 타격이 전부 0.045, 처치가 보스까지 전부 0.085였다.
+    /// - **화면 흔들림**: 원본 `shake(mag, dur)`(:1572) — 세기·시간은 큰 쪽으로 덮어쓰고, 매 프레임(히트스톱 중에도 — 원본
+    ///   `rawDt`) `남은 시간 / 0.18` 비율로 줄어든다(:1583). 세기는 원본 px(화면 높이 720 기준)라 `World/CameraFollow2D`가
+    ///   우리 화면 높이 대비 같은 비율로 옮긴다.
+    /// - **화면 붉어짐**: 원본 `state.redFlash`(:1912 맞으면 0.35, :4426 초당 -2.2, :6204 `rgba(255,30,10, r×0.35)`).
+    ///   그리는 건 `UI/GameHud`, 줄이는 건 `Systems/RunController`.
+    /// </summary>
+    public static class HitFeel
+    {
+        // ---- 히트스톱 길이(초) ----
+
+        /// <summary>기본 직접 타격 — 원본 `CONFIG.hitstop.hit`(:743).</summary>
+        public const float HitstopHit = 0.045f;
+        /// <summary>스킬 타격 — 원본 `CONFIG.hitstop.skill`(:743). 화염 폭발(:1987)·임계 대붕괴(:2112).</summary>
+        public const float HitstopSkill = 0.07f;
+        /// <summary>약한 스킬 타격 — 원본 `hitstop: 0.03`. 일반 대붕괴(:2112)·임계 바깥 고리(:2120).</summary>
+        public const float HitstopLight = 0.03f;
+        /// <summary>멈춤 없음 — 원본 `noHitstop`. 메카닉 총알·드론 탄(:3721), 중력탄 충돌(:2036).</summary>
+        public const float HitstopNone = 0f;
+        /// <summary>처치 — 원본 `CONFIG.hitstop.kill`(:1847).</summary>
+        public const float HitstopKill = 0.085f;
+        /// <summary>보스 처치 — 원본 `e.boss ? 0.25`(:1847).</summary>
+        public const float HitstopBossKill = 0.25f;
+        /// <summary>성소 파괴 — 원본 :1804.</summary>
+        public const float HitstopShrine = 0.12f;
+        /// <summary>연쇄 처치 보너스 — 원본 :1835.</summary>
+        public const float HitstopChain = 0.10f;
+
+        // ---- 화면 흔들림 ----
+
+        /// <summary>원본 흔들림이 줄어드는 기준 시간 — `m = mag × max(0, t / 0.18)`(:1583). 기본 지속 시간이기도 하다.</summary>
+        public const float ShakeDecayRef = 0.18f;
+        /// <summary>원본 화면 높이(px). 흔들림 px를 우리 화면에 같은 비율로 옮길 때 쓴다.</summary>
+        public const float OriginalViewHeightPx = 720f;
+
+        public static float ShakeMag { get; private set; }
+        public static float ShakeTime { get; private set; }
+
+        /// <summary>원본 `shake(mag, dur = 0.18)` — 세기·시간 모두 큰 쪽으로 덮어쓴다.</summary>
+        public static void Shake(float magPx, float duration = ShakeDecayRef)
+        {
+            ShakeMag = Mathf.Max(ShakeMag, magPx);
+            ShakeTime = Mathf.Max(ShakeTime, duration);
+        }
+
+        /// <summary>원본 `updateShake(rawDt)` — 남은 시간을 줄이고 이번 프레임 흔들림 크기(원본 px)를 돌려준다.</summary>
+        public static float TickShake(float rawDt)
+        {
+            if (ShakeTime <= 0f) return 0f;
+            ShakeTime -= rawDt;
+            float m = ShakeMag * Mathf.Max(0f, ShakeTime / ShakeDecayRef);
+            if (ShakeTime <= 0f)
+            {
+                ShakeTime = 0f;
+                ShakeMag = 0f;
+            }
+            return m;
+        }
+
+        // ---- 플레이어가 맞을 때 ----
+
+        public const float RedFlashOnHurt = 0.35f;
+        public const float RedFlashDecayPerSecond = 2.2f;
+        public const float RedFlashAlphaScale = 0.35f;
+
+        /// <summary>화면 붉어짐 세기(0~0.35). 실제 불투명도는 × <see cref="RedFlashAlphaScale"/>.</summary>
+        public static float RedFlash { get; private set; }
+
+        /// <summary>원본 `damagePlayer`의 연출(:1912~:1913) — 화면 붉어짐 0.35 + 흔들림(7, 0.22).</summary>
+        public static void PlayerHurt()
+        {
+            RedFlash = RedFlashOnHurt;
+            Shake(7f, 0.22f);
+        }
+
+        public static void TickRedFlash(float dt) => RedFlash = Mathf.Max(0f, RedFlash - dt * RedFlashDecayPerSecond);
+
+        /// <summary>런 시작·테스트 격리.</summary>
+        public static void Reset()
+        {
+            ShakeMag = 0f;
+            ShakeTime = 0f;
+            RedFlash = 0f;
+        }
+    }
+}

@@ -37,6 +37,8 @@ namespace YokaiFront.Characters
         /// <summary>남은 무적시간(초). 0보다 크면 피해를 받지 않는다.</summary>
         public float InvulnRemaining { get; private set; }
 
+        SpriteRenderer sprite; // 무적 깜빡임용(원본 :6195)
+
         /// <summary>
         /// 사망 시 1회 발생. 같은 오브젝트 안에서 쓰는 국지적 신호다.
         /// **런을 끝내는 경로는 이게 아니라 `Core.CombatEvents.PlayerDied`** — `Systems`(3층)가
@@ -50,6 +52,7 @@ namespace YokaiFront.Characters
         {
             CurrentHp = maxHp;
             rb = GetComponent<Rigidbody2D>();
+            sprite = GetComponent<SpriteRenderer>();
             // 원본은 레벨업 때만 최대체력을 다시 계산하고 풀피로 채운다(project_test.html:1850)
             // — 골드 강화(hp)를 사더라도 다음 레벨업 전까지는 즉시 반영되지 않는, 원본 그대로의
             // 비직관적 동작이다(임의로 "매 프레임 갱신"으로 바꾸지 말 것).
@@ -72,6 +75,7 @@ namespace YokaiFront.Characters
         void Update()
         {
             if (InvulnRemaining > 0f) InvulnRemaining -= Time.deltaTime;
+            UpdateBlink();
             UpdateRegen(Time.deltaTime);
         }
 
@@ -79,6 +83,18 @@ namespace YokaiFront.Characters
         /// 재생의 구슬 — 초당 최대 체력의 일정 비율을 회복한다(원본 `regen`, `updateItemBuffs` :4393).
         /// 최대 체력일 때는 아무 일도 안 한다.
         /// </summary>
+        /// <summary>
+        /// 원본 무적 깜빡임 — `blink = run && invuln > 0 && floor(time × 14) % 2 == 0`이면 캐릭터를 안 그린다(:6195~:6196).
+        /// 시간은 게임 시간(히트스톱·일시정지에 멈춤)이라 원본 `state.time`과 같다.
+        /// </summary>
+        void UpdateBlink()
+        {
+            if (sprite == null) return;
+            bool blink = GameState.Current == GameScene.Run && InvulnRemaining > 0f && !IsDead
+                         && Mathf.FloorToInt(Time.time * 14f) % 2 == 0;
+            if (sprite.enabled == blink) sprite.enabled = !blink;
+        }
+
         void UpdateRegen(float dt)
         {
             float per = ProfileService.Current.items.Pow("regen");
@@ -175,6 +191,7 @@ namespace YokaiFront.Characters
             CurrentHp -= applied;
             // 불굴의 껍질 — 피격 후 무적시간 연장(원본 `invulnTime + itemPow('iframe')` :1907).
             InvulnRemaining = invulnTime + profile.items.Pow("iframe");
+            HitFeel.PlayerHurt(); // 원본 `state.redFlash = 0.35; shake(7, 0.22)`(:1912~:1913)
 
             // 원본 `p.vx = sign(p.x - srcX) * 260; p.vy = min(p.vy, -220); p.onGround = false;`(:1908~1910)
             // 주의: 원본에서 이 수평 속도는 **다음 프레임에 이동 입력으로 통째로 덮어써진다**
@@ -201,6 +218,7 @@ namespace YokaiFront.Characters
                     reviveLeft--;
                     CurrentHp = Mathf.Round(maxHp * ReviveHpRatio);
                     InvulnRemaining = Mathf.Max(InvulnRemaining, ReviveInvuln);
+                    HitFeel.Shake(12f, 0.4f); // 원본 :1922
                     return;
                 }
 

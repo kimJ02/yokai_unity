@@ -53,7 +53,11 @@ namespace YokaiFront.Enemies
         public event System.Action<EnemyHealth> Died;
 
         SpriteRenderer sr;
-        Color baseColor;
+        // 피격 플래시 — 몸 모양 그대로 흰빛을 덮는 자식 렌더러(2026-10-24). 예전엔 `sr.color`를 흰색 쪽으로 섞었는데,
+        // (1) 흰색 그림(정식 아트)은 곱해도 더 밝아지지 않아 플래시가 안 보였고, (2) 되돌릴 "원래 색"을 Awake에서
+        // 잡았는데 그땐 아직 프리팹 색(빨강)이라 — 스포너가 흰색·종류색을 칠하는 건 그 뒤다 — 한 번 맞으면 빨갛게 물들었다.
+        SpriteRenderer flashSr;
+        static Material flashMaterial;
         ISpawnProtectable spawnProtect;
         EnemyMove mover;
         float flash;
@@ -80,7 +84,6 @@ namespace YokaiFront.Enemies
         {
             CurrentHp = maxHp;
             sr = GetComponent<SpriteRenderer>();
-            baseColor = sr.color;
             // 같은 오브젝트의 EnemyMove가 둘 다 제공한다. 인터페이스로 받는 건 Core 규칙 때문이 아니라
             // (같은 도메인이라 직접 참조해도 되지만) 나중에 스폰 무적을 다른 컴포넌트가 맡아도 되게.
             spawnProtect = GetComponent<ISpawnProtectable>();
@@ -92,7 +95,7 @@ namespace YokaiFront.Enemies
             if (flash > 0f)
             {
                 flash = Mathf.Max(0f, flash - Time.deltaTime * flashDecay);
-                sr.color = Color.Lerp(baseColor, Color.white, flash * flashStrength);
+                ShowFlash();
             }
             UpdateBurn(Time.deltaTime);
             // 원본 `e.vulnT = Math.max(0, e.vulnT - dt)`(project_test.html:1726).
@@ -175,7 +178,8 @@ namespace YokaiFront.Enemies
             finally { inTickDamage = false; } // 중간에 죽어서 예외가 나도 플래그가 남지 않게
         }
 
-        public void TakeDamageWithKnockback(float amount, GameObject source, float knockbackDirSign, float knockbackSpeedOverride)
+        public void TakeDamageWithKnockback(float amount, GameObject source, float knockbackDirSign, float knockbackSpeedOverride,
+                                            float hitstop = HitFeel.HitstopHit)
         {
             if (IsDead) return;
             // 원본은 `dealDamage` 진입 즉시 스폰 무적을 확인하고 0을 반환한다(project_test.html:1659).
@@ -198,10 +202,15 @@ namespace YokaiFront.Enemies
             // 원본은 `dealDamage` 안에서 조건 없이 `addCombo()`를 부른다(:1682) — 화상 틱도 포함이다.
             CombatModifiers.AddCombo();
             // 히트스톱은 **직접 타격만** 건다(원본 `!opts.isBurnTick`, :1686).
-            if (!inTickDamage) CombatEvents.RaiseEnemyDamaged(gameObject);
+            if (!inTickDamage)
+            {
+                CombatEvents.RaiseEnemyDamaged(gameObject);
+                CombatEvents.RequestHitstop(hitstop); // 공격마다 다른 길이(원본 `opts.hitstop`, 없음 = `noHitstop`)
+            }
 
             CurrentHp -= amount;
             flash = 1f; // 원본 `e.flash = 1`(project_test.html:1666)
+            ShowFlash();
 
             // 원본 `kbBase * (1 + itemPow('knockback')) * (e.type === 'bigOni' ? 0.4 : 1)`(:1678).
             if (mover != null && knockbackSpeedOverride > 0f)
@@ -216,6 +225,41 @@ namespace YokaiFront.Enemies
                 ApplyVulnerable(MageSpecConfig.VulnerableDuration);
 
             if (CurrentHp <= 0f) Die();
+        }
+
+        /// <summary>지금 플래시 세기(1 → 0). 테스트·연출이 읽는다.</summary>
+        public float FlashAmount => flash;
+
+        /// <summary>플래시를 그리는 자식 렌더러(처음 맞을 때 만든다). 테스트가 읽는다.</summary>
+        public SpriteRenderer FlashRenderer => flashSr;
+
+        /// <summary>
+        /// 원본 `if (e.flash > 0) { globalAlpha = flash × 0.75; 흰색 }`(:4798) — 몸 모양 흰 실루엣을 같은 세기로 덮는다.
+        /// 원본은 흰 타원인데 그림 몹에선 몸 모양이 자연스러워 바꿨다(의도적 편차, `docs/original-parity.md` 9절).
+        /// </summary>
+        void ShowFlash()
+        {
+            if (sr == null) return;
+            if (flashSr == null)
+            {
+                if (flashMaterial == null)
+                {
+                    var shader = Resources.Load<Shader>("Shaders/SpriteFlash");
+                    if (shader == null) return;
+                    flashMaterial = new Material(shader) { name = "SpriteFlash" };
+                }
+                var go = new GameObject("HitFlash");
+                go.transform.SetParent(transform, false);
+                flashSr = go.AddComponent<SpriteRenderer>();
+                flashSr.sharedMaterial = flashMaterial;
+            }
+            flashSr.sprite = sr.sprite;
+            flashSr.flipX = sr.flipX;
+            flashSr.flipY = sr.flipY;
+            flashSr.sortingLayerID = sr.sortingLayerID;
+            flashSr.sortingOrder = sr.sortingOrder + 1;
+            flashSr.color = new Color(1f, 1f, 1f, flash * flashStrength);
+            flashSr.enabled = flash > 0f;
         }
 
         void Die()

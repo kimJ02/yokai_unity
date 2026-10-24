@@ -283,6 +283,7 @@ public class MageAttack : MonoBehaviour, ICharacterKit, IRunResettable, ISkillSl
 
         mover.Teleport(new Vector3(toX, toY + bodyOffset, transform.position.z)); // 원본 vx = vy = 0 — Teleport가 속도를 비운다
         health?.GrantInvuln(MageSpecConfig.TeleportInvuln); // 원본 :2149
+        HitFeel.Shake(5f, 0.15f); // 원본 mageFireTeleport(:2152)
 
         // 원본 spawnFlameLine(:2008) — 출발·도착 사이를 n등분한 n+1곳에 불길.
         int trailPoints = MageSpecConfig.TeleportTrailPoints(tier);

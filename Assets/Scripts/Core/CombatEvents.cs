@@ -41,10 +41,21 @@ namespace YokaiFront.Core
         public static event System.Action PlayerDied;
 
         /// <summary>
-        /// 적이 **직접 타격**을 받았을 때(지속 피해 틱 제외). 히트스톱이 이걸 구독한다 —
-        /// 원본도 히트스톱만 틱을 빼고 콤보 등 나머지는 틱에도 적용한다(:1686).
+        /// 적이 **직접 타격**을 받았을 때(지속 피해 틱 제외). 히트스톱은 2026-10-24부터 이게 아니라
+        /// <see cref="HitstopRequested"/>로 받는다 — 원본은 공격마다 멈춤 길이가 달라서(`hitstop`/`noHitstop`, :1683).
         /// </summary>
         public static event System.Action<GameObject> EnemyDamaged;
+
+        /// <summary>
+        /// 히트스톱 요청(초). `Systems/RunController.Hitstop`이 구독한다 — 피격(공격마다 다른 길이, `Core/HitFeel`)·연쇄 처치 등.
+        /// 처치 멈춤은 `EnemyKilled`에서 따로 건다. 0 이하는 무시한다(원본 `noHitstop`).
+        /// </summary>
+        public static event System.Action<float> HitstopRequested;
+
+        public static void RequestHitstop(float seconds)
+        {
+            if (seconds > 0f) HitstopRequested?.Invoke(seconds);
+        }
 
         public static void RaiseEnemyKilled(GameObject enemy) => EnemyKilled?.Invoke(enemy);
         public static void RaiseEnemyDamaged(GameObject enemy) => EnemyDamaged?.Invoke(enemy);
@@ -60,6 +71,7 @@ namespace YokaiFront.Core
         {
             EnemyKilled = null;
             EnemyDamaged = null;
+            HitstopRequested = null;
             PlayerDied = null;
             ShrineBuffGranted = null;
             RewardGranted = null;

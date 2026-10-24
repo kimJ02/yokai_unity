@@ -140,7 +140,11 @@ namespace YokaiFront.Enemies
                 {
                     // 원본은 속도를 먼저 정하고 끝 판정을 한다 — 돌진귀와 같은 순서다(`:4257`).
                     float vx = mover.Direction * ChargeSpeed;
-                    if (stateTimer <= 0f || AtFieldEdge()) Enter(State.Idle, 0.8f);
+                    if (stateTimer <= 0f || AtFieldEdge())
+                    {
+                        Enter(State.Idle, 0.8f);
+                        HitFeel.Shake(6f, 0.2f); // 원본 :4262
+                    }
                     return vx;
                 }
             }
@@ -176,6 +180,7 @@ namespace YokaiFront.Enemies
         /// </summary>
         void DoSlam(Transform target)
         {
+            HitFeel.Shake(12f, 0.35f); // 원본 :4212
             float dmg = mover.attackPower;
             float y = FieldBounds.GroundY + 0.2f;
 

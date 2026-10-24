@@ -80,6 +80,45 @@ namespace YokaiFront.Editor
             EditorApplication.Exit(0);
         }
 
+        /// <summary>
+        /// 피격 플래시 확인 — 오니 그림 3마리(그대로 / 플래시 0.75 / 0.4)를 플레이어 옆에 두고 찍는다(2026-10-24).
+        /// `EnemyHealth.ShowFlash`와 같은 자식 렌더러·셰이더(`Resources/Shaders/SpriteFlash`)를 쓴다.
+        /// </summary>
+        public static void RunFlashCheck()
+        {
+            string outDir = ArgValue("-captureOut") ?? Path.Combine(Directory.GetCurrentDirectory(), "Temp", "StageCapture");
+            Directory.CreateDirectory(outDir);
+            EditorSceneManager.OpenScene("Assets/Scenes/CombatCore.unity", OpenSceneMode.Single);
+            FieldLayout.SetBossArena(false);
+            var cam = Camera.main;
+            var player = GameObject.Find("Player");
+            FitPlayerSprite(player);
+            var visuals = new GameObject("StageVisuals").AddComponent<StageVisuals>();
+            visuals.Build();
+            var oni = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/Prototype/enemy_oni.png");
+            var mat = new Material(Resources.Load<Shader>("Shaders/SpriteFlash"));
+            float[] alphas = { 0f, 0.75f, 0.4f };
+            for (int i = 0; i < alphas.Length; i++)
+            {
+                var go = new GameObject("FlashCheck" + i);
+                var sr = go.AddComponent<SpriteRenderer>();
+                sr.sprite = oni;
+                float s = 0.46f / oni.bounds.size.y; // 판정 높이(EntitySizeConfig 오니 46px)에 맞춤 — 지금 게임과 같게
+                go.transform.localScale = new Vector3(s, s, 1f);
+                go.transform.position = new Vector3(5.0f + i * 0.9f, FieldBounds.GroundY + 0.23f, 0f);
+                if (alphas[i] <= 0f) continue;
+                var f = new GameObject("HitFlash").AddComponent<SpriteRenderer>();
+                f.transform.SetParent(go.transform, false);
+                f.sprite = oni;
+                f.sharedMaterial = mat;
+                f.sortingOrder = sr.sortingOrder + 1;
+                f.color = new Color(1f, 1f, 1f, alphas[i]);
+            }
+            Shot(cam, visuals, player, outDir, "F_플래시", 4.0f, FieldBounds.GroundY);
+            Debug.Log("[CaptureStagePreview] 저장: " + outDir);
+            EditorApplication.Exit(0);
+        }
+
         /// <summary>포탈 크기 비교(1배·1.5배·2배, 열린 색) — 사용자가 고르기 전 비교용(2026-10-24).</summary>
         public static void RunPortalSizes()
         {

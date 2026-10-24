@@ -31,11 +31,8 @@ namespace YokaiFront.Systems
         /// <summary>마지막 런이 끝난 이유. 결과 화면이 제목을 고르는 데 쓴다(원본 `endRun(reason)`).</summary>
         public RunEndReason LastEndReason { get; private set; } = RunEndReason.Timeout;
 
-        [Header("히트스톱 (원본 CONFIG.hitstop, project_test.html:743)")]
-        [Tooltip("일반 타격 시 멈추는 시간. 원본 hit 0.045.")]
-        public float hitstopOnHit = 0.045f;
-        [Tooltip("처치 시. 원본 kill 0.085.")]
-        public float hitstopOnKill = 0.085f;
+        // 히트스톱 길이는 `Core/HitFeel`(원본 값, 공격·대상마다 다르다 — 2026-10-24). 예전 인스펙터 칸 두 개(맞을 때 0.045·
+        // 처치 0.085)는 없앴다.
 
         float hitstopLeft;
 
@@ -47,7 +44,7 @@ namespace YokaiFront.Systems
         {
             CombatEvents.PlayerDied += HandlePlayerDied;
             CombatEvents.EnemyKilled += HandleEnemyKilled;
-            CombatEvents.EnemyDamaged += HandleEnemyDamaged;
+            CombatEvents.HitstopRequested += Hitstop;
             CombatEvents.ShrineBuffGranted += CombatModifiers.GrantShrineBuff;
             RunEvents.BossPortalRequested += HandleBossPortalRequested;
             RunEvents.BossDefeated += HandleBossDefeated;
@@ -57,7 +54,7 @@ namespace YokaiFront.Systems
         {
             CombatEvents.PlayerDied -= HandlePlayerDied;
             CombatEvents.EnemyKilled -= HandleEnemyKilled;
-            CombatEvents.EnemyDamaged -= HandleEnemyDamaged;
+            CombatEvents.HitstopRequested -= Hitstop;
             CombatEvents.ShrineBuffGranted -= CombatModifiers.GrantShrineBuff;
             RunEvents.BossPortalRequested -= HandleBossPortalRequested;
             RunEvents.BossDefeated -= HandleBossDefeated;
@@ -111,6 +108,7 @@ namespace YokaiFront.Systems
 
             // 히트스톱은 게임을 멈추는 것이므로 **멈춘 시간(unscaled)으로 재야 한다** —
             // `Time.deltaTime`으로 재면 timeScale이 0인 동안 타이머가 안 줄어 영원히 안 풀린다.
+            HitFeel.TickRedFlash(Time.deltaTime); // 원본 `state.redFlash -= dt * 2.2`(:4426) — 게임 시간
             if (hitstopLeft > 0f)
             {
                 hitstopLeft -= Time.unscaledDeltaTime;
@@ -139,6 +137,7 @@ namespace YokaiFront.Systems
             RunTransient.DestroyAll();
             CombatModifiers.ResetForRun(); // 원본 `combo.n = 0; run.chainN = 0`(:4307·:4319)
             hitstopLeft = 0f;
+            HitFeel.Reset();
             bossDeadTimer = -1f;
 
             ResetPlayer();
@@ -248,7 +247,12 @@ namespace YokaiFront.Systems
 
         void HandleEnemyKilled(GameObject enemy)
         {
-            Hitstop(hitstopOnKill);
+            var (stop, shakeMag, shakeDur) = KillFeel(
+                enemy != null && enemy.GetComponent<YokaiFront.Enemies.Boss>() != null,
+                enemy != null && enemy.GetComponent<YokaiFront.Enemies.Shrine>() != null,
+                enemy != null && enemy.GetComponent<YokaiFront.Enemies.EnemyElite>() != null);
+            Hitstop(stop);
+            if (shakeMag > 0f) HitFeel.Shake(shakeMag, shakeDur);
 
             // ⚠️ 보스 격파 뒤 결과 화면 예약은 **여기서 하지 않는다** — `RunEvents.BossDefeated` →
             // <see cref="HandleBossDefeated"/>(`bossDeadTimer`, 멈춘 시간 기준)가 한다.
@@ -257,7 +261,17 @@ namespace YokaiFront.Systems
             // 방금 들어온 런을 "보스 격파"로 끝냈다(2026-09-28 사용자 발견). 취소도 안 되는 경로라 없앴다.
         }
 
-        void HandleEnemyDamaged(GameObject _) => Hitstop(hitstopOnHit);
+        /// <summary>
+        /// 처치 연출 — (멈춤 초, 흔들림 세기 px, 흔들림 초). 원본 `killEnemy`(:1847~:1848), 성소는 따로 :1804~:1805
+        /// (성소는 일반 처치 멈춤을 안 거치고 0.12만).
+        /// </summary>
+        public static (float hitstop, float shakeMag, float shakeDuration) KillFeel(bool boss, bool shrine, bool elite)
+        {
+            if (shrine) return (HitFeel.HitstopShrine, 9f, 0.35f);
+            if (boss) return (HitFeel.HitstopBossKill, 14f, 0.5f);
+            if (elite) return (HitFeel.HitstopKill, 6f, 0.22f);
+            return (HitFeel.HitstopKill, 0f, 0f);
+        }
 
         /// <summary>
         /// 타격감용 순간 정지 — 원본 `state.freeze = Math.max(state.freeze, ...)`(project_test.html:1685).

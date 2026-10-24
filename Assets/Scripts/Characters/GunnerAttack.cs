@@ -263,6 +263,7 @@ namespace YokaiFront.Characters
                 int stackSpend = Stacks;
                 Stacks = 0;
                 GunnerDrone.Summon(this, tier, stackSpend, bulletSprite);
+                HitFeel.Shake(3f + tier * 0.5f, 0.14f); // 원본 :2401
                 ultCdTimer = ultCdMax = GunnerSpecConfig.DroneUltCooldown(tier) * cdMult;
                 return;
             }
@@ -281,6 +282,7 @@ namespace YokaiFront.Characters
             }
             // 원본 `placeGunnerTurret`는 `y: p.y` — 발 높이(바닥)에 놓는다.
             GunnerTurret.Place(FeetPosition, Facing, tier, bulletSprite);
+            HitFeel.Shake(2f + tier * 0.4f, 0.1f); // 원본 :2416
             ultCdTimer = ultCdMax = GunnerSpecConfig.TurretUltCooldown(tier) * cdMult;
         }
 

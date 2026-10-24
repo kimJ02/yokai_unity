@@ -164,7 +164,7 @@ namespace YokaiFront.Characters
                 // 넉백 방향은 **지금** 진행 방향(유도탄은 휘면서 바뀐다) — 원본 `kbDir: Math.sign(w.vx)`.
                 if (rb != null && Mathf.Abs(rb.linearVelocity.x) > 1e-4f)
                     knockbackDirSign = rb.linearVelocity.x > 0f ? 1f : -1f;
-                target.TakeDamageWithKnockback(dmg, null, knockbackDirSign, HitKnockback);
+                target.TakeDamageWithKnockback(dmg, null, knockbackDirSign, HitKnockback, HitFeel.HitstopNone); // 원본 noHitstop(:3721)
             }
 
             // 원본 `if (w.stackOnHit) addGunnerStack(w.stackOnHit)`(:3722) — 갈래가 없으면 AddStack이 무시한다.

@@ -320,6 +320,7 @@ public class EnemySpawner : MonoBehaviour
         var go = Instantiate(monsterPrefab,
                              new Vector3(x, FieldBounds.GroundY + EntitySizeConfig.BossHeight / 2f, 0f),
                              Quaternion.identity);
+        HitFeel.Shake(8f, 0.5f); // 원본 spawnBoss(:4174)
         go.name = "Boss";
         RunTransient.Mark(go);
 
@@ -759,6 +760,9 @@ public class EnemySpawner : MonoBehaviour
         {
             ProfileService.Current.AddGold(chainBonus);
             goldGained += chainBonus;
+            // 원본 연쇄 분기(:1835~:1836) — 멈춤 0.10, 엘리트면 연쇄 수만큼 세게 흔든다.
+            CombatEvents.RequestHitstop(HitFeel.HitstopChain);
+            if (elite) HitFeel.Shake(Mathf.Min(14f, 5f + CombatModifiers.ChainKills), 0.25f);
         }
 
         // 원본 `run.goldEarned += g; run.expEarned += exp`(:1816·:1820) — 결과 화면에 쓴다.
