@@ -80,6 +80,32 @@ namespace YokaiFront.Editor
             EditorApplication.Exit(0);
         }
 
+        /// <summary>포탈 크기 비교(1배·1.5배·2배, 열린 색) — 사용자가 고르기 전 비교용(2026-10-24).</summary>
+        public static void RunPortalSizes()
+        {
+            string outDir = ArgValue("-captureOut") ?? Path.Combine(Directory.GetCurrentDirectory(), "Temp", "StageCapture");
+            Directory.CreateDirectory(outDir);
+            EditorSceneManager.OpenScene("Assets/Scenes/CombatCore.unity", OpenSceneMode.Single);
+            FieldLayout.SetBossArena(false);
+            var cam = Camera.main;
+            var player = GameObject.Find("Player");
+            FitPlayerSprite(player);
+            var visuals = new GameObject("StageVisuals").AddComponent<StageVisuals>();
+            visuals.Build();
+            var portal = Object.FindFirstObjectByType<BossPortal>();
+            var sr = portal.GetComponent<SpriteRenderer>();
+            sr.color = portal.unlockedColor;
+            float h = sr.sprite.bounds.size.y;
+            foreach (float k in new[] { 1f, 1.5f, 2f })
+            {
+                portal.transform.localScale = new Vector3(k, k, 1f);
+                portal.transform.position = new Vector3(FieldLayout.BossPortalX, FieldBounds.GroundY + h * k / 2f, 0f);
+                Shot(cam, visuals, player, outDir, "S" + k.ToString("0.0"), FieldLayout.BossPortalX - 1.2f, FieldBounds.GroundY);
+            }
+            Debug.Log("[CaptureStagePreview] 저장: " + outDir);
+            EditorApplication.Exit(0);
+        }
+
         static void Shot(Camera cam, StageVisuals visuals, GameObject player, string dir, string name, float x, float feetY,
                          float? camYOverride = null)
         {

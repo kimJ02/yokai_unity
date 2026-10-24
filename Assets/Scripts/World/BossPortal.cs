@@ -97,8 +97,8 @@ namespace YokaiFront.World
         }
 
         /// <summary>
-        /// Figma 포탈 그림으로 바꾼다(2026-10-24, `StageVisuals`가 부른다). 그림은 늘리지 않고 1배(32×64px = 0.25×0.5유닛 —
-        /// Figma처럼 캐릭터와 키가 같다)로 땅 위에 세운다. 입장 범위(<see cref="interactRadius"/>)는 그대로다.
+        /// Figma 포탈 그림으로 바꾼다(2026-10-24, `StageVisuals`가 부른다). <see cref="ArtScale"/>배로 땅 위에 세운다.
+        /// 입장 범위(<see cref="interactRadius"/>)는 그대로다.
         /// 색은 그림 색 그대로 두고 밝기로만 상태를 보인다 — 예전 흰 원에 쓰던 보라색을 곱하면 파란 소용돌이가 탁해진다.
         /// </summary>
         public void ApplyArt(Sprite art)
@@ -107,12 +107,18 @@ namespace YokaiFront.World
             if (sr == null) sr = GetComponent<SpriteRenderer>();
             if (sr == null) return;
             sr.sprite = art;
-            transform.localScale = Vector3.one;
+            transform.localScale = new Vector3(ArtScale, ArtScale, 1f);
             Vector3 p = transform.position;
-            transform.position = new Vector3(p.x, FieldBounds.GroundY + art.bounds.size.y / 2f, p.z);
+            transform.position = new Vector3(p.x, FieldBounds.GroundY + art.bounds.size.y * ArtScale / 2f, p.z);
             lockedColor = LockedArtColor;
             unlockedColor = Color.white; // 실제 색은 다음 Update의 UpdateTint가 상태에 맞춰 칠한다
         }
+
+        /// <summary>
+        /// 포탈 그림 배율 — **1.5배(48×96px, 사용자 결정 2026-10-24)**. Figma는 1배(캐릭터와 키가 같다)인데 작아서 "좀만 키우자".
+        /// 정수배가 아니라 확대해 보면 픽셀 크기가 들쭉날쭉하다(1·1.5·2배 비교 캡처를 보고 고름 — 2배는 선명하지만 크다).
+        /// </summary>
+        public const float ArtScale = 1.5f;
 
         /// <summary>Figma 그림을 입혔을 때 잠긴 색 — 어둡고 살짝 비친다.</summary>
         public static readonly Color LockedArtColor = new Color(0.42f, 0.42f, 0.48f, 0.8f);
