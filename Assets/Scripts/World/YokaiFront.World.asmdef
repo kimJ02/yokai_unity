@@ -2,7 +2,9 @@
     "name": "YokaiFront.World",
     "rootNamespace": "",
     "references": [
-        "YokaiFront.Core"
+        "YokaiFront.Core",
+        "Unity.RenderPipelines.Universal.Runtime",
+        "Unity.RenderPipelines.Universal.2D.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

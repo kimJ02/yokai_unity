@@ -25,6 +25,7 @@ namespace YokaiFront.Editor
     {
         public const string Folder = "Assets/Sprites/Prototype";
         public const float PixelsPerUnit = 100f;
+        public const float FigmaPixelsPerUnit = 128f;
 
         [MenuItem("YokaiFront/Import Prototype Sprites")]
         public static void Apply()
@@ -44,9 +45,13 @@ namespace YokaiFront.Editor
 
                 importer.textureType = TextureImporterType.Sprite;
                 importer.spriteImportMode = SpriteImportMode.Single;
-                importer.spritePixelsPerUnit = PixelsPerUnit;
+                // 캐릭터(`char_*`)는 2026-10-07부터 Figma 도트 그림이다 — 64px가 판정 0.5유닛과 1:1이 되게 128px/유닛,
+                // 도트가 번지지 않게 Point·무압축(2026-10-24 C안, `World/StageArtConfig`). 나머지는 예전 매끈한 도형 그대로.
+                bool pixelArt = Path.GetFileName(assetPath).StartsWith("char_");
+                importer.spritePixelsPerUnit = pixelArt ? FigmaPixelsPerUnit : PixelsPerUnit;
                 // 벡터로 그린 매끈한 도형이라 Point로 두면 계단이 심하다.
-                importer.filterMode = FilterMode.Bilinear;
+                importer.filterMode = pixelArt ? FilterMode.Point : FilterMode.Bilinear;
+                if (pixelArt) importer.textureCompression = TextureImporterCompression.Uncompressed;
                 importer.alphaIsTransparency = true;
                 importer.mipmapEnabled = false;
                 // 원본 색을 그대로 보려고 압축을 끈다(스프라이트가 작아서 용량 부담이 없다).

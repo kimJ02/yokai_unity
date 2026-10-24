@@ -56,6 +56,8 @@
 
 - `Assets/Editor/BuildPrototypeSprites.cs` — import 설정을 코드로 맞춘다(손으로 찍지 않는다).
   **PPU 100** — 이 프로젝트 월드 스케일이 100px = 1유닛이라 원본과 정확히 같은 크기로 들어온다.
+  **단 캐릭터(`char_*`)는 128 + Point + 무압축**(2026-10-24) — 2026-10-07부터 Figma 도트 그림(64px)이라, 판정 0.5유닛과 1:1이
+  되고 번지지 않게 한다. 1스테이지 배경·타일은 `Assets/Resources/Art/Figma/`(`FigmaArtImporter`).
 - `EnemyData.sprite` — 종류별 그림. `BuildEnemyData`가 연결한다.
 - `PlayerRig.characterSprites` — 캐릭터별 그림. 선택할 때 갈아끼운다.
 
