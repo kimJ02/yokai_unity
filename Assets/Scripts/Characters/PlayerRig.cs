@@ -54,6 +54,8 @@ namespace YokaiFront.Characters
         {
             mover = GetComponent<CharacterMover2D>();
             sr = GetComponent<SpriteRenderer>();
+            // 잔상(원본 `player.afterimages`) — 섬영 고속 이동·칼날폭풍·마법사 순간이동이 남긴다. 씬을 다시 굽지 않게 여기서 붙인다.
+            if (!TryGetComponent(out PlayerAfterimages _)) gameObject.AddComponent<PlayerAfterimages>();
             // 덩치의 단일 출처는 Core.EntitySizeConfig다 — 씬에는 컴포넌트를 붙인 시점의 값(예: 1.0)이
             // 직렬화돼 남아 있어서, 상수만 바꾸면 씬을 다시 굽기 전까지 실제 게임에 반영되지 않았다.
             spriteHeight = EntitySizeConfig.PlayerHeight;

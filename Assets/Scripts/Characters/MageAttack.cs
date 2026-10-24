@@ -281,6 +281,7 @@ public class MageAttack : MonoBehaviour, ICharacterKit, IRunResettable, ISkillSl
         Vector2 lineFrom = feet + new Vector2(0f, MageSpecConfig.TeleportFlameLineHeight);
         Vector2 lineTo = new Vector2(toX, toY + MageSpecConfig.TeleportFlameLineHeight);
 
+        if (TryGetComponent(out PlayerAfterimages afterimages)) afterimages.Spawn(transform.position); // 원본 출발 자리 잔상(:2147)
         mover.Teleport(new Vector3(toX, toY + bodyOffset, transform.position.z)); // 원본 vx = vy = 0 — Teleport가 속도를 비운다
         health?.GrantInvuln(MageSpecConfig.TeleportInvuln); // 원본 :2149
         HitFeel.Shake(5f, 0.15f); // 원본 mageFireTeleport(:2152)
