@@ -85,7 +85,8 @@ namespace YokaiFront.Systems
         {
             // ⚠️ `timeScale = 0`이어도 `Update`는 계속 돈다 — 멈추는 건 `Time.deltaTime`과 물리다.
             // 그래서 일시정지 중에도 ESC를 읽을 수 있다.
-            if (GameInput.PauseDown)
+            // 설정 창 같은 창이 떠 있으면 ESC는 창 몫이다(창 닫기) — 일시정지까지 같이 풀리지 않게(UiModal, 2026-10-24).
+            if (GameInput.PauseDown && !UiModal.OwnsEscape)
             {
                 if (GameState.Current == GameScene.Run) Pause();
                 else if (GameState.Current == GameScene.Pause) Resume();

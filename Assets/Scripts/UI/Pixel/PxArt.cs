@@ -1,0 +1,85 @@
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace YokaiFront.UI
+{
+    /// <summary>
+    /// Figma UI 그림(`Resources/Art/Figma/UI/`, 디자이너가 올린 원본 PNG 그대로)을 불러오고, 버튼 상태 그림을 만든다.
+    ///
+    /// Figma엔 버튼의 기본 상태만 있다 — 마우스 올림·눌림·비활성은 사용자 허락(2026-10-23 "버튼 눌림·비활성은 만들어도 된다")으로
+    /// **원본 그림의 밝기만 바꿔** 만든다. 테두리(아주 어두운 픽셀)는 그대로 둬서 모양이 안 변한다.
+    /// </summary>
+    public static class PxArt
+    {
+        const string Root = "Art/Figma/UI/";
+
+        public enum Tone { Normal, Hover, Pressed, Disabled }
+
+        static readonly Dictionary<string, Sprite> cache = new Dictionary<string, Sprite>();
+        static readonly Dictionary<(Sprite, Tone), Sprite> toned = new Dictionary<(Sprite, Tone), Sprite>();
+
+        /// <summary>`UI/` 아래 경로(확장자 빼고), 예: "Common/button".</summary>
+        public static Sprite Get(string path)
+        {
+            if (cache.TryGetValue(path, out var s) && s != null) return s;
+            s = Resources.Load<Sprite>(Root + path);
+            if (s == null) Debug.LogWarning("[PxArt] Figma 그림이 없다: " + Root + path);
+            cache[path] = s;
+            return s;
+        }
+
+        /// <summary>마우스 올림은 밝게, 눌림은 어둡게, 비활성은 회색으로.</summary>
+        public const float HoverLighten = 0.16f;
+        public const float PressedDarken = 0.18f;
+        // 이보다 어두운 픽셀은 테두리로 보고 안 건드린다(Figma 테두리 #0e071b·#1b1b3a 등).
+        const float OutlineLuma = 0.16f;
+
+        public static Sprite Toned(Sprite s, Tone tone)
+        {
+            if (s == null || tone == Tone.Normal) return s;
+            if (toned.TryGetValue((s, tone), out var t) && t != null) return t;
+            if (!s.texture.isReadable) return s; // 가져오기 설정이 안 맞으면 기본 그림이라도
+
+            Rect r = s.textureRect;
+            int w = Mathf.RoundToInt(r.width), h = Mathf.RoundToInt(r.height);
+            var px = s.texture.GetPixels(Mathf.RoundToInt(r.x), Mathf.RoundToInt(r.y), w, h);
+            for (int i = 0; i < px.Length; i++) px[i] = Apply(px[i], tone);
+
+            var tex = new Texture2D(w, h, TextureFormat.RGBA32, false)
+            {
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Clamp,
+                name = s.name + "_" + tone,
+            };
+            tex.SetPixels(px);
+            tex.Apply();
+            var pivot = new Vector2(s.pivot.x / s.rect.width, s.pivot.y / s.rect.height);
+            t = Sprite.Create(tex, new Rect(0, 0, w, h), pivot, s.pixelsPerUnit, 0, SpriteMeshType.FullRect, s.border);
+            t.name = tex.name;
+            toned[(s, tone)] = t;
+            return t;
+        }
+
+        public static Color Apply(Color c, Tone tone)
+        {
+            if (c.a <= 0f) return c;
+            float luma = c.r * 0.299f + c.g * 0.587f + c.b * 0.114f;
+            switch (tone)
+            {
+                case Tone.Hover:
+                    if (luma < OutlineLuma) return c;
+                    return new Color(c.r + (1f - c.r) * HoverLighten, c.g + (1f - c.g) * HoverLighten,
+                                     c.b + (1f - c.b) * HoverLighten, c.a);
+                case Tone.Pressed:
+                    if (luma < OutlineLuma) return c;
+                    float k = 1f - PressedDarken;
+                    return new Color(c.r * k, c.g * k, c.b * k, c.a);
+                case Tone.Disabled:
+                    float g = Mathf.Lerp(luma, 0.5f, 0.15f) * 0.8f;
+                    return new Color(Mathf.Lerp(c.r, g, 0.75f), Mathf.Lerp(c.g, g, 0.75f), Mathf.Lerp(c.b, g, 0.75f), c.a);
+                default:
+                    return c;
+            }
+        }
+    }
+}

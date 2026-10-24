@@ -35,6 +35,7 @@ namespace YokaiFront.UI
         {
             var scene = GameState.Current;
             if (scene != GameScene.Pause && scene != GameScene.Result) return;
+            if (scene == GameScene.Pause && PxScreens.Has<PauseMenu>()) return; // Figma 일시정지가 그린다(2026-10-24)
             if (run == null) run = Object.FindFirstObjectByType<RunController>();
 
             using var scaled = UiTheme.Scaled();

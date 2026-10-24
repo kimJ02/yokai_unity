@@ -9,7 +9,9 @@
         "YokaiFront.Combat",
         "YokaiFront.Characters",
         "YokaiFront.Enemies",
-        "YokaiFront.Systems"
+        "YokaiFront.Systems",
+        "YokaiFront.UI",
+        "UnityEngine.UI"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

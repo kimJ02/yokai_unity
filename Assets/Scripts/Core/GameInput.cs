@@ -49,5 +49,15 @@ namespace YokaiFront.Core
         /// 포탈 위에서 위로 쏘려다 입장해 버린다.
         /// </summary>
         public static bool InteractDown => Input.GetKeyDown(KeyCode.F);
+
+        // ---- 메뉴(Figma UI, 2026-10-24) — 원본은 마우스로 누르는 HTML 버튼이라 키 조작이 따로 없다 ----
+        public static bool MenuLeftDown => Input.GetKeyDown(KeyCode.LeftArrow);
+        public static bool MenuRightDown => Input.GetKeyDown(KeyCode.RightArrow);
+        public static bool MenuUpDown => Input.GetKeyDown(KeyCode.UpArrow);
+        public static bool MenuDownDown => Input.GetKeyDown(KeyCode.DownArrow);
+        /// <summary>고른 버튼 누르기 — Enter·Space·Z.</summary>
+        public static bool MenuConfirmDown =>
+            Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter) ||
+            Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Z);
     }
 }
