@@ -141,7 +141,18 @@ namespace YokaiFront.Editor
                 vfx.ShowAt(t);
                 Render(pc, cam, outDir, $"gravity_impact_{(int)(t * 100):D2}", 1920, 1080, 3f);
             }
-            Debug.Log("[CaptureUiPreview] 폭발 반지름 " + r + " 저장: " + outDir);
+            // 중력장이 남아 있는 동안(착탄 폭발이 끝난 뒤) 소용돌이가 도는 모습
+            Object.DestroyImmediate(vfx.gameObject);
+            var well = YokaiFront.Combat.GravityWellZone.SpawnOrMerge(new Vector2(9f, FieldBounds.GroundY + 0.5f), 2, 0.6f);
+            var vortex = well.GetComponentInChildren<YokaiFront.Combat.GravityVortexVfx>();
+            foreach (float t in new[] { 0.8f, 0.93f, 1.07f, 1.2f, 1.33f, 1.47f })
+            {
+                vortex.ApplyAt(t, 3f);
+                Render(pc, cam, outDir, $"gravity_vortex_{(int)(t * 100):D3}", 1920, 1080, 3f);
+            }
+            vortex.ApplyAt(1.0f, 0.2f);
+            Render(pc, cam, outDir, "gravity_vortex_ending", 1920, 1080, 3f);
+            Debug.Log("[CaptureUiPreview] 폭발 반지름 " + r + " 중력장 반지름 " + well.Radius + " 저장: " + outDir);
             EditorApplication.Exit(0);
         }
 

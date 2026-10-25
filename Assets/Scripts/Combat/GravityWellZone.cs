@@ -25,10 +25,13 @@ namespace YokaiFront.Combat
         public float Pull { get; private set; }
         /// <summary>스폰(또는 마지막 중첩) 이후 지난 시간. 원본 `z.t` — 대붕괴가 "가장 최근 것 우선"으로 정렬할 때 쓴다.</summary>
         public float Age { get; private set; }
+        /// <summary>중력장이 사라질 때까지 남은 시간(초) — 소용돌이 그림이 끝나갈 때 흐려지는 데 쓴다.</summary>
+        public float Remaining => life - Age;
 
         float life;
         float dmgTickTimer;
         LineRenderer ring;
+        GravityVortexVfx vortex;
 
         public static void ClearAllForTests()
         {
@@ -108,11 +111,13 @@ namespace YokaiFront.Combat
             ring.startColor = ring.endColor = new Color(0.78f, 0.42f, 1f, 0.55f);
             ring.sortingOrder = 3;
             ring.positionCount = RingSegments;
+            vortex = GravityVortexVfx.Attach(this);
             UpdateRingRadius();
         }
 
         void UpdateRingRadius()
         {
+            if (vortex != null) vortex.SetRadius(Radius);
             if (ring == null) return;
             for (int i = 0; i < RingSegments; i++)
             {

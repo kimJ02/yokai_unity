@@ -25,14 +25,20 @@ namespace YokaiFront.Combat
         /// <summary>시간 t(초)에 보일 프레임 번호.</summary>
         public static int FrameAt(float t, int count) => Mathf.Clamp(Mathf.FloorToInt(t * Fps), 0, Mathf.Max(0, count - 1));
 
-        public static GravityImpactVfx Spawn(Vector2 pos, float radius)
+        /// <summary>폭발 그림 10장(이름순). 중력장의 소용돌이(<see cref="GravityVortexVfx"/>)도 같은 그림을 쓴다.</summary>
+        public static Sprite[] Frames()
         {
             if (frames == null || frames.Length == 0)
             {
                 frames = Resources.LoadAll<Sprite>(Folder);
                 System.Array.Sort(frames, (a, b) => string.CompareOrdinal(a.name, b.name));
             }
-            if (frames.Length == 0) return null;
+            return frames;
+        }
+
+        public static GravityImpactVfx Spawn(Vector2 pos, float radius)
+        {
+            if (Frames().Length == 0) return null;
             var go = new GameObject("GravityImpact");
             go.transform.position = pos;
             RunTransient.Mark(go);

@@ -24,6 +24,32 @@ public class GravityImpactVfxTests
         Assert.AreEqual(9, GravityImpactVfx.FrameAt(5f, 10));
     }
 
+    [Test]
+    public void Vortex_LoopsSwirlFrames_PullsInward_FadesAtEnds()
+    {
+        Assert.AreEqual(4, GravityVortexVfx.LoopFrameAt(0f, 10));
+        Assert.AreEqual(5, GravityVortexVfx.LoopFrameAt(1.1f / GravityVortexVfx.Fps, 10));
+        Assert.AreEqual(6, GravityVortexVfx.LoopFrameAt(2.1f / GravityVortexVfx.Fps, 10));
+        Assert.AreEqual(4, GravityVortexVfx.LoopFrameAt(4.1f / GravityVortexVfx.Fps, 10), "한 바퀴 돌아 처음으로");
+        Assert.AreEqual(1f, GravityVortexVfx.PullScale(0f), 1e-4f);
+        Assert.Less(GravityVortexVfx.PullScale(0.8f), GravityVortexVfx.PullScale(0.1f), "시간이 갈수록 안으로 줄어든다");
+        Assert.AreEqual(0f, GravityVortexVfx.AlphaAt(0f, 3f), "착탄 폭발이 보이는 동안엔 안 보인다");
+        Assert.Greater(GravityVortexVfx.AlphaAt(2f, 3f), 0.5f, "중력장이 남아 있으면 계속 보인다");
+        Assert.AreEqual(0f, GravityVortexVfx.AlphaAt(2f, 0f), "중력장이 끝나면 사라진다");
+    }
+
+    [UnityTest]
+    public IEnumerator Well_HasVortex_ThatSurvivesTheImpactBurst_AndSizesToRadius()
+    {
+        var well = GravityWellZone.SpawnOrMerge(new Vector2(3f, 1f), 2, 0.6f);
+        var vortex = well.GetComponentInChildren<GravityVortexVfx>();
+        Assert.IsNotNull(vortex, "중력장에 소용돌이 그림이 붙는다");
+        yield return new WaitForSeconds(GravityImpactVfx.Life + 0.2f);
+        Assert.IsTrue(vortex != null && well != null, "폭발이 끝나도 중력장과 소용돌이는 남아 있다");
+        Assert.Greater(vortex.GetComponent<SpriteRenderer>().color.a, 0.4f, "그리고 보인다");
+        GravityWellZone.ClearAllForTests();
+    }
+
     [UnityTest]
     public IEnumerator Spawn_ScalesToRadius_AndEnds()
     {
