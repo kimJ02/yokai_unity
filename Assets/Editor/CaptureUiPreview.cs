@@ -119,6 +119,32 @@ namespace YokaiFront.Editor
             EditorApplication.Exit(0);
         }
 
+        /// <summary>블랙홀 마법사 착탄 폭발(`GravityImpactVfx`)을 시간대별로 찍는다 — `-executeMethod YokaiFront.Editor.CaptureUiPreview.RunGravityVfx`.</summary>
+        public static void RunGravityVfx()
+        {
+            string outDir = ArgValue("-captureOut") ?? Path.Combine(Directory.GetCurrentDirectory(), "Temp", "UiCapture");
+            Directory.CreateDirectory(outDir);
+            EditorSceneManager.OpenScene("Assets/Scenes/CombatCore.unity", OpenSceneMode.Single);
+            FieldLayout.SetBossArena(false);
+            var cam = Camera.main;
+            var player = GameObject.Find("Player");
+            FitPlayerSprite(player);
+            var visuals = new GameObject("StageVisuals").AddComponent<StageVisuals>();
+            visuals.Build();
+            PlaceWorld(cam, visuals, player, 6f, FieldBounds.GroundY);
+            var pc = PixelCanvas.Create(cam);
+            foreach (var s in pc.GetComponents<PxScreen>()) s.HideForCapture();
+            float r = YokaiFront.Combat.MageSpecConfig.GravityImpactRadius(2, 0.6f);
+            var vfx = YokaiFront.Combat.GravityImpactVfx.Spawn(new Vector2(9f, FieldBounds.GroundY + 0.5f), r);
+            foreach (float t in new[] { 0.0f, 0.14f, 0.27f, 0.40f, 0.55f })
+            {
+                vfx.ShowAt(t);
+                Render(pc, cam, outDir, $"gravity_impact_{(int)(t * 100):D2}", 1920, 1080, 3f);
+            }
+            Debug.Log("[CaptureUiPreview] 폭발 반지름 " + r + " 저장: " + outDir);
+            EditorApplication.Exit(0);
+        }
+
         static void Shot(PixelCanvas pc, Camera cam, string dir, string name, System.Action<bool> show)
         {
             HideAll(pc);

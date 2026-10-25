@@ -89,6 +89,7 @@ namespace YokaiFront.Combat
             }
 
             GravityWellZone.SpawnOrMerge(pos, tier, chargeK);
+            GravityImpactVfx.Spawn(pos, r); // 착탄 폭발 그림(Gigapack stylized_explosion_002_large_violet) — 그림만
             return hitCount;
         }
 
