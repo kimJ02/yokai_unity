@@ -137,6 +137,7 @@ namespace YokaiFront.UI
             canvas.AddComponent<LobbyHud>();
             canvas.AddComponent<AchievementsScreen>();
             canvas.AddComponent<CommonPopup>();
+            canvas.AddComponent<HitSound>(); // 적 타격 소리(Kenney footstep_carpet_002)
         }
 
         /// <summary>그 Figma 화면이 들어와 있는가 — 예전 IMGUI 화면이 같은 화면을 또 그리지 않게 묻는다.</summary>
