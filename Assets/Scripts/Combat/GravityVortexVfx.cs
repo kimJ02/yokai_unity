@@ -5,7 +5,7 @@ namespace YokaiFront.Combat
     /// <summary>
     /// 중력장이 남아 있는 동안 계속 보이는 "끌어당기는" 소용돌이 — 2026-10-25 사용자 "중력장이 남아 있는데 이펙트가 끝난다, 블랙홀이
     /// 끌어당기는 효과를 보여줘야 한다". 착탄 폭발(<see cref="GravityImpactVfx"/>)과 같은 Gigapack 그림 중 **소용돌이가 도는 가운데 프레임
-    /// (4~8번)** 을 되풀이해서 돌리고, 천천히 회전시키며, 바깥에서 안으로 빨려드는 것처럼 크기가 반복해서 줄어든다.
+    /// (5~7번째)** 을 되풀이해서 돌리고, 바깥에서 안으로 빨려드는 것처럼 크기가 반복해서 줄어든다(회전은 안 시킨다 — 사용자 요청).
     /// 처음엔 착탄 폭발에 가려 안 보이다가 0.35~0.6초에 걸쳐 나타나고, 중력장이 끝나기 0.5초 전부터 흐려진다.
     /// **그림만이다** — 끌어당기는 힘·피해는 <see cref="GravityWellZone"/>이 그대로 한다. 중력장 오브젝트의 자식이라 같이 사라진다.
     /// </summary>
@@ -14,8 +14,6 @@ namespace YokaiFront.Combat
         /// <summary>되풀이할 프레임 번호(0부터) — 소용돌이 줄기와 바깥 고리가 보이는 5~7번째 그림을 4→5→6→5로 오간다.</summary>
         static readonly int[] LoopOrder = { 4, 5, 6, 5 };
         public const float Fps = 15f;
-        /// <summary>회전 속도(도/초) — 시계 반대 방향.</summary>
-        public const float SpinDegPerSec = 140f;
         /// <summary>빨려드는 주기(초)와 크기 변화 — 1.0배로 시작해 이만큼까지 줄었다가 다시 처음으로.</summary>
         public const float PullPeriod = 0.9f, PullMinScale = 0.78f;
         public const float FadeInStart = 0.35f, FadeInEnd = 0.6f, FadeOutTime = 0.5f;
@@ -81,7 +79,6 @@ namespace YokaiFront.Combat
             sr.sprite = frames[LoopFrameAt(t, frames.Length)];
             float size = radius * 2f / sr.sprite.bounds.size.x * PullScale(t);
             transform.localScale = Vector3.one * size;
-            transform.localRotation = Quaternion.Euler(0f, 0f, t * SpinDegPerSec);
             var c = sr.color;
             c.a = AlphaAt(t, remaining);
             sr.color = c;

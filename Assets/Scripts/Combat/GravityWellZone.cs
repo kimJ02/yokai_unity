@@ -17,7 +17,6 @@ namespace YokaiFront.Combat
     public class GravityWellZone : MonoBehaviour
     {
         public static readonly List<GravityWellZone> Active = new List<GravityWellZone>();
-        const int RingSegments = 24;
 
         public int Tier { get; private set; }
         public int Stack { get; private set; }
@@ -30,7 +29,6 @@ namespace YokaiFront.Combat
 
         float life;
         float dmgTickTimer;
-        LineRenderer ring;
         GravityVortexVfx vortex;
 
         public static void ClearAllForTests()
@@ -103,14 +101,8 @@ namespace YokaiFront.Combat
 
         void SetupRing()
         {
-            ring = gameObject.AddComponent<LineRenderer>();
-            ring.useWorldSpace = false;
-            ring.loop = true;
-            ring.widthMultiplier = 0.04f;
-            ring.material = new Material(Shader.Find("Sprites/Default"));
-            ring.startColor = ring.endColor = new Color(0.78f, 0.42f, 1f, 0.55f);
-            ring.sortingOrder = 3;
-            ring.positionCount = RingSegments;
+            // 예전엔 여기서 맨 바깥 보라 고리(LineRenderer)를 그렸다 — 2026-10-25 사용자 "맨 바깥 고리는 지워" → 소용돌이 그림만 남긴다.
+            // 끌어당기는 범위 판정(Radius)은 그대로다.
             vortex = GravityVortexVfx.Attach(this);
             UpdateRingRadius();
         }
@@ -118,12 +110,6 @@ namespace YokaiFront.Combat
         void UpdateRingRadius()
         {
             if (vortex != null) vortex.SetRadius(Radius);
-            if (ring == null) return;
-            for (int i = 0; i < RingSegments; i++)
-            {
-                float a = i / (float)RingSegments * Mathf.PI * 2f;
-                ring.SetPosition(i, new Vector3(Mathf.Cos(a) * Radius, Mathf.Sin(a) * Radius, 0f));
-            }
         }
 
         void OnDestroy() => Active.Remove(this);
