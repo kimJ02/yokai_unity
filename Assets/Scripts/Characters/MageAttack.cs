@@ -41,6 +41,11 @@ public class MageAttack : MonoBehaviour, ICharacterKit, IRunResettable, ISkillSl
     /// </summary>
     public void ResetForRun() => OnSelected();
 
+    /// <summary>차지 중인가 — 마법진(<see cref="MageChargeCircle"/>)이 읽는다.</summary>
+    public bool IsCharging => charging;
+    /// <summary>차지율 0~1(`chargeT / chargeMax`).</summary>
+    public float ChargeRatio => chargeMax > 0f ? Mathf.Clamp01(chargeT / chargeMax) : 0f;
+
     void CancelCharge()
     {
         charging = false;
@@ -109,6 +114,8 @@ public class MageAttack : MonoBehaviour, ICharacterKit, IRunResettable, ISkillSl
         mover = GetComponent<CharacterMover2D>();
         bodyCol = GetComponent<CircleCollider2D>();
         health = GetComponent<PlayerHealth>();
+
+        if (!TryGetComponent(out MageChargeCircle _)) gameObject.AddComponent<MageChargeCircle>(); // 차지 마법진(갈래별)
 
         var ind = new GameObject("ChargeIndicator");
         ind.transform.SetParent(transform, false);

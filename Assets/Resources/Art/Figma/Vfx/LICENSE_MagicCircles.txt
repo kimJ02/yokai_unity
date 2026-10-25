@@ -1,0 +1,20 @@
+LICENSE - Magic Circles VFX Lite
+by Willosuna
+
+WHAT YOU CAN DO
+  - Use these circles in personal and commercial projects, in any number of
+    projects, royalty free.
+  - Modify, recolour, scale and edit them however you like.
+  - Use them in games, apps, video, prototypes and client work.
+  - Attribution is not required, though it is always appreciated.
+
+WHAT YOU CANNOT DO
+  - Resell, redistribute or give away the image files themselves, either as-is
+    or modified, as an asset pack, library or collection.
+
+HOW THE ART WAS MADE
+  Every frame is generated procedurally by original code. It contains no
+  generative AI output and no third-party art. The author owns all rights.
+
+NO WARRANTY
+  Provided "as is", without warranty of any kind.

@@ -156,6 +156,41 @@ namespace YokaiFront.Editor
             EditorApplication.Exit(0);
         }
 
+        /// <summary>마법사 차지 마법진(`MageChargeCircle`)을 차지율별로 찍는다 — `-executeMethod YokaiFront.Editor.CaptureUiPreview.RunMageCircle`.</summary>
+        public static void RunMageCircle()
+        {
+            string outDir = ArgValue("-captureOut") ?? Path.Combine(Directory.GetCurrentDirectory(), "Temp", "UiCapture");
+            Directory.CreateDirectory(outDir);
+            EditorSceneManager.OpenScene("Assets/Scenes/CombatCore.unity", OpenSceneMode.Single);
+            FieldLayout.SetBossArena(false);
+            var cam = Camera.main;
+            var player = GameObject.Find("Player");
+            FitPlayerSprite(player);
+            var visuals = new GameObject("StageVisuals").AddComponent<StageVisuals>();
+            visuals.Build();
+            PlaceWorld(cam, visuals, player, 6f, FieldBounds.GroundY);
+            var pc = PixelCanvas.Create(cam);
+            foreach (var s in pc.GetComponents<PxScreen>()) s.HideForCapture();
+            var circleGo = new GameObject("MageCircleShot");
+            var sr = circleGo.AddComponent<SpriteRenderer>();
+            sr.sortingOrder = 4;
+            foreach (var kind in new[] { "Arcane", "Fire" })
+            {
+                var frames = Resources.LoadAll<Sprite>("Art/Figma/Vfx/MagicCircle/" + kind);
+                System.Array.Sort(frames, (a, b) => string.CompareOrdinal(a.name, b.name));
+                foreach (float k in new[] { 0f, 0.35f, 0.7f, 1f })
+                {
+                    sr.sprite = frames[(int)(k * 10) % frames.Length];
+                    float sc = YokaiFront.Characters.MageChargeCircle.ScaleAt(k);
+                    circleGo.transform.localScale = Vector3.one * sc;
+                    circleGo.transform.position = player.transform.position + new Vector3(YokaiFront.Characters.MageChargeCircle.Offset.x,
+                                                                                         YokaiFront.Characters.MageChargeCircle.Offset.y, 0f);
+                    Render(pc, cam, outDir, $"circle_{kind}_{(int)(k * 100):D3}", 1920, 1080, 3f);
+                }
+            }
+            EditorApplication.Exit(0);
+        }
+
         static void Shot(PixelCanvas pc, Camera cam, string dir, string name, System.Action<bool> show)
         {
             HideAll(pc);
