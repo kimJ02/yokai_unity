@@ -102,6 +102,7 @@ namespace YokaiFront.UI
             SaveService.DeleteSave();
             ProfileService.Reset();
             Run?.EnterLobby();
+            CharacterSelectScreen.Open(); // 새 원정은 캐릭터부터 고른다(캐릭터 선택창 뼈대의 뒤로가기/선택하기)
         }
 
         static void Quit()

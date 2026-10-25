@@ -69,8 +69,11 @@ namespace YokaiFront.World
             }
             else
             {
-                basePos.x = Mathf.SmoothDamp(basePos.x, desiredX, ref velocityX, smoothTime);
-                basePos.y = Mathf.SmoothDamp(basePos.y, followY, ref velocityY, StageArtConfig.CameraSmoothTimeY);
+                // 로비는 시간이 멈춘 채(timeScale 0) 캐릭터만 걷는다(`UI/Screens/LobbyWorld`) — 카메라도 실제 시간으로 따라간다.
+                // 사냥 중엔 원본처럼 게임 시간(히트스톱·일시정지에 멈춤).
+                float dt = GameState.Current == GameScene.Lobby ? Time.unscaledDeltaTime : Time.deltaTime;
+                basePos.x = Mathf.SmoothDamp(basePos.x, desiredX, ref velocityX, smoothTime, Mathf.Infinity, dt);
+                basePos.y = Mathf.SmoothDamp(basePos.y, followY, ref velocityY, StageArtConfig.CameraSmoothTimeY, Mathf.Infinity, dt);
             }
 
             // 원본 `updateShake(rawDt)` — 히트스톱 중에도 흔들린다(실제 시간).

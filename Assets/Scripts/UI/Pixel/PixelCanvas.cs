@@ -124,6 +124,9 @@ namespace YokaiFront.UI
             canvas.AddComponent<StageSelectScreen>();
             canvas.AddComponent<CharacterSelectScreen>();
             canvas.AddComponent<RunResultScreen>();
+            canvas.AddComponent<LobbyWorld>();
+            canvas.AddComponent<LobbyHud>();
+            canvas.AddComponent<AchievementsScreen>();
             canvas.AddComponent<CommonPopup>();
         }
 

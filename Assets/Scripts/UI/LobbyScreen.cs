@@ -64,6 +64,7 @@ namespace YokaiFront.UI
         void OnGUI()
         {
             if (GameState.Current != GameScene.Lobby) return;
+            if (PxScreens.Has<LobbyHud>()) return; // 걸어 다니는 Figma 로비가 대신한다(2026-10-24)
             if (run == null) run = Object.FindFirstObjectByType<RunController>();
 
             using var scaled = UiTheme.Scaled(); // 원본 fitScreen()과 같은 1280×720 좌표계

@@ -203,6 +203,23 @@ public class PixelUiTests
     }
 
     [Test]
+    public void Lobby_BuildingsInOrder_DoomDaysCountDown()
+    {
+        Assert.AreEqual(0, LobbyWorld.Nearest(4.5f), "환생 건물 앞");
+        Assert.AreEqual(-1, LobbyWorld.Nearest(7.0f), "건물 사이엔 들어갈 곳이 없다");
+        Assert.AreEqual(3, LobbyWorld.Nearest(20.0f), "던전 건물 앞");
+        Assert.AreEqual(new[] { "환생", "가챠", "훈련소", "던전" }, System.Array.ConvertAll(LobbyWorld.Buildings, b => b.Name));
+
+        var p = new PlayerProfile();
+        Assert.AreEqual(7, p.doomDays, "멸망까지 7일로 시작(사용자 결정)");
+        for (int i = 0; i < 7; i++) { Assert.IsTrue(p.CanEnterStage); p.SpendDay(); }
+        Assert.AreEqual(0, p.doomDays);
+        Assert.IsFalse(p.CanEnterStage, "0일이면 스테이지에 못 들어간다");
+        p.SpendDay();
+        Assert.AreEqual(0, p.doomDays, "0 밑으로는 안 내려간다");
+    }
+
+    [Test]
     public void FigmaArt_AndFont_AreInResources()
     {
         Assert.IsNotNull(Px.Font, "DNF Bit Bit v2 글꼴");

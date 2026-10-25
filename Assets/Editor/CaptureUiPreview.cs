@@ -102,6 +102,15 @@ namespace YokaiFront.Editor
             result.PreviewReason = RunEndReason.Dead;
             Shot(pc, cam, outDir, "전투패배", sel => result.ShowForCapture(sel));
 
+            // 걸어 다니는 로비 — 건물을 세우고 가챠 건물 앞에서
+            var lobbyWorld = pc.GetComponent<LobbyWorld>();
+            var lobbyHud = pc.GetComponent<LobbyHud>();
+            lobbyWorld.EnterLobby();
+            PlaceWorld(cam, visuals, player, 8.2f, FieldBounds.GroundY);
+            Shot(pc, cam, outDir, "로비", sel => lobbyHud.ShowForCapture(sel));
+            var achieve = pc.GetComponent<AchievementsScreen>();
+            Shot(pc, cam, outDir, "업적", sel => { lobbyHud.ShowForCapture(false); achieve.ShowForCapture(sel); });
+
             Debug.Log("[CaptureUiPreview] 저장: " + outDir);
             EditorApplication.Exit(0);
         }

@@ -27,6 +27,14 @@ namespace YokaiFront.World
         /// 실제 콜라이더가 어긋나지 않게** 한다 — 따로 두면 스포너는 좁은 맵을 보는데 발판은
         /// 넓은 배치로 남는 식의 조용한 불일치가 생긴다.
         /// </summary>
+        /// <summary>발판을 전부 숨긴다 — 걸어 다니는 로비(2026-10-24)는 땅만 쓴다. 사냥을 시작하면 `Activate`가 다시 켠다.</summary>
+        public static void HideAll()
+        {
+            FieldLayout.SetBossArena(false);
+            foreach (var set in All)
+                if (set != null) set.gameObject.SetActive(false);
+        }
+
         public static void Activate(bool boss)
         {
             FieldLayout.SetBossArena(boss);
