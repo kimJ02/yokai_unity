@@ -95,6 +95,24 @@ namespace YokaiFront.UI
 
         public static bool Same(Color32 a, Color32 b) => a.r == b.r && a.g == b.g && a.b == b.b && a.a > 0;
 
+        static readonly Dictionary<(string, int), Sprite> sliced = new Dictionary<(string, int), Sprite>();
+
+        /// <summary>
+        /// 9-슬라이스 그림 — 가장자리 <paramref name="border"/>도트는 그대로 두고 가운데만 늘린다(Figma 버튼을 다른 크기로 쓸 때,
+        /// 사용자 10/23 "9-slice 창은 만들어도 된다"). `Image.type = Sliced`로 그린다.
+        /// </summary>
+        public static Sprite Sliced(string path, int border)
+        {
+            if (sliced.TryGetValue((path, border), out var s) && s != null) return s;
+            var src = Get(path);
+            if (src == null) return null;
+            s = Sprite.Create(src.texture, src.textureRect, new Vector2(0.5f, 0.5f), src.pixelsPerUnit, 0,
+                              SpriteMeshType.FullRect, new Vector4(border, border, border, border));
+            s.name = src.name + "_sliced";
+            sliced[(path, border)] = s;
+            return s;
+        }
+
         public static Color Apply(Color c, Tone tone)
         {
             if (c.a <= 0f) return c;

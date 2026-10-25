@@ -50,6 +50,13 @@ namespace YokaiFront.UI
             root.SetAsLastSibling();
         }
 
+        /// <summary>정해 둔 자리(판 좌표, 왼쪽 위)에 띄운다 — 칸 옆에 띄우면 이웃 칸을 가리는 화면용.</summary>
+        public void ShowAt(string s, float x, float y)
+        {
+            Show(s, new Rect(-1000f, y, 0f, 0f));
+            root.anchoredPosition = new Vector2(Mathf.Round(x), -Mathf.Round(y));
+        }
+
         public void Hide() => root.gameObject.SetActive(false);
 
         static void Stretch(RectTransform rt, float inset)

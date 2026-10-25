@@ -84,6 +84,14 @@ namespace YokaiFront.Editor
             prof.shards = 130;
             Shot(pc, cam, outDir, "유물개방", sel => relic.ShowForCapture(sel));
 
+            var awaken = pc.GetComponent<AwakenScreen>();
+            prof.character = CharacterId.Mage;
+            prof.level = 6;               // SP 5
+            prof.mageBranch = MageBranch.Gravity;
+            prof.mageTier = 2;            // Figma 예시처럼 1줄 두 칸 배움, 2줄 막힘
+            prof.gold = 2400;
+            Shot(pc, cam, outDir, "각성", sel => awaken.ShowForCapture(sel));
+
             Debug.Log("[CaptureUiPreview] 저장: " + outDir);
             EditorApplication.Exit(0);
         }

@@ -18,10 +18,11 @@ namespace YokaiFront.Editor
         /// <summary>Figma UI 그림(640×360 화면 부품) — 2026-10-24.</summary>
         public const string UiFolder = Folder + "UI/";
 
-        /// <summary>도트가 아닌 큰 그림(타이틀 배경·로고, 1672×941) — 화면 크기에 맞춰 부드럽게 줄여 그린다.</summary>
-        public const string IllustrationFolder = UiFolder + "Title/";
+        /// <summary>도트가 아닌 큰 그림(타이틀 배경·로고 1672×941, 스킬 아이콘 314px) — 화면 크기에 맞춰 부드럽게 줄여 그린다.</summary>
+        public static bool IsIllustration(string path) =>
+            path.StartsWith(UiFolder + "Title/") || path.StartsWith(UiFolder + "Skills/");
 
-        public override uint GetVersion() => 4;
+        public override uint GetVersion() => 5;
 
         void OnPreprocessTexture()
         {
@@ -40,7 +41,7 @@ namespace YokaiFront.Editor
             ti.spritePixelsPerUnit = ui ? 100f : System.IO.Path.GetFileName(assetPath).StartsWith("ground_") ? 64f : 128f;
             // UI 버튼의 마우스 올림·눌림·비활성 그림은 원본 그림의 밝기만 바꿔 실행 중에 만든다(`UI/Pixel/PxArt`) — 픽셀을 읽어야 한다.
             ti.isReadable = ui;
-            if (assetPath.StartsWith(IllustrationFolder))
+            if (IsIllustration(assetPath))
             {
                 // 1672px 그림을 640판 329px 로고·1920px 배경으로 줄이고 늘린다 — 도트 필터면 들쭉날쭉해진다
                 ti.filterMode = FilterMode.Bilinear;

@@ -1,8 +1,10 @@
 using System.Collections;
+using System.IO;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
 using YokaiFront.Core;
+using YokaiFront.Systems;
 using YokaiFront.UI;
 using YokaiFront.World;
 
@@ -16,10 +18,16 @@ namespace YokaiFront.Tests.PlayMode
 public class PixelUiTests
 {
     PixelCanvas pc;
+    bool hadSave;
+    string saveBackup;
 
     [SetUp]
     public void Setup()
     {
+        // 화면 버튼이 저장까지 부른다 — 진짜 세이브(검증 폴더도 같은 경로)를 SaveServiceTests처럼 지켜 둔다
+        hadSave = File.Exists(SaveService.SavePath);
+        saveBackup = hadSave ? File.ReadAllText(SaveService.SavePath) : null;
+        ProfileService.Reset();
         UiModal.Reset();
         GameState.Set(GameScene.Run);
         pc = PixelCanvas.Create();
@@ -33,6 +41,9 @@ public class PixelUiTests
             Object.DestroyImmediate(go.gameObject);
         UiModal.Reset();
         GameState.Set(GameScene.Run);
+        if (hadSave) File.WriteAllText(SaveService.SavePath, saveBackup);
+        else if (File.Exists(SaveService.SavePath)) File.Delete(SaveService.SavePath);
+        ProfileService.Reset();
     }
 
     [Test]
@@ -156,6 +167,39 @@ public class PixelUiTests
         Assert.IsTrue(confirmed, "확인을 누르면 콜백");
         yield return null;
         Assert.IsFalse(popup.IsShown, "누르면 닫힌다");
+    }
+
+    [UnityTest]
+    public IEnumerator Awaken_FramesFollowBranch_FirstTierAsks_ThenLearns()
+    {
+        GameState.Set(GameScene.Lobby);
+        var p = ProfileService.Current;
+        p.character = CharacterId.Mage;
+        p.level = 4; // SP 3
+        var awaken = pc.GetComponent<AwakenScreen>();
+        AwakenScreen.Open();
+        yield return null;
+        Assert.IsTrue(awaken.IsShown);
+        StringAssert.StartsWith("node_open", awaken.NodeFrameName(0, 0), "아직 갈래를 안 골랐으면 두 줄 다 은테");
+        StringAssert.StartsWith("node_open", awaken.NodeFrameName(1, 0));
+        StringAssert.StartsWith("node_locked", awaken.NodeFrameName(0, 5), "6번째 칸은 아직 없는 층");
+
+        awaken.ClickNodeForTest(0, 0); // 1줄(중력) 1층 — 갈래가 정해지므로 한 번 더 묻는다
+        Assert.AreEqual(0, p.mageTier, "묻기 전엔 안 배운다");
+        PxButton ok = null;
+        foreach (var b in pc.GetComponent<CommonPopup>().Root.GetComponentsInChildren<PxButton>(true)) if (b.name == "Ok") ok = b;
+        yield return null;
+        ok.Click();
+        Assert.AreEqual(MageBranch.Gravity, p.mageBranch);
+        Assert.AreEqual(1, p.mageTier);
+        yield return null;
+        yield return null;
+        StringAssert.StartsWith("node_learned", awaken.NodeFrameName(0, 0), "배운 층은 금테");
+        StringAssert.StartsWith("node_locked", awaken.NodeFrameName(1, 0), "다른 갈래는 회색");
+
+        awaken.ClickNodeForTest(0, 1); // 2층(SP 2) — 이미 갈래가 정해져 바로 배운다
+        Assert.AreEqual(2, p.mageTier);
+        AwakenScreen.Close();
     }
 
     [Test]
