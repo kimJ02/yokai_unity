@@ -74,6 +74,16 @@ namespace YokaiFront.Editor
                 popup.ShowForCapture(sel);
             });
 
+            var regress = pc.GetComponent<RegressionScreen>();
+            Shot(pc, cam, outDir, "시간회귀", sel => regress.ShowForCapture(sel));
+
+            var relic = pc.GetComponent<RelicScreen>();
+            var prof = ProfileService.Current;
+            prof.shards = 400;
+            YokaiFront.Systems.GachaService.Pull(prof, 20); // 칸이 차 보이게(저장 안 함)
+            prof.shards = 130;
+            Shot(pc, cam, outDir, "유물개방", sel => relic.ShowForCapture(sel));
+
             Debug.Log("[CaptureUiPreview] 저장: " + outDir);
             EditorApplication.Exit(0);
         }

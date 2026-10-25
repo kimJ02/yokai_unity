@@ -57,6 +57,7 @@ namespace YokaiFront.UI
         void OnGUI()
         {
             if (!IsOpen) return;
+            if (PxScreens.Has<RegressionScreen>()) { IsOpen = false; RegressionScreen.Open(); return; } // Figma 회귀창이 그린다
             // 로비보다 **위에** 그려야 한다. IMGUI는 depth가 작은 쪽이 앞이다.
             GUI.depth = -10;
 

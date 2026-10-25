@@ -118,6 +118,8 @@ namespace YokaiFront.UI
             canvas.AddComponent<PauseMenu>();
             canvas.AddComponent<SettingsWindow>();
             canvas.AddComponent<TitleMenu>();
+            canvas.AddComponent<RegressionScreen>();
+            canvas.AddComponent<RelicScreen>();
             canvas.AddComponent<CommonPopup>();
         }
 
