@@ -92,6 +92,16 @@ namespace YokaiFront.Editor
             prof.gold = 2400;
             Shot(pc, cam, outDir, "각성", sel => awaken.ShowForCapture(sel));
 
+            var stage = pc.GetComponent<StageSelectScreen>();
+            Shot(pc, cam, outDir, "스테이지선택", sel => stage.ShowForCapture(sel));
+            var charSel = pc.GetComponent<CharacterSelectScreen>();
+            Shot(pc, cam, outDir, "캐릭터선택", sel => charSel.ShowForCapture(sel));
+            var result = pc.GetComponent<RunResultScreen>();
+            result.PreviewReason = RunEndReason.BossDead;
+            Shot(pc, cam, outDir, "원정기록", sel => result.ShowForCapture(sel));
+            result.PreviewReason = RunEndReason.Dead;
+            Shot(pc, cam, outDir, "전투패배", sel => result.ShowForCapture(sel));
+
             Debug.Log("[CaptureUiPreview] 저장: " + outDir);
             EditorApplication.Exit(0);
         }

@@ -95,6 +95,20 @@ namespace YokaiFront.UI
 
         public static bool Same(Color32 a, Color32 b) => a.r == b.r && a.g == b.g && a.b == b.b && a.a > 0;
 
+        /// <summary>그림에서 그 색이 칠해진 가로 범위(그림 왼쪽 기준 도트, 없으면 0·0) — 막대 채움 칸을 그림에서 재려고.</summary>
+        public static Vector2Int ColorSpanX(Sprite s, Color32 c)
+        {
+            if (s == null || !s.texture.isReadable) return Vector2Int.zero;
+            Rect r = s.textureRect;
+            var px = s.texture.GetPixels32();
+            int texW = s.texture.width, x0 = Mathf.RoundToInt(r.x), y0 = Mathf.RoundToInt(r.y);
+            int min = int.MaxValue, max = -1;
+            for (int y = 0; y < (int)r.height; y++)
+                for (int x = 0; x < (int)r.width; x++)
+                    if (Same(px[(y + y0) * texW + x + x0], c)) { min = Mathf.Min(min, x); max = Mathf.Max(max, x); }
+            return max < 0 ? Vector2Int.zero : new Vector2Int(min, max);
+        }
+
         static readonly Dictionary<(string, int), Sprite> sliced = new Dictionary<(string, int), Sprite>();
 
         /// <summary>

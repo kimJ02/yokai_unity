@@ -46,6 +46,12 @@ namespace YokaiFront.Core
 
         /// <summary>남은 시간(초). 0이 되면 원본은 `endRun('timeout')`(:4413).</summary>
         public static float TimeLeft { get; private set; }
+        /// <summary>이번 원정에 흐른 시간(보스 필드로 넘어가도 이어서 잰다) — Figma 원정 기록창 "기록 시간"(2026-10-24).</summary>
+        public static float Elapsed { get; private set; }
+        /// <summary>마지막으로 플레이어를 쓰러뜨린 것 — Figma 전투 패배창 "붕괴 원인"(UI가 보스인지 본다). 없으면 null.</summary>
+        public static GameObject DeathSource { get; private set; }
+
+        public static void NoteDeath(GameObject source) => DeathSource = source;
 
         /// <summary>이번 런 처치 수. 원본 `run.kills` — **보스는 세지 않는다**(:1857).</summary>
         public static int Kills { get; private set; }
@@ -67,6 +73,8 @@ namespace YokaiFront.Core
             Mode = mode;
             TimeLeft = mode == RunMode.Normal ? NormalTime : BossTime;
             Kills = 0;
+            Elapsed = 0f;
+            DeathSource = null;
             Fury = 0;
             GoldEarned = 0;
             ExpEarned = 0;
@@ -96,6 +104,7 @@ namespace YokaiFront.Core
         {
             if (Over) return false;
             TimeLeft = Mathf.Max(0f, TimeLeft - dt);
+            Elapsed += dt;
             return TimeLeft <= 0f;
         }
 

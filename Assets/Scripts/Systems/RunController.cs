@@ -127,6 +127,9 @@ namespace YokaiFront.Systems
         /// <summary>원본 `startRun(region, mode)`(project_test.html:4293).</summary>
         public void StartRun(int region, RunMode mode)
         {
+            // 스테이지에 들어갈 때마다 멸망까지 하루가 준다(사용자 결정 2026-10-24, PlayerProfile.doomDays).
+            // 보스 포탈로 보스 필드에 넘어가는 건 같은 원정이라 안 준다(그건 이 함수를 안 거친다).
+            if (mode == RunMode.Normal) ProfileService.Current.SpendDay();
             RunState.Begin(region, mode);
 
             // 무대를 먼저 바꾼다 — 발판 배치와 맵 폭(`FieldBounds.MaxX`)이 여기서 정해지고,

@@ -97,6 +97,17 @@ namespace YokaiFront.Core
         public int regressions = 0;
 
         /// <summary>
+        /// 멸망까지 남은 기간(일) — 사용자 결정(2026-10-24): **7일로 시작해 스테이지에 들어갈 때마다 하루 준다**(원본에 없는 규칙,
+        /// 팀 기획 "n일차" — 잡몹만 천천히 잡고 나와 강화하는 느린 공략을 막는 장치). 시간 회귀하면 다시 7일.
+        /// 0일이면 스테이지에 못 들어가고 시간 회귀만 남는다(0일 규칙은 아직 안 정해져 우선 이렇게 — 사용자 확인 전).
+        /// 옛 세이브엔 이 칸이 없어서 불러오면 기본값 7이 된다(`SaveService.Load`는 기본값 위에 덮어쓴다).
+        /// </summary>
+        public int doomDays = DoomDaysStart;
+        public const int DoomDaysStart = 7;
+        public bool CanEnterStage => doomDays > 0;
+        public void SpendDay() { if (doomDays > 0) doomDays--; }
+
+        /// <summary>
         /// 지역별 진행도 — 원본 `meta.regions[r] = { kills, bossUnlocked, bossCleared }`(project_test.html:1131).
         /// 인덱스는 0부터라 `[0]`이 1지역이다.
         ///
@@ -227,6 +238,7 @@ namespace YokaiFront.Core
 
             shards += gain;
             regressions++;
+            doomDays = DoomDaysStart; // 새 회차 — 멸망까지 다시 7일
             stats.shardsEarned += gain;
 
             // 원본 `resetAllCharLevels()`(:6519) — **모든 캐릭터**의 레벨·경험치·쓴 SP를 비운다.

@@ -243,6 +243,7 @@ namespace YokaiFront.Characters
                 }
 
                 CurrentHp = 0f;
+                RunState.NoteDeath(source); // 전투 패배창 "붕괴 원인"(2026-10-24)
                 Died?.Invoke();
                 // 원본은 체력이 0이 되는 그 자리에서 바로 런을 끝낸다(`endRun('dead')`, :1927).
                 CombatEvents.RaisePlayerDied();

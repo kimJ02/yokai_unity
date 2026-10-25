@@ -121,6 +121,9 @@ namespace YokaiFront.UI
             canvas.AddComponent<RegressionScreen>();
             canvas.AddComponent<RelicScreen>();
             canvas.AddComponent<AwakenScreen>();
+            canvas.AddComponent<StageSelectScreen>();
+            canvas.AddComponent<CharacterSelectScreen>();
+            canvas.AddComponent<RunResultScreen>();
             canvas.AddComponent<CommonPopup>();
         }
 
