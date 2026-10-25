@@ -3,18 +3,18 @@ using UnityEngine;
 namespace YokaiFront.Characters
 {
     /// <summary>
-    /// 마법사 차지 단계 깜빡임 — 2026-10-25 사용자 "법사는 차지 단계마다 플레이어가 깜빡거리게, 마법진은 없애".
-    /// 차지가 한 단계 오를 때마다 캐릭터 몸 모양이 한 번 하얗게 번쩍인다(몹 피격 플래시와 같은 셰이더·같은 세기·같은 감쇠).
+    /// 마법사 완충 깜빡임 — 2026-10-25 사용자 "차지 단계마다 깜빡이게" → 같은 날 "두 번 말고 풀차징 되면 한 번만".
+    /// 차지가 다 차는 순간 캐릭터 몸 모양이 한 번 하얗게 번쩍인다(몹 피격 플래시와 같은 셰이더·같은 세기·같은 감쇠).
     ///
-    /// 단계는 원본 `bowFire`가 실제로 가르는 문턱 그대로다: **50% = 강화탄**(`charged: chargeK >= 0.5` — 관통·폭발력·중첩 2)과
-    /// **99% = 완충**(`full = chargeK >= 0.99` — 폭발력 최대·중첩 3), project_test.html:1944·:1968·:1973·:2047.
+    /// 문턱은 원본 `bowFire`의 **완충 99%**(`full = chargeK >= 0.99` — 폭발력 최대·중첩 3), project_test.html:1944·:2047.
+    /// 강화탄(50%)에선 안 번쩍인다.
     /// 원본엔 이 깜빡임이 없다(원본의 차지 표시는 버프 줄 "차지 N%"뿐) — 사용자 결정으로 넣은 것.
     /// </summary>
     [RequireComponent(typeof(MageAttack))]
     public class MageChargeFlash : MonoBehaviour
     {
-        /// <summary>깜빡이는 차지 문턱(차지율) — 원본 강화탄·완충.</summary>
-        public static readonly float[] Stages = { 0.5f, 0.99f };
+        /// <summary>깜빡이는 차지 문턱(차지율) — 원본 완충 하나.</summary>
+        public static readonly float[] Stages = { 0.99f };
         /// <summary>한 번 번쩍임이 사라지는 시간(초) — 몹 피격 플래시(원본 `e.flash -= dt * 6`, 약 0.17초)와 같게.</summary>
         public const float Duration = 1f / 6f;
         /// <summary>번쩍임 세기 — 몹 피격 플래시(원본 `flash × 0.75`, :4799)와 같게.</summary>
@@ -26,7 +26,7 @@ namespace YokaiFront.Characters
         int stage;
         float flash;
 
-        /// <summary>차지율 k에서 몇 단계인지 — 0 = 아직, 1 = 강화탄, 2 = 완충.</summary>
+        /// <summary>차지율 k에서 몇 단계인지 — 0 = 아직, 1 = 완충.</summary>
         public static int StageAt(float k)
         {
             int s = 0;

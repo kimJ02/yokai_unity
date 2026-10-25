@@ -48,40 +48,56 @@ public class MageChargeFlashTests
     }
 
     [Test]
-    public void Stages_AreOriginalChargedAndFullThresholds()
+    public void OnlyFullCharge_Flashes()
     {
-        Assert.AreEqual(0, MageChargeFlash.StageAt(0.49f));
-        Assert.AreEqual(1, MageChargeFlash.StageAt(0.5f), "원본 강화탄 `chargeK >= 0.5`");
-        Assert.AreEqual(1, MageChargeFlash.StageAt(0.98f));
-        Assert.AreEqual(2, MageChargeFlash.StageAt(0.99f), "원본 완충 `chargeK >= 0.99`");
+        Assert.AreEqual(0, MageChargeFlash.StageAt(0.5f), "강화탄(50%)에선 안 번쩍인다(사용자 \"풀차징 되면 한 번만\")");
+        Assert.AreEqual(0, MageChargeFlash.StageAt(0.98f));
+        Assert.AreEqual(1, MageChargeFlash.StageAt(0.99f), "원본 완충 `chargeK >= 0.99`");
     }
 
     [Test]
-    public void FlashesOncePerStage_NotEveryFrame()
+    public void FlashesOnce_AtFullCharge_NotEveryFrame()
     {
         var mage = NewMage();
         var flash = mage.GetComponent<MageChargeFlash>();
         Assert.IsNotNull(flash, "MageAttack이 깜빡임을 붙인다");
         Charging.SetValue(mage, true);
 
-        ChargeT.SetValue(mage, 0.3f);
-        flash.Refresh(0.016f);
-        Assert.AreEqual(0f, flash.FlashAmount, "아직 한 단계도 안 찼다");
-
         ChargeT.SetValue(mage, 0.55f);
         flash.Refresh(0.016f);
-        Assert.AreEqual(1f, flash.FlashAmount, "50%를 넘는 순간 번쩍인다");
+        Assert.AreEqual(0f, flash.FlashAmount, "50%에선 안 번쩍인다");
+
+        ChargeT.SetValue(mage, 1f);
+        flash.Refresh(0.016f);
+        Assert.AreEqual(1f, flash.FlashAmount, "다 차는 순간 번쩍인다");
         var sr = mage.transform.Find("ChargeFlash").GetComponent<SpriteRenderer>();
         Assert.IsTrue(sr.enabled);
         Assert.AreSame(mage.GetComponent<SpriteRenderer>().sprite, sr.sprite, "몸 모양 그대로 하얗게");
 
         for (int i = 0; i < 20; i++) flash.Refresh(0.016f);
-        Assert.AreEqual(0f, flash.FlashAmount, "한 번 번쩍이고 사라진다(같은 단계에선 다시 안 번쩍)");
+        Assert.AreEqual(0f, flash.FlashAmount, "한 번 번쩍이고 사라진다(완충을 계속 들고 있어도 다시 안 번쩍)");
         Assert.IsFalse(sr.enabled);
+    }
 
-        ChargeT.SetValue(mage, 1f);
-        flash.Refresh(0.016f);
-        Assert.AreEqual(1f, flash.FlashAmount, "완충(99%)에서 한 번 더");
+    [Test]
+    public void GravityX_WithoutBlackHole_DoesNothing_AndKeepsCooldown()
+    {
+        YokaiFront.Combat.GravityWellZone.ClearAllForTests();
+        ProfileService.Current.mageBranch = MageBranch.Gravity;
+        ProfileService.Current.mageTier = 3;
+        var mage = NewMage();
+        var tryUse = typeof(MageAttack).GetMethod("TryUseSkill", BindingFlags.NonPublic | BindingFlags.Instance);
+        var ultCd = typeof(MageAttack).GetField("ultCdTimer", BindingFlags.NonPublic | BindingFlags.Instance);
+
+        tryUse.Invoke(mage, new object[] { ProfileService.Current, MageBranch.Gravity, 3 });
+        Assert.LessOrEqual((float)ultCd.GetValue(mage), 0f, "블랙홀이 없으면 X가 안 나가고 쿨다운도 안 쓴다");
+        Assert.AreEqual(0, Object.FindObjectsByType<YokaiFront.Combat.GravityBurstRing>(FindObjectsSortMode.None).Length, "아무 데서도 안 터진다");
+
+        YokaiFront.Combat.GravityWellZone.SpawnOrMerge(mage.transform.position + Vector3.right, 3, 0.5f);
+        tryUse.Invoke(mage, new object[] { ProfileService.Current, MageBranch.Gravity, 3 });
+        Assert.Greater((float)ultCd.GetValue(mage), 0f, "깔아 둔 블랙홀이 있으면 터뜨리고 쿨다운이 돈다");
+        YokaiFront.Combat.GravityWellZone.ClearAllForTests();
+        foreach (var b in Object.FindObjectsByType<YokaiFront.Combat.GravityBurstRing>(FindObjectsSortMode.None)) Object.DestroyImmediate(b.gameObject);
     }
 
     [Test]

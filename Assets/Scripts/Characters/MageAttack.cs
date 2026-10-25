@@ -234,6 +234,8 @@ public class MageAttack : MonoBehaviour, ICharacterKit, IRunResettable, ISkillSl
         }
         else
         {
+            // 깔아 둔 블랙홀(중력점)이 범위 안에 없으면 아무것도 안 하고 쿨다운도 안 쓴다(2026-10-25 사용자 — 원본은 정면에 한 번 터뜨렸다).
+            if (!MageSkillEffects.AnyWellInCollapseRange(transform.position)) return;
             Vector2? nearest = FindNearestEnemyPosition();
             MageSkillEffects.GravityCollapse(tier, transform.position, facing, nearest);
         }

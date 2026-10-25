@@ -94,16 +94,25 @@ namespace YokaiFront.Combat
         }
 
         /// <summary>
+        /// 대붕괴로 터뜨릴 중력점이 범위 안에 하나라도 있나 — 2026-10-25 사용자 "블랙홀을 안 깔았는데 X를 누르면 터지는 버그":
+        /// 원본은 중력점이 없으면 정면(가장 가까운 적)에 한 번 터뜨리지만(아래 <see cref="GravityCollapse"/>의 대체 지점), 우리 게임은
+        /// 중력점이 없으면 X가 안 나간다(쿨다운도 안 쓴다, `MageAttack.TryUseSkill`) — 의도적 편차.
+        /// </summary>
+        public static bool AnyWellInCollapseRange(Vector2 playerPos) => GravityWellZone.Active.Exists(w => InCollapseRange(w, playerPos));
+
+        static bool InCollapseRange(GravityWellZone w, Vector2 playerPos) =>
+            w != null &&
+            Mathf.Abs(w.transform.position.x - playerPos.x) < MageSpecConfig.CollapseSearchHalfWidth &&
+            Mathf.Abs(w.transform.position.y - playerPos.y) < MageSpecConfig.CollapseSearchHalfHeight;
+
+        /// <summary>
         /// 원본 `gravityCollapse`(project_test.html:2081) — X 스킬(중력 계열). 살아있는 중력점을
         /// 전부(플레이어 근처 범위 안에서) 터뜨린다. 중력점이 하나도 없으면 플레이어 정면(또는
         /// 가장 가까운 적 위치)에 한 번만 터뜨린다.
         /// </summary>
         public static (int count, bool critical, int bursts) GravityCollapse(int tier, Vector2 playerPos, int playerFacing, Vector2? nearestEnemyPos)
         {
-            var wells = GravityWellZone.Active.FindAll(w =>
-                w != null &&
-                Mathf.Abs(w.transform.position.x - playerPos.x) < MageSpecConfig.CollapseSearchHalfWidth &&
-                Mathf.Abs(w.transform.position.y - playerPos.y) < MageSpecConfig.CollapseSearchHalfHeight);
+            var wells = GravityWellZone.Active.FindAll(w => InCollapseRange(w, playerPos));
             wells.Sort((a, b) => b.Stack != a.Stack ? b.Stack - a.Stack : a.Age.CompareTo(b.Age));
 
             var centers = new System.Collections.Generic.List<(Vector2 pos, int stack, GravityWellZone well)>();
