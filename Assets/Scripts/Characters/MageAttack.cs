@@ -41,7 +41,7 @@ public class MageAttack : MonoBehaviour, ICharacterKit, IRunResettable, ISkillSl
     /// </summary>
     public void ResetForRun() => OnSelected();
 
-    /// <summary>차지 중인가 — 마법진(<see cref="MageChargeCircle"/>)이 읽는다.</summary>
+    /// <summary>차지 중인가 — 차지 단계 깜빡임(<see cref="MageChargeFlash"/>)이 읽는다.</summary>
     public bool IsCharging => charging;
     /// <summary>차지율 0~1(`chargeT / chargeMax`).</summary>
     public float ChargeRatio => chargeMax > 0f ? Mathf.Clamp01(chargeT / chargeMax) : 0f;
@@ -113,8 +113,9 @@ public class MageAttack : MonoBehaviour, ICharacterKit, IRunResettable, ISkillSl
         bodyCol = GetComponent<CircleCollider2D>();
         health = GetComponent<PlayerHealth>();
 
-        // 차지 표시는 마법진(갈래별)이 한다 — 예전 하늘색 구체(차지할수록 커지는 마탄 그림)는 2026-10-25 사용자 요청으로 뺐다.
-        if (!TryGetComponent(out MageChargeCircle _)) gameObject.AddComponent<MageChargeCircle>();
+        // 차지 표시는 단계마다 캐릭터가 깜빡이는 것 하나다(2026-10-25 사용자) — 예전 하늘색 구체(차지할수록 커지는 마탄 그림)와
+        // 시전자 앞 마법진은 사용자 요청으로 뺐다.
+        if (!TryGetComponent(out MageChargeFlash _)) gameObject.AddComponent<MageChargeFlash>();
     }
 
     void Update()
@@ -139,6 +140,11 @@ public class MageAttack : MonoBehaviour, ICharacterKit, IRunResettable, ISkillSl
 
         cdTimer -= Time.deltaTime;
         ultCdTimer -= Time.deltaTime;
+
+        // 사냥 중이 아니면(로비·결과·일시정지) 키를 안 본다 — 전투 키도 안 눌린 것으로 오는데(GameInput), 그대로 아래로 가면
+        // "차지 중인데 Z를 뗐다"로 읽혀 로비에서 탄이 나간다(2026-10-25 사용자 "로비 들어갔을 때 스킬이 한 번 써진다").
+        // 차지는 그대로 멈춰 두고(일시정지에서 돌아오면 이어서), 새 사냥은 ResetForRun이 접는다.
+        if (!GameState.IsRunning) return;
 
         if (GameInput.UltDown && ultCdTimer <= 0f) TryUseSkill(profile, branch, tier);
 

@@ -36,6 +36,16 @@ namespace YokaiFront.Systems
 
         float hitstopLeft;
 
+        /// <summary>
+        /// 히트스톱 사이에 두는 쉬는 시간(초) — 2026-10-25 사용자 "히트스톱을 모든 히트마다 걸지 말고 어느 정도 시간을 두고".
+        /// 원본은 맞힐 때마다 `freeze = max(freeze, …)`(:1683)라, 섬영처럼 0.13초마다 휘두르면 시간의 4분의 1쯤이 멈춰 있었다(의도적 편차).
+        /// 한 번 멈췄다 풀리면 이 시간 동안은 새로 멈추지 않는다. 이미 멈춰 있는 동안 들어온 더 긴 멈춤(처치 등)은 원본처럼 늘린다.
+        /// </summary>
+        public const float HitstopGap = 0.25f;
+        /// <summary>이 길이 이상의 멈춤(성소 0.12·보스 처치 0.25)은 쉬는 시간과 상관없이 건다 — 드물고, 그 순간 연출의 핵심이라.</summary>
+        public const float HitstopGapBypass = HitFeel.HitstopShrine;
+        float hitstopCooldown;
+
         /// <summary>원본 `setTimeout(() => endRun('bossdead'), 1600)`(project_test.html:4289).</summary>
         public const float BossDeadEndDelay = 1.6f;
         float bossDeadTimer = -1f;
@@ -110,10 +120,15 @@ namespace YokaiFront.Systems
             // 히트스톱은 게임을 멈추는 것이므로 **멈춘 시간(unscaled)으로 재야 한다** —
             // `Time.deltaTime`으로 재면 timeScale이 0인 동안 타이머가 안 줄어 영원히 안 풀린다.
             HitFeel.TickRedFlash(Time.deltaTime); // 원본 `state.redFlash -= dt * 2.2`(:4426) — 게임 시간
+            if (hitstopCooldown > 0f) hitstopCooldown -= Time.unscaledDeltaTime;
             if (hitstopLeft > 0f)
             {
                 hitstopLeft -= Time.unscaledDeltaTime;
-                if (hitstopLeft <= 0f) Time.timeScale = 1f;
+                if (hitstopLeft <= 0f)
+                {
+                    Time.timeScale = 1f;
+                    hitstopCooldown = HitstopGap; // 풀린 뒤 잠깐은 새로 안 멈춘다
+                }
                 return; // 멈춘 동안엔 런 타이머도 안 간다(원본도 dt=0이라 같다)
             }
 
@@ -141,6 +156,7 @@ namespace YokaiFront.Systems
             RunTransient.DestroyAll();
             CombatModifiers.ResetForRun(); // 원본 `combo.n = 0; run.chainN = 0`(:4307·:4319)
             hitstopLeft = 0f;
+            hitstopCooldown = 0f;
             HitFeel.Reset();
             bossDeadTimer = -1f;
 
@@ -287,6 +303,8 @@ namespace YokaiFront.Systems
         public void Hitstop(float duration)
         {
             if (GameState.Current != GameScene.Run || RunState.Over) return;
+            // 쉬는 중이면 건너뛴다(HitstopGap) — 이미 멈춰 있는 중이거나 아주 긴 멈춤이면 예외.
+            if (hitstopLeft <= 0f && hitstopCooldown > 0f && duration < HitstopGapBypass) return;
             hitstopLeft = Mathf.Max(hitstopLeft, duration); // 원본도 max로 겹친다
             Time.timeScale = 0f;
         }

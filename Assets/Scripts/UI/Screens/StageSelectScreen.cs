@@ -11,7 +11,7 @@ namespace YokaiFront.UI
     ///
     /// Figma 640판은 왼쪽 판이 비어 있어서 **옛 1920판 목록**(stage1~9 · 돌파도 · 진입/잠김)으로 채웠다. ↻ = 창 닫기(사용자 "설정창 끄는 버튼").
     /// 보스 도전 버튼은 640판에 없다 — 보스는 지금처럼 필드 끝 포탈(사용자 2026-09-16).
-    /// 원정 떠나기 = 원본 입장(입장료 지불 → 사냥 시작), 그리고 **멸망까지 하루가 준다**(사용자 2026-10-24, `PlayerProfile.doomDays`).
+    /// 원정 떠나기 = 사냥 시작, 그리고 **멸망까지 하루가 준다**(사용자 2026-10-24, `PlayerProfile.doomDays`). 입장료는 없다(사용자 2026-10-25 — 원본은 받았다).
     /// 등장 몬스터는 실제 출현표(`EnemySpawnTable`, 원본 `rollSpawnType`)대로, 그림은 스포너가 쓰는 몹 그림 그대로.
     /// </summary>
     public class StageSelectScreen : PxScreen
@@ -169,9 +169,7 @@ namespace YokaiFront.UI
 
             int s = selected;
             title.text = $"stage {s}";
-            int fee = RegionConfig.EntryFee(s);
-            infoLine.text = $"{RegionConfig.NameOf(s)} · 권장 Lv.{RegionConfig.RecommendedLevel(s)}+ · 입장료 {(fee == 0 ? "무료" : fee.ToString("N0") + " G")}" +
-                            $" · 멸망까지 {p.doomDays}일";
+            infoLine.text = $"{RegionConfig.NameOf(s)} · 권장 Lv.{RegionConfig.RecommendedLevel(s)}+ · 멸망까지 {p.doomDays}일";
 
             var types = MonstersOf(s);
             var spawner = Object.FindFirstObjectByType<EnemySpawner>();
@@ -218,7 +216,7 @@ namespace YokaiFront.UI
         }
 
         /// <summary>
-        /// 스테이지에 들어간다 — 잠김·멸망(0일)·입장료를 확인하고(안 되면 공용 팝업으로 알림) 입장료를 내고 사냥을 시작한다.
+        /// 스테이지에 들어간다 — 잠김·멸망(0일)을 확인하고(안 되면 공용 팝업으로 알림) 사냥을 시작한다. 입장료는 없다(사용자 2026-10-25).
         /// 스테이지 선택의 "원정 떠나기"와 결과 화면의 "다시 원정"이 같이 쓴다. 들어가면 멸망까지 하루가 준다(`RunController.StartRun`).
         /// </summary>
         public static bool TryEnter(int s)
@@ -230,11 +228,8 @@ namespace YokaiFront.UI
                 CommonPopup.Alert("멸망", "멸망까지 남은 기간이 다했다.\n시간 회귀(환생)로 되돌아가야 한다.");
                 return false;
             }
-            int fee = RegionConfig.EntryFee(s);
-            if (p.gold < fee) { CommonPopup.Alert("입장료 부족", $"입장료 {fee:N0} G가 필요하다.\n지금 {p.gold:N0} G."); return false; }
             var run = Object.FindFirstObjectByType<RunController>();
             if (run == null) return false;
-            if (fee > 0) p.gold -= fee; // 원본 `startRun`의 입장료 처리(:4297~4303)
             run.StartRun(s, RunMode.Normal);
             return true;
         }

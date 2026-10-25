@@ -42,12 +42,13 @@ public class RegionAndRunTotalsTests
     /// 완만하게 고치면 게임의 진행 압력이 통째로 사라진다.
     /// </summary>
     [Test]
-    public void EntryFee_MatchesOriginalExponentialCurve()
+    public void EntryFee_IsFree_OriginalCurveKeptForReference()
     {
-        Assert.AreEqual(0, RegionConfig.EntryFee(1), "1지역은 무료다");
-        Assert.AreEqual(300, RegionConfig.EntryFee(2));
-        Assert.AreEqual(Mathf.FloorToInt(300f * 2.2f), RegionConfig.EntryFee(3));
-        Assert.AreEqual(Mathf.FloorToInt(300f * Mathf.Pow(2.2f, 7)), RegionConfig.EntryFee(9));
+        for (int r = 1; r <= 9; r++) Assert.AreEqual(0, RegionConfig.EntryFee(r), $"stage {r} — 입장료 없음(사용자 2026-10-25)");
+        Assert.AreEqual(0, RegionConfig.OriginalEntryFee(1), "원본도 1지역은 무료다");
+        Assert.AreEqual(300, RegionConfig.OriginalEntryFee(2));
+        Assert.AreEqual(Mathf.FloorToInt(300f * 2.2f), RegionConfig.OriginalEntryFee(3));
+        Assert.AreEqual(Mathf.FloorToInt(300f * Mathf.Pow(2.2f, 7)), RegionConfig.OriginalEntryFee(9));
     }
 
     /// <summary>원본 `regionBaseLv(r) = (r-1)*3 + 1`(project_test.html:972).</summary>

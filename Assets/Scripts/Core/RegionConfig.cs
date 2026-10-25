@@ -27,8 +27,14 @@ namespace YokaiFront.Core
         public static string NameOf(int region) =>
             region >= 1 && region <= Count ? Names[region - 1] : "?";
 
-        /// <summary>원본 `entryFeeOf(r)`(:6438) — 1지역은 무료.</summary>
-        public static int EntryFee(int region) =>
+        /// <summary>
+        /// 스테이지 입장료 — **받지 않는다**(2026-10-25 사용자 "입장료 없애고"). 원본은 지역마다 지수로 올라 결국 시간 회귀를 강제했다
+        /// (<see cref="OriginalEntryFee"/>) — 의도적 편차, docs/original-parity.md. 이제 회귀를 미는 건 몹 체력 상승과 멸망까지 남은 기간이다.
+        /// </summary>
+        public static int EntryFee(int region) => 0;
+
+        /// <summary>원본 `entryFeeOf(r)`(:6438) — 1지역은 무료. 원본 대조용으로만 남겨 둔다(게임은 <see cref="EntryFee"/>를 쓴다).</summary>
+        public static int OriginalEntryFee(int region) =>
             region <= 1 ? 0 : Mathf.FloorToInt(EntryFeeBase * Mathf.Pow(EntryFeeGrow, region - 2));
 
         /// <summary>몹 표시 레벨 = 권장 레벨. 원본 `regionBaseLv(r) = (r-1)*3 + 1`(:972).</summary>

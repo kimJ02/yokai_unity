@@ -25,13 +25,21 @@ namespace YokaiFront.Core
         /// <summary>런이 실제로 굴러가는 중인지(일시정지·결과·로비면 false).</summary>
         public static bool IsRunning => Current == GameScene.Run;
 
+        /// <summary>바로 전 화면 — 일시정지에서 돌아온 건지, 로비·결과에서 새로 들어온 건지 가른다(<see cref="GameInput"/>).</summary>
+        public static GameScene Previous { get; private set; } = GameScene.Lobby;
+
+        /// <summary>화면이 바뀔 때마다 1씩 는다 — "화면이 바뀌었나"를 이벤트 구독 없이 알아보는 값(<see cref="GameInput"/>).</summary>
+        public static int Version { get; private set; }
+
         /// <summary>화면이 바뀔 때 1회. HUD/로비 UI가 구독해서 표시를 전환한다.</summary>
         public static event System.Action<GameScene> Changed;
 
         public static void Set(GameScene scene)
         {
             if (Current == scene) return;
+            Previous = Current;
             Current = scene;
+            Version++;
             Changed?.Invoke(scene);
         }
 
@@ -43,6 +51,8 @@ namespace YokaiFront.Core
         public static void Reset()
         {
             Current = GameScene.Lobby;
+            Previous = GameScene.Lobby;
+            Version++;
             Changed = null;
         }
     }

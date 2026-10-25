@@ -23,16 +23,45 @@ namespace YokaiFront.Core
         public static bool Up => Input.GetKey(KeyCode.UpArrow);
         public static bool Down => Input.GetKey(KeyCode.DownArrow);
 
+        // ---- 전투 키(점프 C · 공격 Z · 스킬 X)는 사냥 중에만 읽힌다 ----
+        // 2026-10-25 사용자 "로비 들어갔을 때 스킬이 한 번 써진다": 메뉴의 "확인"도 Z라(<see cref="MenuConfirmDown"/>) 결과 창에서
+        // Z로 로비에 들어가면 같은 키가 공격으로도 읽혀, 시간이 멈춘 로비에 탄·스킬이 나가 있었다. 캐릭터 스크립트(팀원 것 포함)는
+        // 화면 상태를 안 보고 키만 읽어서(원래 계약은 "사냥 중에만 돈다" — `GameState` 주석), 키를 읽는 이 한 곳에서 막는다.
+        //   - 사냥 중이 아니면(로비·결과·타이틀·일시정지) 안 눌린 것으로 본다.
+        //   - 로비·결과·타이틀에서 사냥으로 들어오는 순간 누르고 있던 키는 **한 번 뗐다 다시 눌러야** 읽힌다 — 스테이지 선택에서
+        //     Z로 "원정 떠나기"를 누르자마자 공격이 나가지 않게. 일시정지에서 돌아올 땐 안 잠근다(누르던 차지를 그대로 이어 간다).
+        static readonly KeyCode[] CombatKeys = { KeyCode.C, KeyCode.Z, KeyCode.X };
+        static readonly bool[] combatLatched = new bool[3];
+        static int latchedVersion = -1;
+
+        static bool CombatKey(int index, bool down)
+        {
+            if (!GameState.IsRunning) return false;
+            if (latchedVersion != GameState.Version)
+            {
+                latchedVersion = GameState.Version;
+                bool fromMenu = GameState.Previous != GameScene.Pause;
+                for (int i = 0; i < CombatKeys.Length; i++) combatLatched[i] = fromMenu && Input.GetKey(CombatKeys[i]);
+            }
+            var key = CombatKeys[index];
+            if (combatLatched[index])
+            {
+                if (Input.GetKey(key)) return false;
+                combatLatched[index] = false;
+            }
+            return down ? Input.GetKeyDown(key) : Input.GetKey(key);
+        }
+
         // ---- 점프 (원본 jump — 이 프로젝트는 C 전용, 의도적 편차) ----
-        public static bool JumpHeld => Input.GetKey(KeyCode.C);
-        public static bool JumpDown => Input.GetKeyDown(KeyCode.C);
+        public static bool JumpHeld => CombatKey(0, false);
+        public static bool JumpDown => CombatKey(0, true);
 
         // ---- 공격 (원본 atkBow, 마법사 Z) ----
-        public static bool AttackHeld => Input.GetKey(KeyCode.Z);
-        public static bool AttackDown => Input.GetKeyDown(KeyCode.Z);
+        public static bool AttackHeld => CombatKey(1, false);
+        public static bool AttackDown => CombatKey(1, true);
 
         // ---- 스킬 (원본 ult, X) ----
-        public static bool UltDown => Input.GetKeyDown(KeyCode.X);
+        public static bool UltDown => CombatKey(2, true);
 
         // ---- 일시정지 (원본 :1026 — ESC로 run ↔ pause 토글) ----
         /// <summary>
