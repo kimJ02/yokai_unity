@@ -219,6 +219,17 @@ git checkout main            # 10/14: 섬영·내 브랜치 전부 main에 병�
 
 ## 로그 (최신이 위)
 
+- **2026-10-25 (2)** — **[나] UI 흐림 고침 — 판을 화면에 꽉 채우고 글꼴을 번짐 없이 (`feature/figma-ui`, PlayMode 375/375).** 사용자 "UI 창들이 다 흐릿하다"(타이틀·각성·로비 건물·스테이지 선택 스크린샷).
+  - 원인 셋: ① UI 판을 정수배로만 키워서 에디터 Game 창(857×482)에선 1배(640×360)로 작게 그려졌다 — 8~12px 글자가 뭉개짐.
+    ② 글꼴이 기본 가져오기 설정(Smooth = 안티에일리어싱)이라 작은 글자 가장자리가 회색으로 번졌다. ③ 에디터 Game 창의 "Low Resolution Aspect Ratios"가
+    켜져 있어(Windows 125%) 80% 크기로 그린 그림을 1.25배 늘려 보여준다(스크린샷에서 도트가 7·8픽셀로 번갈아 커진 것으로 확인).
+  - 고친 것: ① `PixelCanvas.ScaleFor` = 화면을 꽉 채우는 배율(720p·1080p·1440p는 그대로 딱 정수배 — 정수배에 2% 안으로 가깝고 2픽셀 넘게 안 넘치면 정수배).
+    ② 글꼴 `fontRenderingMode: 2`(Hinted Raster, 번짐 없음) — 이 글꼴은 외곽선이 원래 계단 모양이라 큰 글자도 그대로 깔끔하고, 글꼴 안 gasp 표도 9~16px는 흑백을 권한다.
+    로비 건물 간판(월드 캔버스)도 같이 선명해진다. ③은 에디터 설정이라 코드로 안 건드리고 사용자에게 끄는 법을 안내.
+  - `CaptureUiPreview -captureSizes 857x482,1072x602` — 창 크기별로도 찍는다. 사용자 스크린샷과 같은 곳을 나란히 놓고 확인(지금 / 고친 뒤 에디터 설정 그대로 / 저해상도 끄면).
+  - 주의: 섬영 `BladeSkillTreeTests.Storm_Tier4_GrabCapRespected`가 두 번 우연히 실패(겹쳐 놓은 적 8마리가 그 한 프레임에 물리 계산이 끼면 밀려나서 5마리만 잡힘).
+    UI·글꼴과 무관 — 변경 전 코드 375/375, 같은 코드 재실행 375/375. 팀원 테스트라 안 건드렸다(`WaitForFixedUpdate` 없이 프레임 하나에 기대는 구조).
+
 - **2026-10-25 (1)** — **[나] Figma UI 13페이지 전부 적용 + 걸어 다니는 로비 + 멸망까지 7일 (`feature/figma-ui`, PlayMode 375/375).** 사용자 "Figma UI 13페이지 다 넣을 거야" (10/24).
   - **바탕**: IMGUI(글자를 키워서 흐림·배치 캡처 불가) 대신 **uGUI 640×360 판을 정수배로**(1080p ×3) — `UI/Pixel/`(`PixelCanvas`·`Px`·`PxArt`·`PxButton`·`PxScreen`·`PxTooltip`).
     Figma 원본 PNG(`download_assets` rawImages)를 `Resources/Art/Figma/UI/`에, 버튼 올림·눌림·비활성은 원본 밝기만 바꿔 만든다. 글꼴 DNF Bit Bit v2(네오플 공식, 저작권 고지 동봉).

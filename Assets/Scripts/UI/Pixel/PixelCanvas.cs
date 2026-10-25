@@ -8,8 +8,9 @@ namespace YokaiFront.UI
     /// Figma UI(640×360 도트)를 그리는 판 — 2026-10-24 사용자 "Figma UI 13페이지 다 넣을 거야".
     ///
     /// uGUI 캔버스 하나를 화면 전체에 깔고, 화면마다 가운데 640×360 판(<see cref="PxScreen.Content"/>)을 둔다.
-    /// **정수배로만 키운다**(1080p ×3, 1440p ×4, 720p ×2) — Figma 그림이 도트 그대로 보이게. 화면이 640×360보다 작을 때만
-    /// (에디터의 작은 Game 창) 맞춰 줄인다. 16:9가 아니면 판은 가운데, 남는 곳은 화면별 배경(어두운 막 등)만 덮는다.
+    /// 판은 **화면을 꽉 채우게** 키운다(<see cref="ScaleFor"/>) — 표준 해상도(720p ×2, 1080p ×3, 1440p ×4)에선 딱 정수배라
+    /// Figma 그림이 도트 그대로 보이고, 그 밖의 창 크기에선 소수배. 16:9가 아니면 판은 가운데, 남는 곳은 화면별 배경(어두운 막 등)만 덮는다.
+    /// 글자는 번짐 없이(글꼴 가져오기 설정 Hinted Raster) 실제 화면 크기로 그려진다.
     ///
     /// 예전 IMGUI 화면(`UiTheme.Scaled`)은 글자를 설계 크기로 만든 뒤 키워서 흐렸고(사용자 "화질이 구리다"), 배치 모드에서
     /// 캡처할 수 없어 Figma와 나란히 비교할 수 없었다. uGUI 글자는 실제 화면 크기로 그려져 선명하고 캡처도 된다.
@@ -81,11 +82,19 @@ namespace YokaiFront.UI
 
         public RectTransform LayerRoot(Layer layer) => layers[(int)layer];
 
-        /// <summary>그 화면 크기에서 쓸 배율 — 640×360이 들어가는 가장 큰 정수배. 그보다 작은 화면이면 맞춰 줄인다.</summary>
+        /// <summary>
+        /// 그 화면 크기에서 쓸 배율 — **화면을 꽉 채운다**. 표준 해상도(720p ×2, 1080p ×3, 1440p ×4)는 딱 정수배라 도트가 고르고,
+        /// 그 밖의 창(에디터 Game 창 등)은 소수배. 예전엔 정수배로 내려서 857×482 창에선 1배(640×360)로 작게 그려졌고
+        /// 작은 글자가 뭉개져 보였다(2026-10-25 사용자 "UI 창들이 다 흐릿하다").
+        /// </summary>
         public static float ScaleFor(float screenW, float screenH)
         {
             float fit = Mathf.Min(screenW / Width, screenH / Height);
-            return fit >= 1f ? Mathf.Floor(fit) : fit;
+            // 정수배에 아주 가까우면 정수배로 — 작게 맞출 땐 가장자리가 조금(2% 안) 비고, 크게 맞출 땐 많아야 2픽셀 넘친다.
+            float whole = Mathf.Round(fit);
+            if (whole >= 1f && Mathf.Abs(fit - whole) < 0.02f && whole * Width <= screenW + 2f && whole * Height <= screenH + 2f)
+                return whole;
+            return fit;
         }
 
         void ApplyScale()

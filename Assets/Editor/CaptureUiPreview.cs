@@ -11,6 +11,7 @@ namespace YokaiFront.Editor
     /// <summary>
     /// Figma UI 화면을 PNG로 찍는다(2026-10-24) — 1스테이지 게임 화면 위에 UI를 겹쳐서 두 가지로:
     /// `이름_1080.png` = 1920×1080(UI 3배, 실제로 보이는 모습), `이름_360.png` = 640×360(UI 1배, 선택 표시 없이 — Figma 그림과 1:1 비교용).
+    /// `-captureSizes 857x482,1072x602`를 주면 그 창 크기로도 찍는다(`이름_857x482.png`, 배율은 게임과 같은 <see cref="PixelCanvas.ScaleFor"/>).
     /// 씬을 열기만 하고 저장하지 않는다.
     ///
     /// 배치 실행(그래픽 필요 — `-nographics` 빼고):
@@ -18,10 +19,13 @@ namespace YokaiFront.Editor
     /// </summary>
     public static class CaptureUiPreview
     {
+        static Vector2Int[] extraSizes = new Vector2Int[0];
+
         public static void Run()
         {
             string outDir = ArgValue("-captureOut") ?? Path.Combine(Directory.GetCurrentDirectory(), "Temp", "UiCapture");
             Directory.CreateDirectory(outDir);
+            extraSizes = ParseSizes(ArgValue("-captureSizes"));
 
             EditorSceneManager.OpenScene("Assets/Scenes/CombatCore.unity", OpenSceneMode.Single);
             FieldLayout.SetBossArena(false);
@@ -123,6 +127,25 @@ namespace YokaiFront.Editor
             HideAll(pc);
             show(false);
             Render(pc, cam, dir, name + "_360", 640, 360, 1f);
+            foreach (var size in extraSizes)
+            {
+                HideAll(pc);
+                show(true);
+                Render(pc, cam, dir, $"{name}_{size.x}x{size.y}", size.x, size.y, PixelCanvas.ScaleFor(size.x, size.y));
+            }
+        }
+
+        /// <summary>"857x482,1072x602" → 창 크기들.</summary>
+        static Vector2Int[] ParseSizes(string arg)
+        {
+            if (string.IsNullOrEmpty(arg)) return new Vector2Int[0];
+            var list = new System.Collections.Generic.List<Vector2Int>();
+            foreach (var part in arg.Split(','))
+            {
+                var wh = part.Split('x');
+                if (wh.Length == 2 && int.TryParse(wh[0], out int w) && int.TryParse(wh[1], out int h)) list.Add(new Vector2Int(w, h));
+            }
+            return list.ToArray();
         }
 
         static void HideAll(PixelCanvas pc)

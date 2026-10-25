@@ -47,13 +47,15 @@ public class PixelUiTests
     }
 
     [Test]
-    public void Scale_IsLargestWholeMultiple_ShrinksOnlyBelow640x360()
+    public void Scale_FillsScreen_WholeAtStandardResolutions()
     {
-        Assert.AreEqual(3f, PixelCanvas.ScaleFor(1920, 1080), "1080p는 3배");
+        Assert.AreEqual(3f, PixelCanvas.ScaleFor(1920, 1080), "1080p는 정확히 3배");
         Assert.AreEqual(2f, PixelCanvas.ScaleFor(1280, 720));
-        Assert.AreEqual(2f, PixelCanvas.ScaleFor(1366, 768), "정수배만 — 2.13배가 아니라 2배");
         Assert.AreEqual(4f, PixelCanvas.ScaleFor(2560, 1440));
-        Assert.AreEqual(1f, PixelCanvas.ScaleFor(916, 548), "작은 Game 창");
+        Assert.AreEqual(3f, PixelCanvas.ScaleFor(1920, 1078), "거의 정수배면 정수배로(도트 고르게, 넘쳐도 2픽셀)");
+        Assert.AreEqual(1075f / 360f, PixelCanvas.ScaleFor(1920, 1075), 1e-4f, "정수배로 하면 2픽셀 넘게 넘칠 땐 꽉 채우기");
+        Assert.AreEqual(482f / 360f, PixelCanvas.ScaleFor(857.4f, 482f), 1e-4f, "에디터 Game 창 — 1배로 작아지지 않고 화면을 채운다");
+        Assert.AreEqual(768f / 360f, PixelCanvas.ScaleFor(1366, 768), 1e-4f, "노트북 1366×768도 꽉 채운다");
         Assert.AreEqual(600f / 640f, PixelCanvas.ScaleFor(600, 400), 1e-5f, "640×360보다 작으면 맞춰 줄인다");
     }
 
@@ -223,6 +225,11 @@ public class PixelUiTests
     public void FigmaArt_AndFont_AreInResources()
     {
         Assert.IsNotNull(Px.Font, "DNF Bit Bit v2 글꼴");
+#if UNITY_EDITOR
+        var fontImporter = (UnityEditor.TrueTypeFontImporter)UnityEditor.AssetImporter.GetAtPath("Assets/Resources/Fonts/DNFBitBitv2.ttf");
+        Assert.AreEqual(UnityEditor.FontRenderingMode.HintedRaster, fontImporter.fontRenderingMode,
+                        "글자 가장자리가 번지면 안 된다(10/25 사용자 \"UI가 흐릿하다\")");
+#endif
         foreach (var path in new[] { "Pause/band", "Common/title_plate", "Common/icon_frame", "Common/window_frame",
                                      "Common/button", "Common/button_small", "Icons/play", "Icons/gear", "Icons/exit",
                                      "Icons/close", "Hud/status_frame", "Hud/slot_frame", "Hud/icon_attack",
