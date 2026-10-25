@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using UnityEngine;
 using YokaiFront.Core;
 using YokaiFront.World;
@@ -28,7 +27,7 @@ namespace YokaiFront.Enemies
 ///   중력 루프를 쓰고 원본 전체가 이 상한을 공유함 — `CharacterMover2D` 참고).
 /// - **필드 X 경계 여백 0.3유닛**(원본 `e.x = clamp(e.x, 30, mapW-30)`, 매 프레임). 이전엔 배회
 ///   중 경계 clamp가 아예 없어서 몹이 필드 밖으로 나갈 수 있었다.
-/// - **몹끼리 안 겹친다**(2026-10-25 사용자 결정 — 원본은 겹친다, <see cref="SeparateFromNeighbours"/>).
+/// - **몹끼리 물리로 안 부딪힌다**(2026-10-25 사용자) — 원본처럼 겹쳐 지나간다(Awake의 `excludeLayers`).
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(Rigidbody2D))]
@@ -89,27 +88,14 @@ public class EnemyMove : MonoBehaviour, ISpawnProtectable, IGravityAffectable
     // 그냥 rb.linearVelocity에 넣으면 아래 FixedUpdate가 다음 프레임에 통째로 덮어써서 사라진다.
     float knockbackX;
 
-    // ---- 몹끼리 안 겹치기 — 2026-10-25 사용자 "몬스터끼리 겹치면 안 된다" ----
-    // 원본엔 없다: 원본 updateEnemies엔 몹끼리 밀어내기가 없어 그냥 겹쳐 지나간다(의도적 편차, docs/original-parity.md).
-    // 예전엔 몹끼리 물리 충돌을 켜 둬서(레이어 충돌표 Enemy↔Enemy) 원형 콜라이더끼리 밀리다가 **서로 위로 타고 올라가 쌓였다** — 특히
-    // 중력장(블랙홀)이 끌어모을 때(측정: 중력장 셋을 깐 3스테이지 몹 22마리 — 위에 올라탄 쌍 최대 6, 같은 줄 겹침 7). 그래서 몹끼리의 물리 접촉은 끄고(Awake의 `excludeLayers`),
-    // 같은 줄(높이 차가 작은 것)끼리만 **옆으로** 떼어 놓는다 — 위로 올라탈 길이 없다.
-    static readonly List<EnemyMove> Active = new List<EnemyMove>();
-    /// <summary>높이 차가 (두 반지름 합 × 이것)보다 작으면 같은 줄로 본다 — 층(발판 1.35유닛 간격)이 다르면 서로 상관없다.</summary>
-    public const float SameRowFactor = 0.8f;
-    /// <summary>겹친 거리의 몇 할을 한 물리 단계에 벌리나 — 한 번에 다 벌리면 튄다.</summary>
-    public const float SeparationRate = 0.25f;
-    /// <summary>벌리는 속도 상한(유닛/초).</summary>
-    public const float MaxSeparationSpeed = 3f;
-
-    void OnEnable() => Active.Add(this);
-    void OnDisable() => Active.Remove(this);
-
     void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
         rb.freezeRotation = true;
-        // 몹끼리는 물리로 안 부딪힌다 — 대신 SeparateFromNeighbours가 옆으로 떼어 놓는다(위 설명).
+        // 몹끼리는 물리로 안 부딪힌다 — 2026-10-25 사용자 "몬스터끼리 충돌이 일어나서 문제였다, 겹쳐도 된다". 예전엔 레이어 충돌표에서
+        // Enemy↔Enemy가 켜져 있어 원형 콜라이더끼리 밀리다 서로 위로 타고 올라가 쌓였다(특히 중력장이 끌어모을 때 — 측정: 중력장 셋을 깐
+        // 3스테이지에서 올라탄 쌍 최대 6). 원본도 몹끼리 밀어내기가 없어 그냥 겹쳐 지나간다(updateEnemies :4015) — 원본대로 돌아간 것.
+        // 레이어 충돌표(프로젝트 설정)를 안 고치고 몹 몸마다 끈다 — 편집기가 켜진 채 설정 파일을 바꾸면 편집기가 덮어쓴다.
         int enemyLayer = LayerMask.NameToLayer("Enemy");
         if (enemyLayer >= 0) rb.excludeLayers |= 1 << enemyLayer;
         col = GetComponent<CircleCollider2D>();
@@ -219,9 +205,6 @@ public class EnemyMove : MonoBehaviour, ISpawnProtectable, IGravityAffectable
     /// </summary>
     public void ApplyGravityWellPull(Vector2 positionDelta)
     {
-        // 몹끼리 안 겹치기(2026-10-25) — 옆 몹 쪽으로는 더 안 끌린다. 이게 없으면 블랙홀 가운데로 다 뭉쳐 겹쳤다
-        // (측정: 중력장 셋을 깐 3스테이지에서 같은 줄 겹침 7쌍·위에 올라탄 쌍 6). 끄는 힘이 밀어내는 속도보다 세서 막아야 한다.
-        positionDelta.x = BlockTowardNeighbours(positionDelta.x);
         rb.position += positionDelta;
         knockbackX *= 0.85f;
     }
@@ -243,7 +226,6 @@ public class EnemyMove : MonoBehaviour, ISpawnProtectable, IGravityAffectable
             ? motion.GetHorizontalSpeed(Time.fixedDeltaTime, target, buffedSpeed)
             : dir * buffedSpeed;
         float vx = IsSpawnProtected ? 0f : ownSpeed + knockbackX; // 원본 `e.vx + e.kbx`
-        vx = SeparateFromNeighbours(vx);
 
         float minX = FieldBounds.MinX + edgeMargin;
         float maxX = FieldBounds.MaxX - edgeMargin;
@@ -267,62 +249,6 @@ public class EnemyMove : MonoBehaviour, ISpawnProtectable, IGravityAffectable
         if (rb.position.x < minX || rb.position.x > maxX)
             rb.position = new Vector2(Mathf.Clamp(rb.position.x, minX, maxX), rb.position.y);
     }
-
-    /// <summary>
-    /// 옆 몹과 겹치지 않게 고친 수평 속도 — 같은 줄(지상형은 지상형끼리, 비행형은 비행형끼리)에 붙어 있는 몹에 대해:
-    /// ① 그쪽으로는 더 못 간다(줄을 선다 — 넉백으로 밀려 들어가는 것도 막힌다),
-    /// ② 이미 겹쳤으면(넉백·중력장·분열 직후) 겹친 만큼 조금씩 옆으로 벌린다. 몸집이 클수록 덜 밀린다(반지름²으로 나눔 — 보스는 거의 안 밀린다).
-    /// 스폰 보호 중(반투명 유령)과 성소는 빠진다. 위아래로는 안 민다.
-    /// </summary>
-    float SeparateFromNeighbours(float vx)
-    {
-        if (!Separates) return vx;
-        vx = BlockTowardNeighbours(vx); // ①
-        float myW = WorldRadius * WorldRadius;
-        float push = 0f;
-        for (int i = 0; i < Active.Count; i++)
-        {
-            var other = Active[i];
-            if (!TouchingInRow(other, out float away, out float overlap)) continue;
-            float otherW = other.WorldRadius * other.WorldRadius;
-            push += away * overlap * (otherW / (myW + otherW)) * SeparationRate / Time.fixedDeltaTime; // ②
-        }
-        return vx + Mathf.Clamp(push, -MaxSeparationSpeed, MaxSeparationSpeed);
-    }
-
-    /// <summary>같은 줄에 붙어 있는(또는 겹친) 몹 쪽으로 가는 수평 이동은 0으로 — 걷기·넉백·중력장 끌림 모두.</summary>
-    float BlockTowardNeighbours(float dx)
-    {
-        if (dx == 0f || !Separates) return dx;
-        for (int i = 0; i < Active.Count; i++)
-            if (TouchingInRow(Active[i], out float away, out _) && dx * away < 0f) return 0f;
-        return dx;
-    }
-
-    /// <summary>
-    /// 그 몹과 같은 줄에서 붙어 있나(지상형끼리·비행형끼리, 높이 차가 작고 수평 거리가 두 반지름 합보다 작다).
-    /// `away` = 그 몹에게서 멀어지는 방향(±1), `overlap` = 겹친 거리.
-    /// </summary>
-    bool TouchingInRow(EnemyMove other, out float away, out float overlap)
-    {
-        away = 0f;
-        overlap = 0f;
-        if (other == this || other == null || !other.Separates || (other.verticalMotion != null) != (verticalMotion != null)) return false;
-        // 물리로 서로 부딪히는 사이면(몹끼리 접촉을 안 끈 레이어 — 테스트가 만든 Default 레이어 몹 등) 물리에 맡긴다.
-        // 게임 몹은 전부 Enemy 레이어라 Awake에서 접촉을 끈다 — 밀어내기는 끈 접촉을 대신하는 것이다.
-        if ((rb.excludeLayers.value & (1 << other.gameObject.layer)) == 0) return false;
-        float minDist = WorldRadius + other.WorldRadius;
-        Vector2 d = rb.position - other.rb.position;
-        if (Mathf.Abs(d.y) >= minDist * SameRowFactor) return false;
-        float adx = Mathf.Abs(d.x);
-        if (adx >= minDist) return false;
-        // 정확히 같은 자리면 만들어진 순서로 방향을 정한다(둘이 같은 쪽으로 달아나지 않게).
-        away = d.x > 0f ? 1f : d.x < 0f ? -1f : (GetInstanceID() > other.GetInstanceID() ? 1f : -1f);
-        overlap = minDist - adx;
-        return true;
-    }
-
-    bool Separates => isActiveAndEnabled && !isStructure && !IsSpawnProtected;
 
     /// <summary>
     /// 종류 전용 스크립트가 방향을 직접 정할 때 쓴다(원본은 타입별 분기 안에서 `e.dir`을 바꾼다).

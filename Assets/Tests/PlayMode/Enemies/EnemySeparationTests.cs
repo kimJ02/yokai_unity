@@ -9,8 +9,8 @@ namespace YokaiFront.Tests.PlayMode
 {
 
 /// <summary>
-/// 몹끼리 안 겹치기(2026-10-25 사용자 "몬스터끼리 겹치면 안 된다" — 원본은 겹친다). 몹끼리 물리 접촉은 끄고(서로 위로 타고 올라가 쌓이던 원인)
-/// 같은 줄에 있는 것끼리 옆으로 떼어 놓는다(`EnemyMove.SeparateFromNeighbours`).
+/// 몹끼리 물리 충돌 없음(2026-10-25 사용자 "몬스터끼리 충돌이 일어나서 문제였다, 겹쳐도 된다"). 원형끼리 밀리다 위로 타고 올라가 쌓이던 원인을 끄고,
+/// 원본처럼 겹쳐 지나간다.
 /// </summary>
 public class EnemySeparationTests
 {
@@ -34,14 +34,6 @@ public class EnemySeparationTests
         g.layer = LayerMask.NameToLayer("Ground");
         g.transform.position = new Vector3(12f, FieldBounds.GroundY - 0.5f, 0f);
         g.AddComponent<BoxCollider2D>().size = new Vector2(30f, 1f);
-    }
-
-    static void NewPlatform(Vector2 center, float width)
-    {
-        var p = new GameObject("TestPlatform");
-        p.layer = LayerMask.NameToLayer("Ground");
-        p.transform.position = center;
-        p.AddComponent<BoxCollider2D>().size = new Vector2(width, 0.15f);
     }
 
     /// <summary>게임 몹처럼 Enemy 레이어에 둔 몹. 반지름 0.5, 스폰 보호 없음, 기본은 제자리.</summary>
@@ -74,44 +66,31 @@ public class EnemySeparationTests
     }
 
     [UnityTest]
-    public IEnumerator OverlappingEnemies_SpreadSideBySide_NotStacked()
+    public IEnumerator OverlappingEnemies_StayOnGround_NoPushNoStacking()
     {
         NewGround();
         var a = NewEnemy(5f, FieldBounds.GroundY + 0.5f);
         var b = NewEnemy(5.1f, FieldBounds.GroundY + 0.5f);
         yield return Physics(1.2f);
 
-        float dx = Mathf.Abs(a.WorldPosition.x - b.WorldPosition.x);
-        Assert.GreaterOrEqual(dx, 0.95f, "겹친 두 마리가 옆으로 벌어져야 한다(반지름 합 1.0)");
+        Assert.AreEqual(5f, a.WorldPosition.x, 0.02f, "몹끼리 밀어내지 않는다 — 겹쳐도 된다(원본처럼)");
+        Assert.AreEqual(5.1f, b.WorldPosition.x, 0.02f, "몹끼리 밀어내지 않는다");
         Assert.AreEqual(FieldBounds.GroundY + 0.5f, a.WorldPosition.y, 0.05f, "위로 올라타면 안 된다");
         Assert.AreEqual(FieldBounds.GroundY + 0.5f, b.WorldPosition.y, 0.05f, "위로 올라타면 안 된다");
     }
 
     [UnityTest]
-    public IEnumerator WalkingIntoNeighbour_LinesUp_DoesNotPassOrClimb()
+    public IEnumerator WalkingEnemy_PassesThroughAnother_WithoutClimbing()
     {
         NewGround();
         var standing = NewEnemy(5f, FieldBounds.GroundY + 0.5f);
-        var walker = NewEnemy(7f, FieldBounds.GroundY + 0.5f, speed: 1f);
+        var walker = NewEnemy(6.5f, FieldBounds.GroundY + 0.5f, speed: 3f);
         walker.SetDirection(-1);
-        yield return Physics(3f);
+        yield return Physics(1.2f); // 첫 배회 방향 전환(Awake에서 1.5~3.5초로 정해짐)보다 짧게
 
-        Assert.GreaterOrEqual(walker.WorldPosition.x - standing.WorldPosition.x, 0.95f, "앞 몹을 뚫고 지나가면 안 된다 — 뒤에 줄을 선다");
+        Assert.Less(walker.WorldPosition.x, standing.WorldPosition.x, "막히지 않고 지나간다(원본처럼 겹쳐 지나감)");
         Assert.AreEqual(FieldBounds.GroundY + 0.5f, walker.WorldPosition.y, 0.05f, "앞 몹 위로 타고 올라가면 안 된다");
-    }
-
-    [UnityTest]
-    public IEnumerator DifferentFloors_DoNotPushEachOther()
-    {
-        NewGround();
-        float platformTop = FieldBounds.GroundY + 2f;
-        NewPlatform(new Vector2(5f, platformTop - 0.075f), 3f);
-        var below = NewEnemy(5f, FieldBounds.GroundY + 0.5f);
-        var above = NewEnemy(5f, platformTop + 0.5f);
-        yield return Physics(0.6f);
-
-        Assert.AreEqual(5f, below.WorldPosition.x, 0.02f, "다른 층 몹 때문에 밀리면 안 된다");
-        Assert.AreEqual(5f, above.WorldPosition.x, 0.02f, "다른 층 몹 때문에 밀리면 안 된다");
+        Assert.AreEqual(5f, standing.WorldPosition.x, 0.02f, "서 있는 몹은 밀리지 않는다");
     }
 }
 
