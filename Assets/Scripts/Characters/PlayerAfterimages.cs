@@ -65,6 +65,9 @@ namespace YokaiFront.Characters
         void Update()
         {
             float dt = Time.deltaTime; // 히트스톱·일시정지 땐 0 — 원본처럼 잔상도 같이 멈춘다
+            // 로비·타이틀로 나가면 남은 잔상을 지운다 — 시간이 멈춘 채(dt 0) 그 자리에 하얗게 굳어 로비 하늘에 줄지어 떠 있었다
+            // (2026-10-25 사용자 섬영 플레이 스크린샷). 일시정지·결과 화면은 사냥 화면 위라 그대로 둔다.
+            if (ghosts.Count > 0 && LeftTheField) ResetForRun();
             Age(dt);
             if (dt > 0f && GameState.Current == GameScene.Run && ProfileService.Current.character == CharacterId.Blade)
             {
@@ -136,6 +139,8 @@ namespace YokaiFront.Characters
                 ghosts[i] = g;
             }
         }
+
+        static bool LeftTheField => GameState.Current == GameScene.Lobby || GameState.Current == GameScene.Title;
 
         /// <summary>원본 `resetPlayerForRun`의 `p.afterimages = []`(:1518).</summary>
         public void ResetForRun()

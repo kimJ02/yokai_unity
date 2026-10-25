@@ -137,7 +137,9 @@ namespace YokaiFront.Enemies
                 float raw = atk * burnDamagePerStackPct * burnStacks;
                 // 화상 틱은 원본이 noCrit·noHitstop·kb:0으로 넘긴다 — 여기선 크리티컬 확률 0, 넉백 0.
                 int dmg = DamageCalculator.Roll(raw, 0f, out _);
-                TakeTickDamage(dmg);
+                burnTick = true; // 화상 틱은 타격 소리를 안 낸다(EnemyTickDamaged에서 빠짐)
+                try { TakeTickDamage(dmg); }
+                finally { burnTick = false; }
             }
             if (burnRemaining <= 0f) burnStacks = 0; // 원본 `if (e.burnT <= 0) e.burnS = 0`
         }
@@ -166,6 +168,8 @@ namespace YokaiFront.Enemies
 
         // 지금 들어온 피해가 지속 피해 틱인지. 히트스톱만 이 값을 본다(위 주석 참고).
         bool inTickDamage;
+        // 그 틱이 화상(지속 피해)인지 — 무기 틱(레이저 등)과 달리 타격 소리를 안 낸다.
+        bool burnTick;
 
         /// <summary>
         /// 지속 피해 틱(화상·불길 장판·중력점). 넉백 0, 히트스톱 없음 — 원본 `dealDamage`의
@@ -202,6 +206,7 @@ namespace YokaiFront.Enemies
             // 원본은 `dealDamage` 안에서 조건 없이 `addCombo()`를 부른다(:1682) — 화상 틱도 포함이다.
             CombatModifiers.AddCombo();
             // 히트스톱은 **직접 타격만** 건다(원본 `!opts.isBurnTick`, :1686).
+            if (inTickDamage && !burnTick) CombatEvents.RaiseEnemyTickDamaged(gameObject); // 레이저 등 무기 틱 — 타격 소리용
             if (!inTickDamage)
             {
                 CombatEvents.RaiseEnemyDamaged(gameObject);

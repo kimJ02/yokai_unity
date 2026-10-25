@@ -47,6 +47,12 @@ namespace YokaiFront.Core
         public static event System.Action<GameObject> EnemyDamaged;
 
         /// <summary>
+        /// 적이 **무기의 틱 피해**를 받았을 때 — 메카닉 레이저·포탑·연결장, 섬영 궤적, 불길 장판, 중력장처럼 맞힐 때마다가 아니라
+        /// 짧은 간격으로 계속 깎는 공격. 화상(지속 피해) 틱은 빠진다. 타격 소리(`UI/HitSound`)가 듣는다(2026-10-25 사용자 "레이저는 소리가 아예 안 난다").
+        /// </summary>
+        public static event System.Action<GameObject> EnemyTickDamaged;
+
+        /// <summary>
         /// 히트스톱 요청(초). `Systems/RunController.Hitstop`이 구독한다 — 피격(공격마다 다른 길이, `Core/HitFeel`)·연쇄 처치 등.
         /// 처치 멈춤은 `EnemyKilled`에서 따로 건다. 0 이하는 무시한다(원본 `noHitstop`).
         /// </summary>
@@ -59,6 +65,7 @@ namespace YokaiFront.Core
 
         public static void RaiseEnemyKilled(GameObject enemy) => EnemyKilled?.Invoke(enemy);
         public static void RaiseEnemyDamaged(GameObject enemy) => EnemyDamaged?.Invoke(enemy);
+        public static void RaiseEnemyTickDamaged(GameObject enemy) => EnemyTickDamaged?.Invoke(enemy);
         public static void RaisePlayerDied() => PlayerDied?.Invoke();
         public static void RaiseShrineBuffGranted(float duration) => ShrineBuffGranted?.Invoke(duration);
         public static void RaiseRewardGranted(int gold, int exp) => RewardGranted?.Invoke(gold, exp);
@@ -71,6 +78,7 @@ namespace YokaiFront.Core
         {
             EnemyKilled = null;
             EnemyDamaged = null;
+            EnemyTickDamaged = null;
             HitstopRequested = null;
             PlayerDied = null;
             ShrineBuffGranted = null;

@@ -50,6 +50,8 @@ namespace YokaiFront.Characters
         void Update()
         {
             float dt = Time.deltaTime; // 히트스톱·일시정지 땐 0 — 같이 멈춘다
+            // 로비·타이틀로 나가면 남은 베기 그림을 지운다(시간이 멈춰 그 자리에 굳어 남는다 — 잔상과 같은 문제).
+            if (playing.Count > 0 && (GameState.Current == GameScene.Lobby || GameState.Current == GameScene.Title)) ResetForRun();
             Age(dt);
             if (blade == null || CdTimer == null) return;
             float cd = (float)CdTimer.GetValue(blade);

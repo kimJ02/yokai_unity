@@ -53,6 +53,18 @@ public class AfterimageTests
         return go.AddComponent<PlayerAfterimages>();
     }
 
+    [UnityTest]
+    public IEnumerator Ghosts_AreCleared_WhenGoingToLobby()
+    {
+        var ai = NewBody(new Vector3(2f, 1f, 0f));
+        ai.Spawn(ai.transform.position);
+        ai.Spawn(ai.transform.position + Vector3.right);
+        Assert.AreEqual(2, ai.Count);
+        GameState.Set(GameScene.Lobby); // 시간이 멈춰도(dt 0) 남지 않아야 한다
+        yield return null;
+        Assert.AreEqual(0, ai.Count, "로비 하늘에 잔상이 굳어 남던 버그(2026-10-25)");
+    }
+
     [Test]
     public void Chance_MatchesOriginal_At60fps_AndKeepsRatePerSecond()
     {
