@@ -50,7 +50,6 @@ public class MageAttack : MonoBehaviour, ICharacterKit, IRunResettable, ISkillSl
     {
         charging = false;
         chargeT = 0f;
-        if (chargeIndicator != null) chargeIndicator.gameObject.SetActive(false);
         if (mover != null) mover.SpeedMultiplier = 1f;
     }
 
@@ -107,7 +106,6 @@ public class MageAttack : MonoBehaviour, ICharacterKit, IRunResettable, ISkillSl
     // 발사·시전 때 정해진다(`cooldown`은 매 프레임 다시 계산되므로 분모로 쓰면 도중에 스탯이 바뀔 때 튄다).
     float attackCdMax;
     float ultCdMax;
-    SpriteRenderer chargeIndicator;
 
     void Awake()
     {
@@ -115,15 +113,8 @@ public class MageAttack : MonoBehaviour, ICharacterKit, IRunResettable, ISkillSl
         bodyCol = GetComponent<CircleCollider2D>();
         health = GetComponent<PlayerHealth>();
 
-        if (!TryGetComponent(out MageChargeCircle _)) gameObject.AddComponent<MageChargeCircle>(); // 차지 마법진(갈래별)
-
-        var ind = new GameObject("ChargeIndicator");
-        ind.transform.SetParent(transform, false);
-        chargeIndicator = ind.AddComponent<SpriteRenderer>();
-        chargeIndicator.sprite = boltSprite;
-        chargeIndicator.color = new Color(boltColor.r, boltColor.g, boltColor.b, 0.6f);
-        chargeIndicator.sortingOrder = 4;
-        ind.SetActive(false);
+        // 차지 표시는 마법진(갈래별)이 한다 — 예전 하늘색 구체(차지할수록 커지는 마탄 그림)는 2026-10-25 사용자 요청으로 뺐다.
+        if (!TryGetComponent(out MageChargeCircle _)) gameObject.AddComponent<MageChargeCircle>();
     }
 
     void Update()
@@ -156,20 +147,17 @@ public class MageAttack : MonoBehaviour, ICharacterKit, IRunResettable, ISkillSl
         {
             charging = true;
             chargeT = 0f;
-            chargeIndicator.gameObject.SetActive(true);
         }
 
         if (charging)
         {
             chargeT = Mathf.Min(chargeMax, chargeT + Time.deltaTime);
             float k = chargeT / chargeMax;
-            chargeIndicator.transform.localScale = Vector3.one * (0.35f + k * 0.5f);
 
             if (!held)
             {
                 Fire(k, branch, tier);
                 charging = false;
-                chargeIndicator.gameObject.SetActive(false);
                 cdTimer = attackCdMax = cooldown;
             }
         }
