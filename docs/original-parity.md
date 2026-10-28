@@ -271,7 +271,7 @@
 - **블랙홀(중력) 마법사 X는 깔아 둔 중력점이 범위 안에 있을 때만 나간다**(2026-10-25 사용자 "블랙홀을 안 깔았는데 X를 누르면 터지는 버그") —
   원본은 중력점이 없으면 정면(가장 가까운 적)에 한 번 터뜨린다(`gravityCollapse` :2081). 없으면 아무 일도 없고 쿨다운도 안 쓴다(`MageSkillEffects.AnyWellInCollapseRange`).
 - **화면 흔들림 키움**(2026-10-28 사용자) — 모든 흔들림을 화면에 옮길 때 1.5배(`HitFeel.ShakeStrength`, 원본 px 값은 그대로 기록),
-  평타·무기 틱 적중에 약한 흔들림 2px·0.08초를 새로 넣음(원본엔 일반 타격 흔들림이 없다, 0.25초 간격 — `RunController.HandleEnemyHit`),
+  평타·무기 틱 적중에 흔들림 5px·0.14초를 새로 넣음(모든 캐릭터 같은 값)(원본엔 일반 타격 흔들림이 없다, 0.25초 간격 — `RunController.HandleEnemyHit`),
   블랙홀 X(대붕괴)는 원본 5·임계 9에서 12·18로(`MageSkillEffects.CollapseShakePx`).
 - **스테이지 입장료 없음**(2026-10-25 사용자) — 원본은 지역마다 300G부터 ×2.2(`entryFeeOf` :6438)를 받아 결국 시간 회귀를 강제했다.
   원본 곡선은 `RegionConfig.OriginalEntryFee`에 남겨 뒀다. 회귀를 미는 건 이제 몹 체력 상승과 멸망까지 남은 기간.
