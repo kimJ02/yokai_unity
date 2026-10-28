@@ -82,10 +82,16 @@ public class HitstopGapTests
         CombatEvents.RaiseEnemyDamaged(null);
         Assert.AreEqual(HitFeel.HitShakePx, HitFeel.ShakeMag, "평타 적중 — 약하게 흔든다(사용자 2026-10-28)");
         HitFeel.Reset();
+        CombatEvents.RaiseEnemyDamaged(null);
+        Assert.AreEqual(0f, HitFeel.ShakeMag, "간격 안의 다음 평타는 안 흔든다");
         CombatEvents.RaiseEnemyTickDamaged(null);
-        Assert.AreEqual(0f, HitFeel.ShakeMag, "간격 안의 다음 타격(레이저 틱 등)은 안 흔든다");
+        Assert.AreEqual(HitFeel.TickShakePx, HitFeel.ShakeMag, "지속 피해 틱은 간격을 따로 세고, 평타보다 약하게 흔든다");
+        Assert.Less(HitFeel.TickShakePx, HitFeel.HitShakePx);
+        HitFeel.Reset();
+        CombatEvents.RaiseEnemyTickDamaged(null);
+        Assert.AreEqual(0f, HitFeel.ShakeMag, "틱도 간격 안에선 안 흔든다");
         yield return new WaitForSecondsRealtime(HitFeel.HitShakeGap + 0.05f);
-        CombatEvents.RaiseEnemyTickDamaged(null);
+        CombatEvents.RaiseEnemyDamaged(null);
         Assert.AreEqual(HitFeel.HitShakePx, HitFeel.ShakeMag, "간격이 지나면 다시 흔든다");
     }
 

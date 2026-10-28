@@ -54,9 +54,16 @@ namespace YokaiFront.Core
         /// 거는 곳은 `Systems/RunController`(직접 타격·무기 틱 알림을 받는다). 모든 캐릭터 평타가 같은 값이다 — 처음 2px·0.08초는
         /// 안 보여서 5px·0.14초로 올렸다(사용자 2026-10-28 "모든 캐릭터 평타에 같은 값으로").
         /// </summary>
-        public const float HitShakePx = 5f;
+        public const float HitShakePx = 10f;
         public const float HitShakeTime = 0.14f;
         public const float HitShakeGap = 0.25f;
+
+        /// <summary>
+        /// 지속 피해 틱(레이저·포탑·연결장·섬영 궤적·불길 장판·깔린 블랙홀)의 흔들림 — 평타보다 약하게(사용자 2026-10-28
+        /// "도트뎀처럼 들어가는 건 평타보다 낮게"). 간격은 평타와 따로 센다 — 틱이 평타 흔들림을 막지 않게.
+        /// </summary>
+        public const float TickShakePx = 2f;
+        public const float TickShakeTime = 0.08f;
 
         public static float ShakeMag { get; private set; }
         public static float ShakeTime { get; private set; }
