@@ -39,6 +39,12 @@ namespace YokaiFront.UI
         public const float WalkHalfRange = 3.3f;
         /// <summary>건물 크기(그림 도트, 1도트 = 1/128유닛) — 96×104 = 0.75×0.81유닛, 캐릭터(0.5)의 약 1.6배.</summary>
         public const float BuildingW = 96f, BuildingH = 104f;
+        /// <summary>건물 글씨 자리 — 건물 위쪽에서 이만큼(그림 도트) 내려온 곳(이름·"F / ↑").</summary>
+        public const float NameFromTop = 15f, DoorFromTop = 83f;
+
+        /// <summary>i번째 건물에서 위쪽으로부터 `fromTop`도트 내려온 곳의 월드 좌표 — 로비 표시가 글씨를 겹쳐 그린다.</summary>
+        public static Vector2 LabelWorldPos(int index, float fromTop) =>
+            new Vector2(XOf(index), FieldBounds.GroundY + (BuildingH - fromTop) * WorldPx);
         const float WorldPx = 1f / 128f; // 그림 1도트 = 월드 1/128유닛(C안)
 
         public static LobbyWorld Instance { get; private set; }
@@ -146,9 +152,9 @@ namespace YokaiFront.UI
             // 틀은 9-슬라이스로 줄인다 — 그림째 줄이면 1도트 테두리가 깨진다.
             var facade = Px.Image(rt, "Facade", PxArt.Sliced("Stage/frame_info", 8), 0f, 0f, w, h);
             facade.type = Image.Type.Sliced;
-            Px.Text(rt, "Name", b.Name, 0f, 6f, w, 18f, 12, Color.white).WithOutline(Px.Ink);
             Px.Image(rt, "Icon", PxArt.Get(b.Icon), w / 2f - 20f, 28f, 40f, 40f);
-            Px.Text(rt, "Door", "F / ↑", 0f, 76f, w, 14f, 8, Px.Hex(0xfac70e)).WithOutline(Px.Ink);
+            // 글씨(이름·"F / ↑")는 여기 안 그린다 — 월드에 12도트로 그리면 화면에서 늘어나 흐렸다(사용자 2026-10-28 "글자가 흐리다").
+            // 로비 표시(`LobbyHud`)가 화면 해상도로 이 건물 위에 겹쳐 그린다(<see cref="LabelWorldPos"/>).
         }
     }
 }

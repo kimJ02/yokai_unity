@@ -22,6 +22,7 @@ namespace YokaiFront.UI
         static readonly Rect Minimap = new Rect(504f, 312f, 128f, 32f);
 
         Text doom, region, who, money, prompt;
+        Text[] buildingNames, buildingDoors;
         Image expFill, playerDot;
         static readonly string[] CharacterNames = { "마법사", "메카닉", "섬영", "드루이드" };
 
@@ -47,6 +48,16 @@ namespace YokaiFront.UI
 
             prompt = Px.Text(Content, "Prompt", "", 170f, 292f, 300f, 14f, 10, Gold).WithOutline(Px.Ink);
 
+            // 건물 글씨 — 월드 건물(LobbyWorld) 위에 화면 해상도로 겹쳐 그린다(월드에 그리면 늘어나 흐렸다, 사용자 2026-10-28).
+            int n = LobbyWorld.Buildings.Length;
+            buildingNames = new Text[n];
+            buildingDoors = new Text[n];
+            for (int i = 0; i < n; i++)
+            {
+                buildingNames[i] = Px.Text(Content, "BuildingName" + i, LobbyWorld.Buildings[i].Name, 0f, 0f, 80f, 12f, 8, Color.white).WithOutline(Px.Ink);
+                buildingDoors[i] = Px.Text(Content, "BuildingDoor" + i, "F / ↑", 0f, 0f, 80f, 10f, 6, Gold).WithOutline(Px.Ink);
+            }
+
             Px.Fill(Content, "ExpBorder", ExpBorder, 0f, 356f, 640f, 4f);
             Px.Fill(Content, "ExpBack", ExpBack, 1f, 357f, 638f, 2f);
             expFill = Px.Fill(Content, "ExpFill", ExpFill, 1f, 357f, 0f, 2f);
@@ -57,6 +68,32 @@ namespace YokaiFront.UI
             var b = Px.TextButton(Content, "Quick" + i, PxArt.Sliced("Common/button", 4), 8f + i * 58f, 326f, 54f, 24f,
                                   label, 10, Color.white, onClick);
             b.Art.type = Image.Type.Sliced;
+        }
+
+        /// <summary>
+        /// 건물 글씨를 건물 위에 놓는다 — 월드 좌표를 640판 좌표로. 로비 카메라는 가운데에 서 있고(`CameraFollow2D`) 화면에 보이는 월드는
+        /// 가로 7.5 × 세로 4.22유닛(`StageArtConfig`)이 판 640×360에 딱 맞는다.
+        /// </summary>
+        void PlaceBuildingLabels()
+        {
+            var cam = Camera.main;
+            if (cam == null || buildingNames == null) return;
+            Vector2 c = cam.transform.position;
+            for (int i = 0; i < buildingNames.Length; i++)
+            {
+                Place(buildingNames[i], LobbyWorld.LabelWorldPos(i, LobbyWorld.NameFromTop), c);
+                Place(buildingDoors[i], LobbyWorld.LabelWorldPos(i, LobbyWorld.DoorFromTop), c);
+                // 그 건물 앞에 서 있으면 "F / ↑"는 숨긴다 — 글씨가 캐릭터 위에 겹치고, 아래쪽 큰 안내가 대신 뜬다.
+                buildingDoors[i].enabled = LobbyWorld.Instance == null || LobbyWorld.Instance.NearIndex != i;
+            }
+        }
+
+        static void Place(Text t, Vector2 world, Vector2 cam)
+        {
+            var rt = (RectTransform)t.transform;
+            float bx = 320f + (world.x - cam.x) * (320f / YokaiFront.World.StageArtConfig.ViewHalfWidth);
+            float by = 180f - (world.y - cam.y) * (180f / YokaiFront.World.StageArtConfig.ViewHalfHeight);
+            rt.anchoredPosition = new Vector2(Mathf.Round(bx - rt.sizeDelta.x / 2f), -Mathf.Round(by - rt.sizeDelta.y / 2f));
         }
 
         static float MapX(float worldX)
@@ -83,6 +120,8 @@ namespace YokaiFront.UI
             if (player != null)
                 ((RectTransform)playerDot.transform).anchoredPosition =
                     new Vector2(Minimap.x + MapX(player.transform.position.x) - 1f, -(Minimap.y + 22f));
+
+            PlaceBuildingLabels();
 
             var world = LobbyWorld.Instance;
             int near = world != null ? world.NearIndex : -1;
