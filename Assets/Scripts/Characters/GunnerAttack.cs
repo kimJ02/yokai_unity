@@ -164,6 +164,18 @@ namespace YokaiFront.Characters
             beam = new GunnerLaserBeam(this, mover);
         }
 
+        /// <summary>
+        /// Run을 벗어나는 순간 광선·장판 표시를 꺼 둔다 — 아래 <see cref="Update"/>의 IsRunning 가드만으로는
+        /// "광선을 쏘는 중에 죽어서 Run을 벗어난" 경우 그 표시가 로비까지 그대로 남는 걸 못 막는다(Update
+        /// 자체가 멈추니 꺼 줄 코드도 같이 멈춘다). <see cref="OnDeselected"/>와 같은 정리를 재사용한다.
+        /// </summary>
+        void OnEnable() => GameState.Changed += HandleGameStateChanged;
+        void OnDisable() => GameState.Changed -= HandleGameStateChanged;
+        void HandleGameStateChanged(GameScene scene)
+        {
+            if (scene != GameScene.Run) OnDeselected();
+        }
+
         void Update()
         {
             // 원본 statAtk()/statAs()가 호출마다 다시 계산되는 것과 같은 방식 — 필드 자기 자신이 아니라
@@ -180,16 +192,26 @@ namespace YokaiFront.Characters
             cdTimer -= dt;
             ultCdTimer -= dt;
 
-            if (GameInput.UltDown) TryUseSkill();
-
-            // 원본(:3538): `if (!updateGunnerBeam(dt, held) && !p.attacking && p.atkCds.gunner <= 0 && (held || justAtk)) gunnerFire();`
-            // 레이저 빌드는 누르고 있는 동안 광선이 켜져서 총알이 안 나간다.
-            bool held = GameInput.AttackHeld;
-            bool beamOn = UpdateBeam(dt, held);
-            if (!beamOn && cdTimer <= 0f && (held || GameInput.AttackDown))
+            // 로비 등 Run 밖에서는 "새 입력을 받아 액션을 거는" 부분만 막는다 — 위 쿨다운·피해량
+            // 재계산과 아래 UpdateField(dt)는 그대로 둬야 한다(PlayMode 테스트가 Update()를 직접 돌려서
+            // 확인하는데, 테스트의 GameState는 기본 Lobby라 여기를 통째로 막으면 Field_* 테스트들이
+            // 깨진다 — 실제로 한 번 그렇게 했다가 깨뜨렸다). 막아야 하는 건 GameInput.AttackHeld/
+            // AttackDown/UltDown을 "새로" 읽어 공격·스킬을 거는 지점뿐이다 — GameInput.MenuConfirmDown이
+            // 같은 Z를 메뉴 확인에도 쓰기 때문에(10-24), 로비 진입 직후 메뉴를 확인하려는 Z가 그대로
+            // 총알 발사로 읽히는 게 이번 버그였다.
+            if (GameState.IsRunning)
             {
-                Fire();
-                cdTimer = attackCdMax = cooldown;
+                if (GameInput.UltDown) TryUseSkill();
+
+                // 원본(:3538): `if (!updateGunnerBeam(dt, held) && !p.attacking && p.atkCds.gunner <= 0 && (held || justAtk)) gunnerFire();`
+                // 레이저 빌드는 누르고 있는 동안 광선이 켜져서 총알이 안 나간다.
+                bool held = GameInput.AttackHeld;
+                bool beamOn = UpdateBeam(dt, held);
+                if (!beamOn && cdTimer <= 0f && (held || GameInput.AttackDown))
+                {
+                    Fire();
+                    cdTimer = attackCdMax = cooldown;
+                }
             }
 
             UpdateField(dt);

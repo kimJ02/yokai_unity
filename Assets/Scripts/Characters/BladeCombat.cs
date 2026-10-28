@@ -242,6 +242,19 @@ namespace YokaiFront.Characters
             playerHealth = GetComponent<PlayerHealth>();
         }
 
+        /// <summary>
+        /// Run을 벗어나는 순간 집중·칼날폭풍 상태를 전부 정리한다 — 아래 Update/LateUpdate 가드만으로는
+        /// "스킬을 쓰는 중에 죽어서 Run을 벗어난" 경우 궤적·연행·추락 중인 적 목록이 그대로 남는 걸
+        /// 못 막는다(그 콜백들 자체가 멈추니 정리할 코드도 같이 멈춘다). <see cref="OnSelected"/>가
+        /// 이미 하는 전체 초기화를 그대로 재사용한다.
+        /// </summary>
+        void OnEnable() => GameState.Changed += HandleGameStateChanged;
+        void OnDisable() => GameState.Changed -= HandleGameStateChanged;
+        void HandleGameStateChanged(GameScene scene)
+        {
+            if (scene != GameScene.Run) OnSelected();
+        }
+
         void Update()
         {
             var profile = ProfileService.Current;
@@ -260,20 +273,31 @@ namespace YokaiFront.Characters
             focusCd -= Time.deltaTime;
             stormCd -= Time.deltaTime;
 
-            // 칼날폭풍 중엔 원본도 회전베기(Z)를 별도로 안 받는다 — bladeStormUpdate 자체가 이미
-            // 매 0.11초 회전베기를 유지시킨다(:2708~2713). 여기 Z는 storm이 아닐 때만 반응한다.
-            if (!storming && GameInput.AttackHeld && cdTimer <= 0f)
+            // 로비 등 Run 밖에서는 "새 입력을 받아 액션을 거는" 이 두 블록만 막는다 — 위 쿨다운·이동
+            // 배율 재계산과 아래 UpdateFocus/ApplyDirectionalInvuln/ApplyCrashImmunity/UpdatePassTick은
+            // 그대로 둬야 한다(PlayMode 테스트가 TryFocusStart/TryStormStart를 리플렉션으로 직접 불러
+            // 놓고 이 콜백들이 자연스럽게 매 프레임 도는 것에 의존한다 — 테스트의 GameState는 기본
+            // Lobby라 Update() 전체를 막으면 그 테스트들이 깨진다). 막아야 하는 건 GameInput.AttackHeld/
+            // UltDown을 "새로" 읽어 공격·스킬을 거는 지점뿐이다 — GameInput.MenuConfirmDown이 같은
+            // Z를 메뉴 확인에도 쓰기 때문에(10-24), 로비 진입 직후 메뉴를 확인하려는 Z가 그대로
+            // 회전베기로 읽히는 게 이번 버그였다.
+            if (GameState.IsRunning)
             {
-                cdTimer = cooldown;
-                float dmgMult = SpinDmgMult * SpeedDamageMultiplier(ComputeSpeedRatio());
-                SpinHit(dmgMult, spinRadius, false, true);
-            }
+                // 칼날폭풍 중엔 원본도 회전베기(Z)를 별도로 안 받는다 — bladeStormUpdate 자체가 이미
+                // 매 0.11초 회전베기를 유지시킨다(:2708~2713). 여기 Z는 storm이 아닐 때만 반응한다.
+                if (!storming && GameInput.AttackHeld && cdTimer <= 0f)
+                {
+                    cdTimer = cooldown;
+                    float dmgMult = SpinDmgMult * SpeedDamageMultiplier(ComputeSpeedRatio());
+                    SpinHit(dmgMult, spinRadius, false, true);
+                }
 
-            // 원본 tryBladeSkill(:2739~2745) — 전문화(갈래)를 아직 안 골랐으면 X는 아무 일도 안 한다.
-            if (GameInput.UltDown && profile.bladeBranch != BladeBranch.None)
-            {
-                if (profile.bladeBranch == BladeBranch.Focus) TryFocusStart(profile.bladeTier);
-                else TryStormStart(profile.bladeTier);
+                // 원본 tryBladeSkill(:2739~2745) — 전문화(갈래)를 아직 안 골랐으면 X는 아무 일도 안 한다.
+                if (GameInput.UltDown && profile.bladeBranch != BladeBranch.None)
+                {
+                    if (profile.bladeBranch == BladeBranch.Focus) TryFocusStart(profile.bladeTier);
+                    else TryStormStart(profile.bladeTier);
+                }
             }
 
             UpdateFocus(Time.deltaTime);
@@ -302,6 +326,10 @@ namespace YokaiFront.Characters
         /// </summary>
         void LateUpdate()
         {
+            // 여기는 안 막는다 — PlayMode 테스트가 TryStormStart를 리플렉션으로 직접 불러 storming을
+            // 켜 놓고 이 콜백이 매 프레임 자연스럽게 도는 것(이동·벽 반사·연행·낙하 판정)에 의존한다.
+            // Run을 벗어나면서 storming이 그대로 true로 남는 위험은 위 HandleGameStateChanged가
+            // OnSelected()로 즉시 storming=false를 포함해 전부 정리해 주므로, 이 콜백을 막을 필요가 없다.
             if (storming) UpdateStorm(Time.deltaTime);
             // bladeFallingUpdate(project_test.html:2724~2737) — storming 여부와 무관하게 항상 돈다.
             UpdateFalling(Time.deltaTime);

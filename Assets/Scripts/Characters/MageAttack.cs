@@ -119,6 +119,20 @@ public class MageAttack : MonoBehaviour, ICharacterKit, IRunResettable, ISkillSl
         ind.SetActive(false);
     }
 
+    /// <summary>
+    /// 사냥이 끝나거나 로비로 나가는 순간 즉시 차지를 취소한다 — 아래 <see cref="Update"/>의
+    /// IsRunning 가드만으로는 "차지 중에 죽어서 Run을 벗어난" 경우 로비에 반투명 차지 표시
+    /// (<see cref="chargeIndicator"/>)가 그대로 남는 걸 못 막는다(Update 자체가 멈추니 그걸
+    /// 꺼 줄 코드도 같이 멈춘다). 다음 StartRun의 ResetForRun이 결국 정리하긴 하지만, 그 사이
+    /// 로비에 떠 있는 걸 막으려고 전환 즉시 처리한다.
+    /// </summary>
+    void OnEnable() => GameState.Changed += HandleGameStateChanged;
+    void OnDisable() => GameState.Changed -= HandleGameStateChanged;
+    void HandleGameStateChanged(GameScene scene)
+    {
+        if (scene != GameScene.Run) CancelCharge();
+    }
+
     void Update()
     {
         var profile = ProfileService.Current;
@@ -141,6 +155,15 @@ public class MageAttack : MonoBehaviour, ICharacterKit, IRunResettable, ISkillSl
 
         cdTimer -= Time.deltaTime;
         ultCdTimer -= Time.deltaTime;
+
+        // 로비 등 Run 밖에서는 "새 입력을 받아 액션을 거는" 부분만 막는다 — 위 쿨다운 표시·차지
+        // 감속 재계산은 그대로 둬야 한다(PlayMode 테스트가 Update()를 직접 돌려 이 값들을 확인하는데,
+        // 테스트의 GameState는 기본 Lobby라 여기를 통째로 막으면 테스트가 깨진다 — 실제로 한 번
+        // 그렇게 했다가 Cooldown_ScalesWithAttackSpeedUpgrade 등을 깨뜨렸다). 막아야 하는 건
+        // GameInput.AttackHeld/UltDown을 "새로" 읽어 공격·스킬을 거는 지점뿐이다 — GameInput.
+        // MenuConfirmDown이 같은 Z를 메뉴 확인에도 쓰기 때문에(10-24), 로비 진입 직후 메뉴를
+        // 확인하려는 Z가 그대로 공격으로 읽혀 차지 0%짜리 화살이 나가는 게 이번 버그였다.
+        if (!GameState.IsRunning) return;
 
         if (GameInput.UltDown && ultCdTimer <= 0f) TryUseSkill(profile, branch, tier);
 
