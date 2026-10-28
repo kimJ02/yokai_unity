@@ -138,7 +138,7 @@ public class HitFeelTests
         Assert.AreEqual(1, count);
         Assert.IsFalse(critical, "전제: 1층·1마리는 임계가 아니다");
         CollectionAssert.Contains(requested, HitFeel.HitstopLight);
-        Assert.AreEqual(5f, HitFeel.ShakeMag, "일반 대붕괴는 shake(5, 0.16)(:2128)");
+        Assert.AreEqual(MageSkillEffects.CollapseShakePx, HitFeel.ShakeMag, "대붕괴 흔들림 — 원본 5에서 12로 키움(사용자 2026-10-28)");
     }
 
     // ---------------- 피격 플래시 ----------------
@@ -202,7 +202,7 @@ public class HitFeelTests
 
         HitFeel.Shake(10f, 0.18f);
         yield return null;
-        float maxM = 10f * CameraFollow2D.ShakePxToUnits; // 처음 프레임 크기 이하
+        float maxM = 10f * CameraFollow2D.ShakePxToUnits * HitFeel.ShakeStrength; // 처음 프레임 크기 이하(세기 배율 포함)
         Assert.LessOrEqual(Mathf.Abs(follow.LastShakeOffset.x), maxM + 1e-5f);
         Assert.LessOrEqual(Mathf.Abs(follow.LastShakeOffset.y), maxM + 1e-5f);
 

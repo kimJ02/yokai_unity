@@ -110,6 +110,9 @@ namespace YokaiFront.Combat
         /// 전부(플레이어 근처 범위 안에서) 터뜨린다. 중력점이 하나도 없으면 플레이어 정면(또는
         /// 가장 가까운 적 위치)에 한 번만 터뜨린다.
         /// </summary>
+        /// <summary>대붕괴(블랙홀 X) 흔들림(원본 px 단위) — 원본 5·9에서 키움(사용자 2026-10-28).</summary>
+        public const float CollapseShakePx = 12f, CollapseShakeCriticalPx = 18f;
+
         public static (int count, bool critical, int bursts) GravityCollapse(int tier, Vector2 playerPos, int playerFacing, Vector2? nearestEnemyPos)
         {
             var wells = GravityWellZone.Active.FindAll(w => InCollapseRange(w, playerPos));
@@ -204,7 +207,9 @@ namespace YokaiFront.Combat
                 }
             }
 
-            HitFeel.Shake(anyCritical ? 9f : 5f, anyCritical ? 0.24f : 0.16f); // 원본 :2128
+            // 원본 shake(5, 0.16)·임계 shake(9, 0.24)(:2128)는 거의 안 느껴져서 키웠다 — 2026-10-28 사용자 "블랙홀 X 눌렀을 때 화면 흔들림 넣어줘".
+            // 플레이어가 맞을 때(12)만큼, 임계는 그보다 세게. 화면에선 여기에 HitFeel.ShakeStrength(1.5배)가 더 곱해진다(의도적 편차).
+            HitFeel.Shake(anyCritical ? CollapseShakeCriticalPx : CollapseShakePx, anyCritical ? 0.3f : 0.24f);
             return (totalCount, anyCritical, centers.Count);
         }
     }

@@ -77,7 +77,7 @@ namespace YokaiFront.World
             }
 
             // 원본 `updateShake(rawDt)` — 히트스톱 중에도 흔들린다(실제 시간).
-            float m = HitFeel.TickShake(Time.unscaledDeltaTime) * ShakePxToUnits;
+            float m = HitFeel.TickShake(Time.unscaledDeltaTime) * ShakePxToUnits * HitFeel.ShakeStrength; // 세기 1.5배(사용자 2026-10-28)
             LastShakeOffset = m > 0f ? new Vector3(Random.Range(-m, m), Random.Range(-m, m), 0f) : Vector3.zero;
             transform.position = basePos + LastShakeOffset;
         }

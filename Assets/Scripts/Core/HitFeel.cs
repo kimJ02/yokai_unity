@@ -42,6 +42,21 @@ namespace YokaiFront.Core
         /// <summary>원본 화면 높이(px). 흔들림 px를 우리 화면에 같은 비율로 옮길 때 쓴다.</summary>
         public const float OriginalViewHeightPx = 720f;
 
+        /// <summary>
+        /// 흔들림 세기 배율 — 2026-10-28 사용자 "적 타격할 때 화면 흔들림 수치 올려줘". 원본 px 값(스킬·처치·피격)은 그대로 기록하고
+        /// 화면에 옮길 때만 곱한다(`CameraFollow2D`) — 의도적 편차, docs/original-parity.md.
+        /// </summary>
+        public const float ShakeStrength = 1.5f;
+
+        /// <summary>
+        /// 평타로 몹을 맞힐 때의 약한 흔들림(원본 px) — **원본엔 없다**(원본은 일반 타격에 흔들림이 없고 스킬·처치·피격에만 있다).
+        /// 2026-10-28 사용자 결정. 히트스톱처럼 <see cref="HitShakeGap"/>초 간격을 둬서 섬영·레이저처럼 자주 맞혀도 계속 떨리지 않는다.
+        /// 거는 곳은 `Systems/RunController`(직접 타격·무기 틱 알림을 받는다).
+        /// </summary>
+        public const float HitShakePx = 2f;
+        public const float HitShakeTime = 0.08f;
+        public const float HitShakeGap = 0.25f;
+
         public static float ShakeMag { get; private set; }
         public static float ShakeTime { get; private set; }
 

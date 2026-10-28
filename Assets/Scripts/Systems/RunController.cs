@@ -55,6 +55,8 @@ namespace YokaiFront.Systems
             CombatEvents.PlayerDied += HandlePlayerDied;
             CombatEvents.EnemyKilled += HandleEnemyKilled;
             CombatEvents.HitstopRequested += Hitstop;
+            CombatEvents.EnemyDamaged += HandleEnemyHit;
+            CombatEvents.EnemyTickDamaged += HandleEnemyHit;
             CombatEvents.ShrineBuffGranted += CombatModifiers.GrantShrineBuff;
             RunEvents.BossPortalRequested += HandleBossPortalRequested;
             RunEvents.BossDefeated += HandleBossDefeated;
@@ -65,6 +67,8 @@ namespace YokaiFront.Systems
             CombatEvents.PlayerDied -= HandlePlayerDied;
             CombatEvents.EnemyKilled -= HandleEnemyKilled;
             CombatEvents.HitstopRequested -= Hitstop;
+            CombatEvents.EnemyDamaged -= HandleEnemyHit;
+            CombatEvents.EnemyTickDamaged -= HandleEnemyHit;
             CombatEvents.ShrineBuffGranted -= CombatModifiers.GrantShrineBuff;
             RunEvents.BossPortalRequested -= HandleBossPortalRequested;
             RunEvents.BossDefeated -= HandleBossDefeated;
@@ -264,6 +268,20 @@ namespace YokaiFront.Systems
         }
 
         void HandlePlayerDied() => EndRun(RunEndReason.Dead); // 원본 :1927
+
+        float nextHitShakeTime;
+
+        /// <summary>
+        /// 평타·무기 틱으로 몹을 맞혔을 때 약하게 흔든다(`HitFeel.HitShakePx` — 원본엔 없는 연출, 사용자 2026-10-28).
+        /// 마지막 흔들림에서 `HitShakeGap`초가 안 지났으면 건너뛴다. 멈춘 시간(unscaled)으로 잰다 — 히트스톱 중에도 간격이 흐르게.
+        /// </summary>
+        void HandleEnemyHit(GameObject enemy)
+        {
+            if (GameState.Current != GameScene.Run || RunState.Over) return;
+            if (Time.unscaledTime < nextHitShakeTime) return;
+            nextHitShakeTime = Time.unscaledTime + HitFeel.HitShakeGap;
+            HitFeel.Shake(HitFeel.HitShakePx, HitFeel.HitShakeTime);
+        }
 
         void HandleEnemyKilled(GameObject enemy)
         {
