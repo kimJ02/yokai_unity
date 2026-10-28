@@ -41,8 +41,8 @@ namespace YokaiFront.UI
 
             Px.Fill(Content, "MinimapPlate", Plate, Minimap.x, Minimap.y, Minimap.width, Minimap.height);
             Px.Fill(Content, "MinimapGround", Px.Ink, Minimap.x + 2f, Minimap.y + 24f, Minimap.width - 4f, 1f);
-            foreach (var b in LobbyWorld.Buildings)
-                Px.Fill(Content, "MinimapBuilding", Px.Hex(0xc7cfdd), Minimap.x + MapX(b.X) - 2f, Minimap.y + 16f, 5f, 8f);
+            for (int i = 0; i < LobbyWorld.Buildings.Length; i++)
+                Px.Fill(Content, "MinimapBuilding", Px.Hex(0xc7cfdd), Minimap.x + MapX(LobbyWorld.XOf(i)) - 2f, Minimap.y + 16f, 5f, 8f);
             playerDot = Px.Fill(Content, "MinimapPlayer", Color.white, 0f, 0f, 2f, 2f);
 
             prompt = Px.Text(Content, "Prompt", "", 170f, 292f, 300f, 14f, 10, Gold).WithOutline(Px.Ink);

@@ -110,7 +110,9 @@ namespace YokaiFront.Editor
             var lobbyWorld = pc.GetComponent<LobbyWorld>();
             var lobbyHud = pc.GetComponent<LobbyHud>();
             lobbyWorld.EnterLobby();
-            PlaceWorld(cam, visuals, player, 8.2f, FieldBounds.GroundY);
+            // 로비 카메라는 가운데에 서 있다(CameraFollow2D) — 캐릭터는 가챠 건물 앞에
+            PlaceWorld(cam, visuals, player, LobbyWorld.CenterX, FieldBounds.GroundY);
+            if (player != null) player.transform.position = new Vector3(LobbyWorld.XOf(1), player.transform.position.y, 0f);
             Shot(pc, cam, outDir, "로비", sel => lobbyHud.ShowForCapture(sel));
             var achieve = pc.GetComponent<AchievementsScreen>();
             Shot(pc, cam, outDir, "업적", sel => { lobbyHud.ShowForCapture(false); achieve.ShowForCapture(sel); });

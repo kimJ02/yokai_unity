@@ -207,9 +207,10 @@ public class PixelUiTests
     [Test]
     public void Lobby_BuildingsInOrder_DoomDaysCountDown()
     {
-        Assert.AreEqual(0, LobbyWorld.Nearest(4.5f), "환생 건물 앞");
-        Assert.AreEqual(-1, LobbyWorld.Nearest(7.0f), "건물 사이엔 들어갈 곳이 없다");
-        Assert.AreEqual(3, LobbyWorld.Nearest(20.0f), "던전 건물 앞");
+        Assert.AreEqual(0, LobbyWorld.Nearest(LobbyWorld.XOf(0)), "환생 건물 앞");
+        Assert.AreEqual(-1, LobbyWorld.Nearest(LobbyWorld.CenterX), "가운데(나오는 곳)는 건물 사이라 들어갈 곳이 없다");
+        Assert.AreEqual(3, LobbyWorld.Nearest(LobbyWorld.XOf(3) - 0.3f), "던전 건물 앞");
+        Assert.LessOrEqual(LobbyWorld.XOf(3) - LobbyWorld.XOf(0) + 0.75f, 7.5f, "건물 넷이 한 화면(7.5유닛)에 들어간다");
         Assert.AreEqual(new[] { "환생", "가챠", "훈련소", "던전" }, System.Array.ConvertAll(LobbyWorld.Buildings, b => b.Name));
 
         var p = new PlayerProfile();

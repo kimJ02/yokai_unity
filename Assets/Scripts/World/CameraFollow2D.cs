@@ -56,6 +56,8 @@ namespace YokaiFront.World
             float min = FieldBounds.MinX + halfWidth;
             float max = FieldBounds.MaxX - halfWidth;
             float desiredX = (min <= max) ? Mathf.Clamp(target.position.x, min, max) : (FieldBounds.MinX + FieldBounds.MaxX) * 0.5f;
+            // 로비는 한 화면 — 카메라가 필드 가운데에 서 있고 건물 넷이 다 보인다(사용자 2026-10-28, `UI/Screens/LobbyWorld`).
+            if (GameState.Current == GameScene.Lobby) desiredX = (FieldBounds.MinX + FieldBounds.MaxX) * 0.5f;
 
             float feetY = target.position.y - EntitySizeConfig.PlayerRadius;
             bool standing = targetBody == null || Mathf.Abs(targetBody.linearVelocity.y) < 0.05f;

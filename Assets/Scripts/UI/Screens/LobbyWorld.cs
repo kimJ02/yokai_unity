@@ -13,23 +13,32 @@ namespace YokaiFront.UI
     ///     멈춘다"는 전제로 돌아가서(로비에서 Z를 눌러도 아무것도 안 나가게), 물리 이동 대신 위치만 옮긴다. 점프는 없다.
     ///   - 건물 그림이 아직 없어 Figma 공용 창 틀에 이름·아이콘을 붙인 자리표시로 세웠다(뼈대의 회색 상자 자리).
     ///   - 발판은 로비에서 숨긴다(사냥을 시작하면 다시 켜진다). 들어가기: 건물 앞에서 F 또는 ↑.
+    ///   - **한 화면에 다 보인다**(2026-10-28 사용자 "맨 왼쪽에서 나와 던전까지 너무 오래 걸린다, 캐릭터가 너무 작다, 아이콘이 한눈에"):
+    ///     건물을 캐릭터 키(0.5)의 약 1.6배로 줄이고 필드 가운데에 모았다. 캐릭터도 가운데서 나오고, 로비에선 카메라가 가운데에
+    ///     서 있고(`CameraFollow2D`) 캐릭터는 건물 줄 안에서만 걷는다.
     /// </summary>
     public class LobbyWorld : MonoBehaviour
     {
-        public struct Building { public string Name, Icon; public float X; public System.Action Open; }
+        public struct Building { public string Name, Icon; public float Offset; public System.Action Open; }
 
-        /// <summary>건물 자리(필드 0~26유닛) — 뼈대의 왼쪽→오른쪽 순서.</summary>
+        /// <summary>건물 자리 — 필드 가운데(<see cref="CenterX"/>)에서 떨어진 거리(유닛). 뼈대의 왼쪽→오른쪽 순서.</summary>
         public static readonly Building[] Buildings =
         {
-            new Building { Name = "환생", Icon = "Icons/shard", X = 4.5f, Open = RegressionScreen.Open },
-            new Building { Name = "가챠", Icon = "Icons/shard_dark", X = 9.5f, Open = RelicScreen.Open },
-            new Building { Name = "훈련소", Icon = "Hud/icon_attack", X = 15f, Open = AwakenScreen.Open },
-            new Building { Name = "던전", Icon = "Hud/boss_warning", X = 20.5f, Open = StageSelectScreen.Open },
+            new Building { Name = "환생", Icon = "Icons/shard", Offset = -2.7f, Open = RegressionScreen.Open },
+            new Building { Name = "가챠", Icon = "Icons/shard_dark", Offset = -0.9f, Open = RelicScreen.Open },
+            new Building { Name = "훈련소", Icon = "Hud/icon_attack", Offset = 0.9f, Open = AwakenScreen.Open },
+            new Building { Name = "던전", Icon = "Hud/boss_warning", Offset = 2.7f, Open = StageSelectScreen.Open },
         };
 
-        public const float StartX = 2f;
-        /// <summary>이만큼 가까우면 건물 앞이다(유닛).</summary>
-        public const float EnterRange = 1.1f;
+        /// <summary>필드 가운데 — 캐릭터가 나오는 곳이자 건물 줄의 가운데. 로비 카메라도 여기 선다.</summary>
+        public static float CenterX => (FieldBounds.MinX + FieldBounds.MaxX) * 0.5f;
+        public static float XOf(int index) => CenterX + Buildings[index].Offset;
+        /// <summary>이만큼 가까우면 건물 앞이다(유닛) — 건물 반폭(0.375) + 캐릭터 반폭쯤.</summary>
+        public const float EnterRange = 0.6f;
+        /// <summary>로비에서 걸을 수 있는 범위(가운데에서 좌우로) — 맨 끝 건물 조금 바깥까지. 이 안이면 카메라가 가운데에 서 있어도 다 보인다.</summary>
+        public const float WalkHalfRange = 3.3f;
+        /// <summary>건물 크기(그림 도트, 1도트 = 1/128유닛) — 96×104 = 0.75×0.81유닛, 캐릭터(0.5)의 약 1.6배.</summary>
+        public const float BuildingW = 96f, BuildingH = 104f;
         const float WorldPx = 1f / 128f; // 그림 1도트 = 월드 1/128유닛(C안)
 
         public static LobbyWorld Instance { get; private set; }
@@ -65,7 +74,7 @@ namespace YokaiFront.UI
                 if (dir != 0)
                 {
                     var pos = player.position;
-                    pos.x = Mathf.Clamp(pos.x + dir * walkSpeed * Time.unscaledDeltaTime, FieldBounds.MinX + 0.3f, FieldBounds.MaxX - 0.3f);
+                    pos.x = Mathf.Clamp(pos.x + dir * walkSpeed * Time.unscaledDeltaTime, CenterX - WalkHalfRange, CenterX + WalkHalfRange);
                     player.position = pos;
                     if (player.TryGetComponent(out Rigidbody2D rb)) rb.position = pos; // 다음 물리 단계가 되돌리지 않게
                 }
@@ -81,7 +90,7 @@ namespace YokaiFront.UI
             float bestD = EnterRange;
             for (int i = 0; i < Buildings.Length; i++)
             {
-                float d = Mathf.Abs(Buildings[i].X - x);
+                float d = Mathf.Abs(XOf(i) - x);
                 if (d <= bestD) { bestD = d; best = i; }
             }
             return best;
@@ -106,7 +115,7 @@ namespace YokaiFront.UI
             FindPlayer();
             if (player != null)
             {
-                var pos = new Vector3(StartX, FieldBounds.GroundY + EntitySizeConfig.PlayerRadius, player.position.z);
+                var pos = new Vector3(CenterX, FieldBounds.GroundY + EntitySizeConfig.PlayerRadius, player.position.z);
                 player.position = pos;
                 if (player.TryGetComponent(out Rigidbody2D rb)) { rb.position = pos; rb.linearVelocity = Vector2.zero; }
             }
@@ -115,11 +124,11 @@ namespace YokaiFront.UI
         void Build()
         {
             root = new GameObject("LobbyBuildings");
-            foreach (var b in Buildings) BuildBuilding(b);
+            for (int i = 0; i < Buildings.Length; i++) BuildBuilding(Buildings[i], XOf(i));
             root.SetActive(false);
         }
 
-        void BuildBuilding(Building b)
+        void BuildBuilding(Building b, float x)
         {
             // 월드 캔버스 하나 = 건물 하나. 1캔버스 단위 = 그림 1도트 = 1/128유닛이라 게임 도트와 같은 크기로 보인다.
             var go = new GameObject("Building_" + b.Name, typeof(RectTransform));
@@ -128,16 +137,18 @@ namespace YokaiFront.UI
             canvas.renderMode = RenderMode.WorldSpace;
             canvas.sortingOrder = -50; // 배경(-100) 위, 땅(-5)·캐릭터 아래
             var rt = (RectTransform)go.transform;
-            const float w = 240f, h = 272f;
+            const float w = BuildingW, h = BuildingH;
             rt.sizeDelta = new Vector2(w, h);
             rt.pivot = new Vector2(0.5f, 0f);
             rt.localScale = Vector3.one * WorldPx;
-            rt.position = new Vector3(b.X, FieldBounds.GroundY, 0f);
+            rt.position = new Vector3(x, FieldBounds.GroundY, 0f);
 
-            Px.Image(rt, "Facade", PxArt.Get("Stage/frame_info"), 0f, 0f, w, h);
-            Px.Text(rt, "Name", b.Name, 0f, 18f, w, 40f, 32, Color.white).WithOutline(Px.Ink, 2f);
-            Px.Image(rt, "Icon", PxArt.Get(b.Icon), w / 2f - 48f, 90f, 96f, 96f);
-            Px.Text(rt, "Door", "F / ↑", 0f, 210f, w, 30f, 20, Px.Hex(0xfac70e)).WithOutline(Px.Ink, 2f);
+            // 틀은 9-슬라이스로 줄인다 — 그림째 줄이면 1도트 테두리가 깨진다.
+            var facade = Px.Image(rt, "Facade", PxArt.Sliced("Stage/frame_info", 8), 0f, 0f, w, h);
+            facade.type = Image.Type.Sliced;
+            Px.Text(rt, "Name", b.Name, 0f, 6f, w, 18f, 12, Color.white).WithOutline(Px.Ink);
+            Px.Image(rt, "Icon", PxArt.Get(b.Icon), w / 2f - 20f, 28f, 40f, 40f);
+            Px.Text(rt, "Door", "F / ↑", 0f, 76f, w, 14f, 8, Px.Hex(0xfac70e)).WithOutline(Px.Ink);
         }
     }
 }
